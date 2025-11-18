@@ -193,3 +193,141 @@ tests/__pycache__/
 config/local_config.json
 config/secrets.json
 *.secrets
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.jks
+
+# Local database files (specific to this project)
+conversation_history/data/*.db
+database/data/*.db
+*/data/*.db
+*/data/*.sqlite
+*/data/*.sqlite3
+
+# Docker and container files
+.dockerignore
+docker-compose.override.yml
+docker-compose.local.yml
+.env.local
+.env.development
+.env.production
+
+# Nomad specific
+.nomad/
+*.nomad.log
+nomad-agent.log
+nomad.log
+
+# gRPC and Protocol Buffers
+*_pb2.py
+*_pb2_grpc.py
+*_pb2.pyi
+*.proto.tmp
+
+# Metrics and monitoring
+metrics/
+*.metrics
+prometheus/
+grafana/
+*.prom
+
+# Development and debugging
+debug.log
+*.debug
+*.profile
+profiler/
+benchmark/
+*.perf
+
+# Kubernetes and deployment
+k8s/
+kubernetes/
+deployments/local/
+*.yaml.tmp
+*.yml.tmp
+
+# Cache directories (additional)
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.black_cache/
+.isort_cache/
+.coverage_cache/
+
+# Jupyter notebooks (if any)
+.ipynb
+.ipynb_checkpoints/
+
+# Build artifacts
+build/
+dist/
+*.whl
+*.tar.gz
+*.egg-info/
+
+# OS specific temp files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# IDE and editor files
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+.idea/tasks.xml
+*.sublime-project
+*.sublime-workspace
+
+# Backup and temporary files
+*~
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+
+# Logs (additional patterns)
+logs/
+*.log.*
+log/
+*.out
+*.err
+access.log
+error.log
+
+# Session and state files
+.session
+.state
+.pid
+.lock
+
+# Virtual environments (additional patterns)
+.venv/
+venv/
+ENV/
+env/
+.conda/
+conda/
+
+# Node.js (if any frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary directories
+tmp/
+temp/
+.tmp/
+.cache/
