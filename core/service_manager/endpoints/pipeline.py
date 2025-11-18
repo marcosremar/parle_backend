@@ -8,7 +8,7 @@ from fastapi import APIRouter
 from datetime import datetime
 import asyncio
 import aiohttp
-from src.core.logging import setup_logging
+from src.core.core_logging import setup_logging
 from src.core.service_manager.core import HealthStatus, HEALTH_CHECK_TIMEOUT
 from src.core.service_manager.models import ProcessStatus
 

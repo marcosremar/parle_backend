@@ -16,7 +16,7 @@ This is a dependency injection container that provides services with everything 
 - Configuration (hierarchical: global + service overrides)
 
 Logging Changes (v5.3):
-- Uses src.core.logging.setup_logging() for service loggers
+- Uses src.core.core_logging.setup_logging() for service loggers
 - Consistent logging configuration across all services
 - Automatic log rotation, retention, and compression
 - Separate error logs and JSON logs for aggregators
@@ -49,7 +49,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # NEW: Use unified logging system instead of direct loguru import
-from src.core.logging import get_logger, setup_logging
+from src.core.core_logging import get_logger, setup_logging
 
 # For backward compatibility and non-service logging
 from loguru import logger as base_logger

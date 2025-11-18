@@ -15,11 +15,11 @@ Features:
 
 Migration Guide:
     OLD (logging_config.py):
-        from src.core.logging_config import setup_logging
+        from src.core.core_logging_config import setup_logging
         logger = setup_logging("my_service", level="INFO")
 
     NEW (unified_logger.py):
-        from src.core.logging import setup_logging
+        from src.core.core_logging import setup_logging
         logger = setup_logging("my_service", level="INFO")
 
     OLD (structured_logger.py):
@@ -27,7 +27,7 @@ Migration Guide:
         logger = get_logger("my_service")
 
     NEW (unified_logger.py):
-        from src.core.logging import get_logger
+        from src.core.core_logging import get_logger
         logger = get_logger("my_service")
 """
 
@@ -100,7 +100,7 @@ def setup_logging(
         Configured Loguru logger instance (scoped to service)
 
     Example:
-        from src.core.logging import setup_logging
+        from src.core.core_logging import setup_logging
 
         logger = setup_logging("user", level="DEBUG")
         logger.info("Service started", user_id="123")
@@ -215,7 +215,7 @@ def get_logger(service_name: str) -> Any:
         Scoped Loguru logger instance
 
     Example:
-        from src.core.logging import get_logger
+        from src.core.core_logging import get_logger
 
         logger = get_logger("my_service")
         logger.info("Processing request", request_id="abc123")
@@ -245,7 +245,7 @@ def get_scoped_logger(
         Scoped Loguru logger with trace context
 
     Example:
-        from src.core.logging import get_scoped_logger
+        from src.core.core_logging import get_scoped_logger
 
         logger = get_scoped_logger(
             "my_service",
@@ -303,7 +303,7 @@ def log_exception(
         service_name: Service name for scoped logging
 
     Example:
-        from src.core.logging import log_exception
+        from src.core.core_logging import log_exception
 
         try:
             risky_operation()

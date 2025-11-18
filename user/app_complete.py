@@ -1100,20 +1100,6 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8200"))
     print(f"Starting User Service on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
-    
-    if not session or not session.get("is_active"):
-        raise HTTPException(status_code=401, detail="Invalid or expired session")
-    
-    # Check expiration
-    expires_at = datetime.fromisoformat(session["expires_at"])
-    if datetime.now() > expires_at:
-        raise HTTPException(status_code=401, detail="Session expired")
-    
-    user = get_user_by_id(session["user_id"])
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    
-    return user
 
 def require_admin(current_user: Dict = Depends(get_current_user)) -> Dict:
     """Require admin privileges"""

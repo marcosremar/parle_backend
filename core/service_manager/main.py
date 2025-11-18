@@ -43,7 +43,7 @@ from src.core.configurations.config_manager import ConfigurationManager
 _ = ConfigurationManager()  # Load .env file
 
 # Import unified logging system (v5.3)
-from src.core.logging import setup_logging
+from src.core.core_logging import setup_logging
 
 # Import ServiceManagerFacade (the star of the show!)
 from src.core.service_manager.managers.service_manager_facade import ServiceManagerFacade

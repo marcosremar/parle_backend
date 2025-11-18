@@ -10,7 +10,7 @@ Services can run either:
 Dependency Injection (v5.3):
 - Services receive unified ServiceContext with all dependencies
 - ServiceContext provides: logger, comm, gpu, metrics, telemetry, config
-- Logger now uses unified logging system (src.core.logging)
+- Logger now uses unified logging system (src.core.core_logging)
 - Replaces old 3-layer system (GlobalContext → ProcessContext → ServiceContext)
 
 Logging Changes (v5.3):

@@ -1,8 +1,8 @@
 """
-⚠️ DEPRECATED (v5.3): This module has been consolidated into src.core.logging
+⚠️ DEPRECATED (v5.3): This module has been consolidated into src.core.core_logging
 
 Use instead:
-    from src.core.logging import get_logger  # NEW
+    from src.core.core_logging import get_logger  # NEW
 
 Old (DEPRECATED):
     from src.core.structured_logger import get_logger
@@ -18,7 +18,7 @@ from typing import Any, Dict
 
 # Emit deprecation warning
 warnings.warn(
-    "structured_logger.py is deprecated. Use 'from src.core.logging import get_logger' instead.",
+    "structured_logger.py is deprecated. Use 'from src.core.core_logging import get_logger' instead.",
     DeprecationWarning,
     stacklevel=2
 )

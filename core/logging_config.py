@@ -1,11 +1,11 @@
 """
-⚠️ DEPRECATED (v5.3): This module has been consolidated into src.core.logging
+⚠️ DEPRECATED (v5.3): This module has been consolidated into src.core.core_logging
 
 Use instead:
-    from src.core.logging import setup_logging  # NEW
+    from src.core.core_logging import setup_logging  # NEW
 
 Old (DEPRECATED):
-    from src.core.logging_config import setup_logging
+    from src.core.core_logging_config import setup_logging
 
 This file is kept for backward compatibility only and will be removed in v6.0.
 
@@ -21,7 +21,7 @@ from typing import Optional, Any
 
 # Emit deprecation warning
 warnings.warn(
-    "logging_config.py is deprecated. Use 'from src.core.logging import setup_logging' instead.",
+    "logging_config.py is deprecated. Use 'from src.core.core_logging import setup_logging' instead.",
     DeprecationWarning,
     stacklevel=2
 )
@@ -74,7 +74,7 @@ def setup_logging(
         - Automatic compression and retention
 
     Example:
-        from src.core.logging_config import setup_logging
+        from src.core.core_logging_config import setup_logging
         from loguru import logger
 
         # Use service-specific tmp directory

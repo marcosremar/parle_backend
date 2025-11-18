@@ -7,7 +7,7 @@ job "user-service" {
 
     network {
       port "http" {
-        static = 8202
+        static = 8200
       }
     }
 
@@ -16,12 +16,12 @@ job "user-service" {
 
       config {
         command = "python3"
-        args = ["/Users/marcos/Downloads/temp/ultravox-pipeline/V2/user/app_complete.py"]
+        args = ["user/app_complete.py"]
       }
 
       env {
-        PORT = "8202"
-        PYTHONPATH = "/Users/marcos/Downloads/temp/ultravox-pipeline/src:/Users/marcos/Downloads/temp/ultravox-pipeline/V2/user"
+        PORT = "8200"
+        PYTHONPATH = "core:user"
       }
 
       resources {

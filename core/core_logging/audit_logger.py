@@ -323,7 +323,7 @@ def get_audit_logger(service_name: str) -> AuditLogger:
         AuditLogger instance
 
     Example:
-        from src.core.logging import get_audit_logger
+        from src.core.core_logging import get_audit_logger
 
         audit = get_audit_logger("user")
         audit.log_auth_event(

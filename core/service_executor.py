@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from .orchestrator_client import OrchestratorClient
 from .performance_test_runner import TestRequest
-from .logging import get_logger
+from .core_logging import get_logger
 
 logger = get_logger("ServiceExecutor")
 

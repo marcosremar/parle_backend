@@ -28,7 +28,7 @@ from src.core.service_manager.endpoints.models import (
 # Import from core modules
 from src.core.service_manager.core import HealthStatus
 from src.core.service_manager.models import ProcessStatus
-from src.core.logging import setup_logging
+from src.core.core_logging import setup_logging
 from src.core.exceptions import UltravoxError, wrap_exception
 
 # Setup logging

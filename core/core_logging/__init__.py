@@ -13,7 +13,7 @@ Migration from old system:
 - NEW: unified_logger.py (single source of truth)
 
 Usage:
-    from src.core.logging import get_logger, setup_logging
+    from src.core.core_logging import get_logger, setup_logging
 
     # Setup logging for a service
     logger = setup_logging("my_service", level="INFO")

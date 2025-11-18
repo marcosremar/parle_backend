@@ -7,7 +7,7 @@ Configuration validation and reload functionality.
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
 import yaml
-from src.core.logging import setup_logging
+from src.core.core_logging import setup_logging
 from src.core.service_manager.endpoints.models import ConfigValidationResponse
 
 # Setup logging

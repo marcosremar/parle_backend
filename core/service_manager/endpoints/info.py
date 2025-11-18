@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime
 import subprocess
 import psutil
-from src.core.logging import setup_logging
+from src.core.core_logging import setup_logging
 from src.core.service_manager.core import HealthStatus
 from src.core.service_manager.models import ProcessStatus
 

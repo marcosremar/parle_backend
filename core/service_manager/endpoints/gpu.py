@@ -6,7 +6,7 @@ Endpoints for GPU memory monitoring, cleanup, and process management.
 
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
-from src.core.logging import setup_logging
+from src.core.core_logging import setup_logging
 
 # Setup logging
 logger = setup_logging("service-manager-gpu", level="INFO")
