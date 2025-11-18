@@ -1,0 +1,3 @@
+[submodule "vendor/skypilot"]
+	path = vendor/skypilot
+	url = git@github.com:marcosremar/skypilot.git
