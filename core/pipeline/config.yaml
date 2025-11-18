@@ -1,0 +1,137 @@
+# Pipeline Configuration
+# Unified configuration for Speech-to-Speech and Text-to-Speech
+
+pipeline:
+  name: "Unified Voice Pipeline"
+  version: "1.0.0"
+  type: "unified"  # unified, stt_only, tts_only
+  device: "cuda"   # cuda, cpu, auto
+
+# Speech-to-Text Configuration
+stt:
+  enabled: true
+  provider: "ultravox"  # ultravox, whisper, groq
+  model: "fixie-ai/ultravox-v0_2"
+  settings:
+    sample_rate: 16000
+    language: "auto"  # auto, en, pt, es, etc.
+    max_audio_length: 30  # seconds
+    vad_enabled: true  # Voice Activity Detection
+    noise_reduction: true
+
+# Text-to-Speech Configuration
+tts:
+  enabled: true
+  provider: "kokoro"  # kokoro, elevenlabs, azure
+  settings:
+    sample_rate: 24000
+    default_voice: "af_bella"
+    cache_enabled: true
+    cache_size: 100
+
+# Voice Profiles
+voices:
+  english:
+    - id: "af_bella"
+      name: "Bella"
+      gender: "female"
+      accent: "american"
+      language: "en-US"
+    - id: "am_michael"
+      name: "Michael"
+      gender: "male"
+      accent: "american"
+      language: "en-US"
+    - id: "bf_emma"
+      name: "Emma"
+      gender: "female"
+      accent: "british"
+      language: "en-GB"
+    - id: "bm_george"
+      name: "George"
+      gender: "male"
+      accent: "british"
+      language: "en-GB"
+
+  portuguese:
+    - id: "pf_dora"
+      name: "Dora"
+      gender: "female"
+      accent: "brazilian"
+      language: "pt-BR"
+    - id: "pm_alex"
+      name: "Alex"
+      gender: "male"
+      accent: "brazilian"
+      language: "pt-BR"
+
+# Language Model Configuration (for response generation)
+llm:
+  enabled: true
+  provider: "local"  # openai, anthropic, local, groq
+  model: "rule-based"  # For now, using rule-based
+  settings:
+    temperature: 0.7
+    max_tokens: 150
+    system_prompt: "You are a helpful voice assistant. Be concise and natural in your responses."
+
+# Conversation Management
+conversation:
+  context_window: 10  # Number of messages to keep
+  session_timeout: 3600  # seconds
+  memory_type: "short"  # short, long, persistent
+  language_detection: true
+  auto_language_switch: true
+
+# Performance Settings
+performance:
+  warmup_enabled: true
+  warmup_iterations: 3
+  parallel_processing: false
+  batch_size: 1
+  gpu_memory_fraction: 0.85
+
+# Monitoring and Logging
+monitoring:
+  metrics_enabled: true
+  log_level: "INFO"
+  track_latency: true
+  track_memory: true
+  export_metrics: false
+  metrics_path: "./metrics"
+
+# WebRTC Integration
+webrtc:
+  enabled: true
+  port: 8088
+  host: "0.0.0.0"
+  ice_servers:
+    - urls: "stun:stun.l.google.com:19302"
+  audio_codec: "opus"
+  video_enabled: false
+
+# API Configuration
+api:
+  rest_enabled: true
+  rest_port: 8000
+  websocket_enabled: true
+  websocket_port: 8001
+  grpc_enabled: false
+  grpc_port: 50051
+
+# Security
+security:
+  auth_enabled: false
+  api_key_required: false
+  rate_limiting: true
+  max_requests_per_minute: 60
+  allowed_origins:
+    - "http://localhost:*"
+    - "https://localhost:*"
+
+# Deployment
+deployment:
+  environment: "development"  # development, staging, production
+  auto_reload: true
+  debug_mode: true
+  health_check_interval: 30  # seconds

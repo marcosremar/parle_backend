@@ -1,0 +1,30 @@
+# Security module dependencies
+# python-version: 3.12
+
+# JWT and cryptography
+PyJWT>=2.8.0
+cryptography>=41.0.0
+
+# Pydantic for validation
+pydantic>=2.0.0
+
+# FastAPI/Starlette for middleware
+fastapi>=0.100.0
+starlette>=0.27.0
+
+# Optional backends (install as needed)
+
+# Redis for distributed rate limiting and token blacklist
+# redis>=5.0.0
+
+# HashiCorp Vault client
+# hvac>=1.2.0
+
+# AWS Secrets Manager
+# boto3>=1.28.0
+
+# GCP Secret Manager
+# google-cloud-secret-manager>=2.16.0
+
+# Elasticsearch for audit logging
+# elasticsearch>=8.9.0

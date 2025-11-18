@@ -1,0 +1,14 @@
+# Cache System Dependencies
+
+# Redis adapter (L2 cache) - OPTIONAL
+# Install with: pip install redis
+redis>=5.0.0
+
+# Semantic similarity (for LLM response cache) - OPTIONAL
+# Install with: pip install sentence-transformers
+# sentence-transformers>=2.2.0
+
+# Notes:
+# - redis is OPTIONAL - cache will work without it (L1 only)
+# - sentence-transformers is OPTIONAL - semantic cache will use exact match only
+# - Both dependencies gracefully degrade if not installed

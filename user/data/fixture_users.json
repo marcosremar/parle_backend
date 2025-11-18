@@ -1,0 +1,28 @@
+{
+  "test-user": {
+    "id": "test-user",
+    "email": "test@ultravox.ai",
+    "name": "Test User",
+    "language": "pt-BR",
+    "metadata": {
+      "role": "test",
+      "created_by": "fixtures",
+      "description": "Default test user for integration tests"
+    },
+    "created_at": "2025-11-16T18:36:23.102080",
+    "updated_at": "2025-11-16T18:36:23.102122"
+  },
+  "demo-user": {
+    "id": "demo-user",
+    "email": "demo@ultravox.ai",
+    "name": "Demo User",
+    "language": "pt-BR",
+    "metadata": {
+      "role": "demo",
+      "created_by": "fixtures",
+      "description": "Demo user for demonstrations"
+    },
+    "created_at": "2025-11-16T18:36:23.102130",
+    "updated_at": "2025-11-16T18:36:23.102132"
+  }
+}
