@@ -161,6 +161,8 @@ tmp/
 
 # Nomad executable (installed via script, not committed)
 vendor/nomad
+nomad
+nomad.exe
 
 # Vault files
 vault
