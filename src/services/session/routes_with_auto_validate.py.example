@@ -1,0 +1,140 @@
+"""
+Example: Session Service routes with Auto-Validation decorators
+
+This shows how to apply @validated_endpoint decorator to automatically
+generate validation tests, eliminating the need for manual validate.py files.
+
+To use:
+1. Copy this to routes.py
+2. Run: python -m src.core.testing.auto_validate session --output src/services/session/tests/test_auto_validate.py
+3. Run tests: pytest src/services/session/tests/test_auto_validate.py -v
+"""
+
+from fastapi import APIRouter, HTTPException, status
+from src.core.testing.auto_validate import validated_endpoint
+from .models import SessionCreate, SessionUpdate, SessionResponse
+
+def create_router(session_service):
+    router = APIRouter()
+
+    # Example 1: Create session with auto-validation
+    @router.post("/create", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
+    @validated_endpoint(
+        required_fields=["scenario_id"],
+        optional_fields=["conversation_id", "user_id", "metadata", "session_id"],
+        response_model=SessionResponse
+    )
+    async def create_session(request: SessionCreate):
+        """
+        Create a new session
+
+        Auto-validates:
+        - Missing scenario_id → 422 error
+        - Invalid types → 422 error
+        - Response matches SessionResponse model
+        """
+        session_id = await session_service.session_manager.create_session(
+            scenario_id=request.scenario_id,
+            conversation_id=request.conversation_id,
+            user_id=request.user_id,
+            metadata=request.metadata,
+            session_id=request.session_id
+        )
+
+        session = await session_service.session_manager.get_session(session_id)
+        return session
+
+    # Example 2: Update session with auto-validation
+    @router.patch("/{session_id}", response_model=SessionResponse)
+    @validated_endpoint(
+        required_fields=[],  # No required fields (all optional in update)
+        optional_fields=["scenario_id", "conversation_id", "user_id", "active_llm", "metadata"],
+        response_model=SessionResponse
+    )
+    async def update_session(session_id: str, request: SessionUpdate):
+        """
+        Update session
+
+        Auto-validates:
+        - Response matches SessionResponse model
+        - Endpoint is accessible
+        """
+        success = await session_service.session_manager.update_session(
+            session_id=session_id,
+            **request.model_dump(exclude_unset=True)
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found"
+            )
+
+        session = await session_service.session_manager.get_session(session_id)
+        return session
+
+    # Example 3: Heartbeat with custom test cases
+    @router.post("/{session_id}/heartbeat")
+    @validated_endpoint(
+        required_fields=[],
+        test_cases=[
+            {
+                "name": "test_heartbeat_nonexistent_session",
+                "description": "Test heartbeat fails for non-existent session",
+                "path_params": {"session_id": "nonexistent-session-id-12345"},
+                "expected_status": 404
+            },
+            {
+                "name": "test_heartbeat_success",
+                "description": "Test heartbeat succeeds for active session",
+                "path_params": {"session_id": "test-session-id"},
+                "expected_status": 200
+            }
+        ]
+    )
+    async def session_heartbeat(session_id: str):
+        """
+        Update session activity timestamp
+
+        Auto-validates:
+        - Custom test cases above
+        - Endpoint accessibility
+        """
+        session = await session_service.session_manager.get_session(session_id)
+
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session {session_id} not found"
+            )
+
+        success = await session_service.session_manager.update_session(
+            session_id=session_id,
+            metadata={**(session.metadata or {}), "last_heartbeat": datetime.utcnow().isoformat()}
+        )
+
+        return {
+            "session_id": session_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "active"
+        }
+
+    return router
+
+
+# ============================================
+# Generate tests
+# ============================================
+
+if __name__ == "__main__":
+    # Generate pytest tests automatically
+    from src.core.testing.auto_validate import save_pytest_file
+
+    save_pytest_file(
+        service_name="session",
+        output_path="src/services/session/tests/test_auto_validate.py",
+        base_url="http://localhost:8302"
+    )
+
+    print("✅ Generated auto-validation tests")
+    print("   Run: pytest src/services/session/tests/test_auto_validate.py -v -m auto_validate")

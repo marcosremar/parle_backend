@@ -326,6 +326,14 @@ env/
 .conda/
 conda/
 
+# ML Models (downloaded models are large)
+models/
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
 # Node.js (if any frontend components)
 node_modules/
 npm-debug.log*

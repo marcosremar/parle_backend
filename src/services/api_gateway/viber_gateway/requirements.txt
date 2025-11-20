@@ -1,0 +1,23 @@
+# python-version: 3.12
+
+# Viber Gateway Service Dependencies
+
+# Core
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Viber Bot API (official Python library)
+viberbot>=1.0.12
+
+# Media processing
+pydub>=0.25.1
+ffmpeg-python>=0.2.0
+Pillow>=10.0.0  # Image processing
+
+# HTTP client
+aiohttp>=3.9.0
+httpx>=0.25.0
+
+# Ultravox core (shared)
+loguru>=0.7.0
