@@ -176,6 +176,9 @@ test_*.txt
 TEST_*
 test/
 tests/__pycache__/
+tests/output/*.mp3
+tests/output/*.wav
+tests/output/*.ogg
 
 # Migration and report files (if not needed in repo)
 *_MIGRATION_*.md
@@ -190,6 +193,14 @@ tests/__pycache__/
 # Backup files
 *.backup
 *_backup.py
+*.backup.*
+*_backup.*
+
+# Analysis and temporary files
+_dependencies_analysis.txt
+*_dependencies_analysis.txt
+bug_report.txt
+*_report.txt
 
 # Compiled protobuf files (if generated)
 *_pb2.py

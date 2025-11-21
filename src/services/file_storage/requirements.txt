@@ -4,21 +4,16 @@ fastapi>=0.100.0
 uvicorn>=0.23.0
 loguru>=0.7.0
 pydantic>=2.0.0
-pydantic-settings>=2.0.0
 
-# HTTP clients
+# HTTP client
 aiohttp>=3.9.0
-httpx>=0.24.0
-requests>=2.31.0
 
-# Form data
+# File operations
+aiofiles>=23.0.0
 python-multipart>=0.0.9
 
-# Configuration
-pyyaml>=6.0.0
-
-# WebSocket support
-websockets>=12.0
+# Backblaze B2 storage
+b2sdk>=1.20.0
 
 # Database (optional)
 redis>=5.0.0
@@ -26,5 +21,3 @@ redis>=5.0.0
 # Security
 cryptography>=41.0.0
 
-# Data processing
-numpy>=1.24.0

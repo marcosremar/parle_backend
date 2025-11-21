@@ -5,10 +5,10 @@ import uvicorn
 import os
 import sys
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, status, Header, APIRouter, Depends
+from fastapi import FastAPI, HTTPException, status, APIRouter, Query
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import logging
 import sqlite3
 import json
@@ -318,8 +318,8 @@ class CreateConversationRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = {}
 
 class SaveMessageRequest(BaseModel):
-    role: str
-    content: str
+    role: str = Field(..., pattern="^(user|assistant|system)$", description="Message role must be user, assistant, or system")
+    content: str = Field(..., min_length=1, description="Message content cannot be empty")
     metadata: Optional[Dict[str, Any]] = {}
     speaker_id: Optional[str] = None
 
@@ -350,25 +350,10 @@ storage = ConversationStorage(f"{storage_path}/conversation_history.db")
 app = FastAPI(title="Conversation History Service", version="1.0.0")
 
 # ============================================================================
-# Authentication Helper
+# Authentication Helper (Removed - Internal Service Only)
 # ============================================================================
-
-def get_user_from_auth(authorization: Optional[str] = Header(None)) -> str:
-    """Extract user_id from Authorization header"""
-    if not authorization:
-        raise HTTPException(
-            status_code=401,
-            detail="Missing Authorization header"
-        )
-
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid Authorization format. Use: Bearer <user_id>"
-        )
-
-    user_id = authorization.replace("Bearer ", "")
-    return user_id
+# This service is only accessible internally via API Gateway/WebSocket/WebRTC
+# Authentication is handled by those services, not here
 
 # ============================================================================
 # Routes
@@ -403,7 +388,7 @@ async def health():
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
 @app.post("/api/v1/conversations")
-async def create_conversation(request: CreateConversationRequest, user_id: str = Depends(get_user_from_auth)):
+async def create_conversation(request: CreateConversationRequest, user_id: str = Query(..., description="User ID (required for internal service)")):
     """Create new conversation"""
     try:
         conversation = await storage.create_conversation(
@@ -420,7 +405,7 @@ async def create_conversation(request: CreateConversationRequest, user_id: str =
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/conversations/{conversation_id}")
-async def get_conversation(conversation_id: str, user_id: str = Depends(get_user_from_auth)):
+async def get_conversation(conversation_id: str, user_id: str = Query(..., description="User ID (required for internal service)")):
     """Get conversation by ID"""
     try:
         conversation = await storage.get_conversation(conversation_id)
@@ -440,7 +425,7 @@ async def get_conversation(conversation_id: str, user_id: str = Depends(get_user
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/conversations")
-async def get_user_conversations(limit: int = 20, offset: int = 0, user_id: str = Depends(get_user_from_auth)):
+async def get_user_conversations(user_id: str = Query(..., description="User ID (required for internal service)"), limit: int = 20, offset: int = 0):
     """Get user's conversations"""
     try:
         conversations = await storage.get_user_conversations(user_id, limit, offset)
@@ -463,7 +448,7 @@ async def get_user_conversations(limit: int = 20, offset: int = 0, user_id: str 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/conversations/{conversation_id}/messages")
-async def save_message(conversation_id: str, request: SaveMessageRequest, user_id: str = Depends(get_user_from_auth)):
+async def save_message(conversation_id: str, request: SaveMessageRequest, user_id: str = Query(..., description="User ID (required for internal service)")):
     """Save message to conversation"""
     try:
         # Verify conversation exists and belongs to user
@@ -494,7 +479,7 @@ async def save_message(conversation_id: str, request: SaveMessageRequest, user_i
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/conversations/{conversation_id}/messages")
-async def get_messages(conversation_id: str, limit: int = 50, offset: int = 0, user_id: str = Depends(get_user_from_auth)):
+async def get_messages(conversation_id: str, user_id: str = Query(..., description="User ID (required for internal service)"), limit: int = 50, offset: int = 0):
     """Get messages for conversation"""
     try:
         # Verify conversation exists and belongs to user
@@ -527,7 +512,7 @@ async def get_messages(conversation_id: str, limit: int = 50, offset: int = 0, u
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/search")
-async def search_conversations(request: SearchRequest, user_id: str = Depends(get_user_from_auth)):
+async def search_conversations(request: SearchRequest, user_id: str = Query(..., description="User ID (required for internal service)")):
     """Search conversations"""
     try:
         conversations = await storage.search_conversations(user_id, request.query, request.limit)
@@ -550,7 +535,7 @@ async def search_conversations(request: SearchRequest, user_id: str = Depends(ge
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/stats")
-async def get_stats(user_id: str = Depends(get_user_from_auth)):
+async def get_stats(user_id: str = Query(..., description="User ID (required for internal service)")):
     """Get user statistics"""
     try:
         stats = await storage.get_stats(user_id)

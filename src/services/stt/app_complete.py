@@ -30,16 +30,16 @@ except ImportError:
     try:
         from src.core.route_helpers import add_standard_endpoints
         from src.core.metrics import increment_metric, set_gauge
-except ImportError:
-    # Fallback implementations for standalone mode
-    def increment_metric(name, value=1, labels=None):
-        pass
+    except ImportError:
+        # Fallback implementations for standalone mode
+        def increment_metric(name, value=1, labels=None):
+            pass
 
-    def set_gauge(name, value, labels=None):
-        pass
+        def set_gauge(name, value, labels=None):
+            pass
 
         def add_standard_endpoints(router, service_instance=None, service_name=None):
-        pass
+            pass
 
 # ============================================================================
 # Configuration
@@ -161,26 +161,22 @@ class GroqTranscriptionProvider:
                                         status_code=response.status,
                                         detail=f"Groq API error: {error_text}"
                                     )
-                    except aiohttp.ClientError as e:
+                    except Exception as e:
                         if attempt < self.max_retries - 1:
                             print(f"Attempt {attempt + 1} failed: {str(e)}")
                             await asyncio.sleep(1)
                             continue
                         else:
                             raise HTTPException(status_code=500, detail=f"Network error: {str(e)}")
-
         except Exception as e:
-            if isinstance(e, HTTPException):
-                raise
-            raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
-
+            raise HTTPException(status_code=500, detail=f"Transcription error: {str(e)}")
         finally:
             # Clean up temporary file
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
-                except:
-                    pass
+                except Exception:
+                    pass  # Ignore cleanup errors
 
 # ============================================================================
 # Global Provider Instance
@@ -190,10 +186,10 @@ try:
     transcription_provider = GroqTranscriptionProvider()
     provider_available = True
     print("✅ Groq transcription provider initialized")
-    except Exception as e:
-    print(f"⚠️  Groq transcription provider failed: {e}")
+except Exception as e:
     transcription_provider = None
     provider_available = False
+    print(f"⚠️  Failed to initialize Groq transcription provider: {e}")
 
 # ============================================================================
 # FastAPI App
@@ -239,10 +235,7 @@ async def transcribe_audio(request: TranscribeRequest):
         )
 
         return TranscriptionResponse(**result)
-
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
 @app.post("/transcribe-file")
@@ -267,10 +260,7 @@ async def transcribe_audio_file(
         )
 
         return TranscriptionResponse(**result)
-
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
 @app.get("/models")
@@ -307,6 +297,8 @@ async def get_audio_info(request: TranscribeRequest):
         channels = int.from_bytes(audio_bytes[22:24], byteorder='little')
         sample_rate = int.from_bytes(audio_bytes[24:28], byteorder='little')
         bits_per_sample = int.from_bytes(audio_bytes[34:36], byteorder='little')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio info extraction failed: {str(e)}")
 
         # Calculate duration (approximate)
         data_size = len(audio_bytes) - 44  # Remove header
@@ -318,11 +310,6 @@ async def get_audio_info(request: TranscribeRequest):
             channels=channels,
             format="wav"
         )
-except Exception as e:
-        if isinstance(e, HTTPException):
-            raise
-        raise HTTPException(status_code=500, detail=f"Audio analysis failed: {str(e)}")
-
 # Add standard endpoints
 # Create a minimal service instance for health checks
 class MinimalService:

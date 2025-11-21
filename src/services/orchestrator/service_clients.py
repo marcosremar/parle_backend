@@ -7,6 +7,7 @@ Clean abstraction layer for orchestrator to communicate with other services
 import aiohttp
 import base64
 import logging
+import os
 from typing import Dict, Any, Optional, List
 import sys
 from pathlib import Path
@@ -42,13 +43,17 @@ class BaseServiceClient:
         self.is_module_service = is_module_service  # True if service runs in-process (MODULE)
 
     def _get_service_url(self, service_name: str) -> str:
-        """Get service URL from environment or default ports"""
+        """Get service URL from environment or default ports (with Nomad service discovery support)"""
         env_var = f"{service_name.upper()}_SERVICE_URL"
         default_ports = {
             "stt": "http://localhost:8099",
             "tts": "http://localhost:8103",
             "llm": "http://localhost:8110",
-            "orchestrator": "http://localhost:8080",
+            "orchestrator": "http://localhost:8500",
+            "conversation_store": "http://localhost:8800",
+            "conversation_history": "http://localhost:8501",
+            "session": "http://localhost:8600",
+            "scenarios": "http://localhost:8700",
         }
         return os.getenv(env_var, default_ports.get(service_name, f"http://localhost:8000"))
 

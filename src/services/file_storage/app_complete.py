@@ -56,7 +56,14 @@ DEFAULT_CONFIG = {
         "max_file_size": 100 * 1024 * 1024,  # 100MB
         "allowed_extensions": [".wav", ".mp3", ".mp4", ".jpg", ".png", ".txt", ".json"],
         "cleanup_interval_hours": 24,
-        "max_age_days": 30
+        "max_age_days": 30,
+        "use_backblaze": True,
+        "backblaze": {
+            "key_id": os.getenv("BACKBLAZE_KEY_ID"),
+            "application_key": os.getenv("BACKBLAZE_APPLICATION_KEY"),
+            "bucket_name": os.getenv("BACKBLAZE_BUCKET_NAME", "parle-backend-files"),
+            "region": os.getenv("BACKBLAZE_REGION", "us-west-002")
+        }
     }
 }
 
@@ -286,18 +293,34 @@ class FileStorageManager:
             total_size=total_size
         )
 
-    def delete_file(self, file_id: str) -> bool:
+    async def delete_file(self, file_id: str) -> bool:
         """Delete a file"""
         if file_id not in self.file_metadata:
             raise HTTPException(status_code=404, detail="File not found")
 
+        file_info = self.file_metadata[file_id]
         file_path = self._get_file_path(file_id)
 
-        # Delete file from disk
-        if file_path.exists():
-            file_path.unlink()
+        # Delete from Backblaze if stored there
+        storage_type = file_info.get("storage_type", "local")
+        if storage_type == "backblaze" and self.use_backblaze and self.b2_client:
+            try:
+                b2_file_id = file_info.get("b2_file_id")
+                if b2_file_id:
+                    bucket = self.b2_client.get_bucket_by_name(self.backblaze_config.get("bucket_name"))
+                    bucket.delete_file_version(b2_file_id, file_id)
+                    print(f"✅ File deleted from Backblaze B2: {file_id}")
+            except Exception as e:
+                print(f"⚠️  Failed to delete from Backblaze: {e}")
 
-        # Remove metadata
+        # Delete local file
+        try:
+            if file_path.exists():
+                file_path.unlink()
+        except Exception as e:
+            print(f"⚠️  Failed to delete local file: {e}")
+
+        # Remove from metadata
         del self.file_metadata[file_id]
         self._save_metadata()
 

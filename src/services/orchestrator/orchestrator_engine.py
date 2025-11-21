@@ -96,16 +96,16 @@ class ConversationOrchestrator:
         logger.info(f"🏗️ ConversationOrchestrator created - Mode: {mode_str}")
 
     def _load_config_from_env(self):
-        """Load service URLs from environment variables"""
+        """Load service URLs from environment variables (with Nomad service discovery support)"""
         env_mappings = {
-            "llm_url": ("ORCHESTRATOR_LLM_URL", "http://localhost:8100"),
-            "tts_url": ("ORCHESTRATOR_TTS_URL", "http://localhost:8101"),
-            "stt_url": ("ORCHESTRATOR_STT_URL", "http://localhost:8099"),
+            "llm_url": ("LLM_SERVICE_URL", "http://localhost:8110"),
+            "tts_url": ("TTS_SERVICE_URL", "http://localhost:8103"),
+            "stt_url": ("STT_SERVICE_URL", "http://localhost:8099"),
             "external_ultravox_url": ("ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL", "http://localhost:8112"),
-            "llm_url": ("ORCHESTRATOR_LLM_URL", "http://localhost:8110/api/llm"),
-            "session_url": ("ORCHESTRATOR_SESSION_URL", "http://localhost:8800"),
-            "scenarios_url": ("ORCHESTRATOR_SCENARIOS_URL", "http://localhost:8700"),
-            "conversation_store_url": ("ORCHESTRATOR_CONVERSATION_STORE_URL", "http://localhost:8010")
+            "session_url": ("SESSION_SERVICE_URL", "http://localhost:8600"),
+            "scenarios_url": ("SCENARIOS_SERVICE_URL", "http://localhost:8700"),
+            "conversation_store_url": ("CONVERSATION_STORE_URL", "http://localhost:8800"),
+            "conversation_history_url": ("CONVERSATION_HISTORY_URL", "http://localhost:8501")
         }
 
         for key, (env_var, default) in env_mappings.items():

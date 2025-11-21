@@ -283,7 +283,7 @@ class UltravoxSettings(BaseSettings):
 
     @model_validator(mode='before')
     @classmethod
-    def load_yaml_config(cls, values) -> expand_env_var:
+    def load_yaml_config(cls, values) -> Any:
         """Load settings from YAML file before validation"""
         import re
 
@@ -302,7 +302,7 @@ class UltravoxSettings(BaseSettings):
 
             return re.sub(pattern, replace_match, value)
 
-        def expand_dict(d) -> expand_env_var:
+        def expand_dict(d) -> Any:
             """Recursively expand environment variables in dict"""
             if isinstance(d, dict):
                 return {k: expand_dict(v) for k, v in d.items()}

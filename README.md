@@ -84,9 +84,12 @@ Este projeto utiliza uma estrutura organizada:
   - `src/core/` - Biblioteca core compartilhada
   - `src/services/` - Microserviços
 - `deploy/nomad/` - Arquivos de configuração do Nomad para deploy
+- `docs/` - Documentação do projeto
+- `scripts/` - Scripts de automação e utilitários
+- `tests/` - Testes end-to-end e fixtures
 - `vendor/` - Submódulos e dependências
-- `vendor/skypilot/` - Submódulo Git para gerenciamento de recursos na nuvem
-- `vendor/nomad` - Executável do Nomad (não versionado, instalado via script)
+  - `vendor/skypilot/` - Submódulo Git para gerenciamento de recursos na nuvem
+  - `vendor/nomad` - Executável do Nomad (não versionado, instalado via script)
 
 ## Configuração Inicial
 
@@ -254,6 +257,50 @@ Os serviços Nomad (outras tecnologias) são gerenciados pelo `scripts/nomad.sh`
    ```
 
 Para mais detalhes sobre os serviços disponíveis, consulte `deploy/nomad/README.md`.
+
+## 📝 Logs e Monitoramento
+
+O projeto utiliza uma abordagem nativa e eficiente para logs, sem necessidade de bibliotecas adicionais complexas.
+
+### Como funciona
+
+1. **Aplicação (Python)**: 
+   - Utilizamos a biblioteca `loguru` em todos os serviços.
+   - Os logs são enviados para `stdout` (saída padrão) e `stderr` (erro padrão).
+   - Não há necessidade de configurar arquivos de log manualmente na aplicação.
+
+2. **Infraestrutura (Nomad)**:
+   - O Nomad captura automaticamente os streams `stdout` e `stderr`.
+   - Os logs são rotacionados automaticamente conforme configuração nos arquivos `.nomad`:
+     ```hcl
+     logs {
+       max_files     = 10  # Mantém os últimos 10 arquivos
+       max_file_size = 10  # Tamanho máximo de 10MB por arquivo
+     }
+     ```
+
+### Visualizando Logs
+
+Você pode visualizar os logs de qualquer serviço em tempo real:
+
+```bash
+# Ver logs de uma alocação específica
+nomad alloc logs -f <alloc-id>
+
+# Ver logs pelo nome do job (mais fácil)
+nomad alloc logs -job api-gateway
+nomad alloc logs -job user-service
+
+# Ver logs de erro (stderr)
+nomad alloc logs -stderr -job api-gateway
+```
+
+### Monitoramento
+
+Para monitorar o status dos serviços:
+```bash
+./main.sh monitor
+```
 
 ## Contribuição
 

@@ -724,8 +724,7 @@ async def cleanup_inactive():
     return {"message": f"Cleaned up {removed} inactive connections"}
 
 # Add standard endpoints
-router = socketio.ASGIApp(sio)  # Socket.IO is already mounted above
-add_standard_endpoints(app.router)
+add_standard_endpoints(app.router, None, "websocket")
 
 # ============================================================================
 # Startup Event

@@ -111,7 +111,7 @@ class AudioProcessor:
         # Use context logger if available, otherwise use default
         self.logger = context.logger
         self.logger.info("🎯 Service using ServiceContext (DI enabled)")
-        self.orchestrator_url = os.getenv("ORCHESTRATOR_URL", "http://localhost:8900")
+        self.orchestrator_url = os.getenv("ORCHESTRATOR_URL", "http://localhost:8500")
         self._initialized = False
 
     async def initialize(self) -> None:

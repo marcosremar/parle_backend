@@ -180,6 +180,6 @@ async def startup():
 # ============================================================================
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "10101"))
+    port = int(os.getenv("PORT", "10200"))
     logger.info(f"🚀 Starting Webrtc Signaling Service on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

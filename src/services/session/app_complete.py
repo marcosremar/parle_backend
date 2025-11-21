@@ -69,8 +69,10 @@ app = FastAPI(
 # Add telemetry middleware
 try:
     # add_telemetry_middleware removed, "session")
+    pass
 except Exception as e:
     logger.warning(f"Failed to add telemetry middleware: {e}")
+    
 
 # ============================================================================
 # Service Initialization
@@ -78,6 +80,7 @@ except Exception as e:
 
 config = get_config()
 service = None
+session_manager = None
 
 async def initialize_service():
     """Initialize the session service"""
@@ -112,6 +115,9 @@ async def initialize_service():
             service = SessionService(config=config, context=context)
             success = await service.initialize()
             if success:
+                # Set global session_manager for endpoints
+                global session_manager
+                session_manager = service.session_manager
                 logger.info("✅ Session Service initialized successfully")
                 return True
         except ImportError as e:
@@ -120,7 +126,13 @@ async def initialize_service():
         except Exception as e:
             logger.warning(f"⚠️  Failed to initialize service: {e}")
             logger.info("   Running in minimal mode")
-        
+
+        # Session service now focuses only on session management
+        # Memory management is handled by conversation_history service
+        session_manager = None
+
+        logger.info("✅ Session service initialized (memory handled by conversation_history)")
+
         return True
         
     except Exception as e:
@@ -157,6 +169,11 @@ async def health_check():
         "service": "session",
         "initialized": service is not None
     }
+
+# ==================== Session Management Endpoints ====================
+
+# Session service now focuses only on session management
+# Memory management is handled by conversation_history service
 
 # Try to mount service routes
 try:

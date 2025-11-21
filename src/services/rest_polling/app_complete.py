@@ -19,17 +19,19 @@ try:
     from .utils.route_helpers import add_standard_endpoints
     from .utils.metrics import increment_metric, set_gauge
 except ImportError:
-    # Fallback implementations for standalone mode
-    def increment_metric(name, value=1, labels=None):
-        pass
+    try:
+        from src.core.route_helpers import add_standard_endpoints
+        from src.core.metrics import increment_metric, set_gauge
+    except ImportError:
+        # Fallback implementations for standalone mode
+        def increment_metric(name, value=1, labels=None):
+            pass
 
-    def set_gauge(name, value, labels=None):
-        pass
+        def set_gauge(name, value, labels=None):
+            pass
 
-        pass
-
-    def add_standard_endpoints(router, service=None, service_name=None):
-        pass
+        def add_standard_endpoints(router, service=None, service_name=None):
+            pass
 
 # ============================================================================
 # Configuration
@@ -65,10 +67,8 @@ app = FastAPI(
 )
 
 # Add telemetry middleware
-try:
-    # add_telemetry_middleware removed, "rest_polling")
-except Exception as e:
-    logger.warning(f"Failed to add telemetry middleware: {e}")
+# Add telemetry middleware
+# add_telemetry_middleware removed
 
 # ============================================================================
 # Service Initialization
@@ -93,7 +93,8 @@ async def initialize_service():
             # Create minimal ServiceContext
             try:
                 comm = ServiceCommunicationManager()
-            except Exception:
+            except:
+                # Fallback mock communication manager
                 class MockComm:
                     def get_service_url(self, service_name): return None
                     def send_request(self, *args, **kwargs): return None
@@ -112,21 +113,12 @@ async def initialize_service():
             if success:
                 logger.info("✅ Rest Polling Service initialized successfully")
                 return True
-        except ImportError as e:
-            logger.warning(f"⚠️  Service class not found: {e}")
-            logger.info("   Running in minimal mode")
         except Exception as e:
             logger.warning(f"⚠️  Failed to initialize service: {e}")
-            logger.info("   Running in minimal mode")
-        
-        return True
-        
     except Exception as e:
-        logger.error(f"❌ Failed to initialize Rest Polling Service: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
+        logger.warning(f"⚠️  Service initialization error: {e}")
+    logger.info("   Running in minimal mode")
+    return True
 # ============================================================================
 # Routes
 # ============================================================================
@@ -161,8 +153,6 @@ try:
     from src.services.rest_polling.routes import router as service_router
     app.include_router(service_router)
     logger.info("✅ Service routes mounted")
-except ImportError:
-    logger.warning("⚠️  Service routes not found - using basic endpoints only")
 except Exception as e:
     logger.warning(f"⚠️  Failed to mount service routes: {e}")
 
@@ -175,7 +165,6 @@ try:
         add_standard_endpoints(router, None, "rest_polling")
 except Exception as e:
     logger.warning(f"⚠️  Failed to add standard endpoints: {e}")
-
 app.include_router(router)
 
 # ============================================================================

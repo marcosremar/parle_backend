@@ -26,8 +26,6 @@ except ImportError:
     def set_gauge(name, value, labels=None):
         pass
 
-        pass
-
     def add_standard_endpoints(router, service=None, service_name=None):
         pass
 
@@ -65,11 +63,7 @@ app = FastAPI(
 )
 
 # Add telemetry middleware
-try:
-    # add_telemetry_middleware removed, "webrtc")
-except Exception as e:
-    logger.warning(f"Failed to add telemetry middleware: {e}")
-
+# add_telemetry_middleware removed
 # ============================================================================
 # Service Initialization
 # ============================================================================
@@ -90,14 +84,14 @@ async def initialize_service():
             from src.core.unified_context import ServiceContext
             from src.core.communication.facade import ServiceCommunicationManager
             
-            # Create minimal ServiceContext
-            try:
-                comm = ServiceCommunicationManager()
-            except Exception:
-                class MockComm:
-                    def get_service_url(self, service_name): return None
-                    def send_request(self, *args, **kwargs): return None
-                comm = MockComm()
+            # Create minimal ServiceCommunicationManager
+            class MinimalServiceCommunicationManager:
+                def get_service_url(self, service_name): 
+                    return None
+                def send_request(self, *args, **kwargs): 
+                    return None
+            
+            comm = MinimalServiceCommunicationManager()
             
             context = ServiceContext.create(
                 service_name="webrtc",
@@ -112,21 +106,13 @@ async def initialize_service():
             if success:
                 logger.info("✅ Webrtc Service initialized successfully")
                 return True
-        except ImportError as e:
-            logger.warning(f"⚠️  Service class not found: {e}")
             logger.info("   Running in minimal mode")
+        except ImportError:
+            logger.warning("⚠️  Service classes not found - running in minimal mode")
         except Exception as e:
-            logger.warning(f"⚠️  Failed to initialize service: {e}")
-            logger.info("   Running in minimal mode")
-        
-        return True
-        
+            logger.warning(f"⚠️  Failed to initialize service: {e} - running in minimal mode")
     except Exception as e:
-        logger.error(f"❌ Failed to initialize Webrtc Service: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
+        logger.error(f"❌ Initialization error: {e}")
 # ============================================================================
 # Routes
 # ============================================================================
@@ -147,8 +133,8 @@ async def health_check():
     if service:
         try:
             return await service.health_check()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Health check error: {e}")
     
     return {
         "status": "healthy",
@@ -163,19 +149,13 @@ try:
     logger.info("✅ Service routes mounted")
 except ImportError:
     logger.warning("⚠️  Service routes not found - using basic endpoints only")
-except Exception as e:
-    logger.warning(f"⚠️  Failed to mount service routes: {e}")
 
 # Add standard endpoints
 router = APIRouter()
-try:
-    if service:
-        add_standard_endpoints(router, service, "webrtc")
-    else:
-        add_standard_endpoints(router, None, "webrtc")
-except Exception as e:
-    logger.warning(f"⚠️  Failed to add standard endpoints: {e}")
-
+if service:
+    add_standard_endpoints(router, service, "webrtc")
+else:
+    add_standard_endpoints(router, None, "webrtc")
 app.include_router(router)
 
 # ============================================================================
