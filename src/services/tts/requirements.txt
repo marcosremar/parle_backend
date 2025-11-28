@@ -14,6 +14,7 @@ requests>=2.31.0
 # TTS providers
 elevenlabs>=2.23.0
 huggingface_hub>=0.26.2
+gtts>=2.5.0
 
 # Form data
 python-multipart>=0.0.9

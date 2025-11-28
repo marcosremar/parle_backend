@@ -1,0 +1,86 @@
+[
+  {
+    "user_id": "cefr_a1_user_1",
+    "cefr_level": "A1",
+    "predicted_level": "A1",
+    "confidence": 69.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_a1_user_2",
+    "cefr_level": "A1",
+    "predicted_level": "A1",
+    "confidence": 68.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_a2_user_1",
+    "cefr_level": "A2",
+    "predicted_level": "A2",
+    "confidence": 51.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_a2_user_2",
+    "cefr_level": "A2",
+    "predicted_level": "A2",
+    "confidence": 55.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_b1_user_1",
+    "cefr_level": "B1",
+    "predicted_level": "B1",
+    "confidence": 47.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_b1_user_2",
+    "cefr_level": "B1",
+    "predicted_level": "B1",
+    "confidence": 47.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_b2_user_1",
+    "cefr_level": "B2",
+    "predicted_level": "B2",
+    "confidence": 33.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_b2_user_2",
+    "cefr_level": "B2",
+    "predicted_level": "B2",
+    "confidence": 37.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_c2_user_1",
+    "cefr_level": "C2",
+    "predicted_level": "C2",
+    "confidence": 47.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_c2_user_2",
+    "cefr_level": "C2",
+    "predicted_level": "C2",
+    "confidence": 38.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_c1_user_1",
+    "cefr_level": "C1",
+    "predicted_level": "C1",
+    "confidence": 40.0,
+    "akt_validated": true
+  },
+  {
+    "user_id": "cefr_c1_user_2",
+    "cefr_level": "C1",
+    "predicted_level": "C1",
+    "confidence": 40.0,
+    "akt_validated": true
+  }
+]

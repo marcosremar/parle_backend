@@ -37,8 +37,12 @@ show_help() {
     echo -e "  ${CYAN}test-services${NC}             Testar health checks de todos os serviços"
     echo -e "  ${CYAN}test:demo:simple${NC}          Teste de demonstração simples (speech-to-speech)"
     echo ""
-    echo -e "  ${CYAN}start <servico>${NC}          Iniciar um serviço específico (usa conda)"
-    echo -e "  ${CYAN}start --all${NC}              Iniciar todos os serviços (usa conda)"
+    echo -e "  ${CYAN}start api${NC}               Iniciar API Principal (monolito modular)"
+    echo -e "  ${CYAN}start websocket${NC}          Iniciar WebSocket Service (processo separado)"
+    echo -e "  ${CYAN}start --all${NC}              Iniciar API + WebSocket"
+    echo -e "  ${CYAN}start <servico>${NC}          Iniciar serviço individual (legacy)"
+    echo -e "  ${CYAN}start:linguistic${NC}         Iniciar serviço de análise linguística (porta 8901)"
+    echo -e "  ${CYAN}start:acoustic${NC}           Iniciar serviço de features acústicas (porta 8970)"
     echo -e "  ${CYAN}stop <servico>${NC}           Parar um serviço específico"
     echo -e "  ${CYAN}stop --all${NC}               Parar todos os serviços"
     echo -e "  ${CYAN}restart <servico>${NC}        Reiniciar um serviço"
@@ -74,16 +78,127 @@ show_help() {
 # Setup
 cmd_setup() {
     show_banner
-    echo -e "${BLUE}🔧 Configurando ambiente Miniconda...${NC}"
+    echo -e "${BLUE}🔧 Configurando ambiente Conda...${NC}"
     echo ""
 
-    if [ ! -f "$PROJECT_DIR/setup_miniconda.sh" ]; then
-        echo -e "${RED}❌ setup_miniconda.sh não encontrado${NC}"
-        exit 1
+    # Check if conda is available
+    if ! command -v conda &> /dev/null; then
+        echo -e "${YELLOW}⚠️  Conda não encontrado${NC}"
+        echo -e "${CYAN}   Instalando Miniconda...${NC}"
+        
+        if [ ! -f "$PROJECT_DIR/setup_miniconda.sh" ]; then
+            echo -e "${RED}❌ setup_miniconda.sh não encontrado${NC}"
+            exit 1
+        fi
+
+        chmod +x "$PROJECT_DIR/setup_miniconda.sh"
+        "$PROJECT_DIR/setup_miniconda.sh"
     fi
 
-    chmod +x "$PROJECT_DIR/setup_miniconda.sh"
-    "$PROJECT_DIR/setup_miniconda.sh"
+    # Create conda environment from environment.yml
+    if [ -f "$PROJECT_DIR/environment.yml" ]; then
+        echo -e "${CYAN}📦 Criando ambiente Conda do environment.yml...${NC}"
+        conda env create -f "$PROJECT_DIR/environment.yml" || {
+            echo -e "${YELLOW}⚠️  Ambiente já existe, atualizando...${NC}"
+            conda env update -f "$PROJECT_DIR/environment.yml" --prune
+        }
+        echo -e "${GREEN}✅ Ambiente Conda configurado!${NC}"
+        echo -e "${CYAN}💡 Para ativar: conda activate parle_backend${NC}"
+    else
+        echo -e "${RED}❌ environment.yml não encontrado${NC}"
+        exit 1
+    fi
+}
+
+# Helper: Activate conda
+_activate_conda() {
+    # Check if conda is available
+    if ! command -v conda &> /dev/null; then
+        if [ -f "$HOME/miniconda3/bin/conda" ]; then
+            export PATH="$HOME/miniconda3/bin:$PATH"
+        else
+            echo -e "${RED}❌ Conda não encontrado. Execute: main.sh setup${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Initialize conda
+    eval "$(conda shell.bash hook 2>/dev/null)" || {
+        if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+            source "$HOME/miniconda3/etc/profile.d/conda.sh"
+        fi
+    }
+    
+    # Activate environment
+    conda activate parle_backend 2>/dev/null || {
+        echo -e "${YELLOW}⚠️  Ambiente parle_backend não encontrado${NC}"
+        echo -e "${CYAN}   Execute: main.sh setup${NC}"
+        exit 1
+    }
+}
+
+# Start API (Monolith)
+cmd_start_api() {
+    show_banner
+    echo -e "${BLUE}🚀 Iniciando API Principal (Monolito Modular)...${NC}"
+    echo ""
+    
+    _activate_conda
+    
+    export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
+    export MONOLITH_MODE="true"
+    
+    local port="${PORT:-8000}"
+    local script_path="src/api/main.py"
+    
+    if [ ! -f "$PROJECT_DIR/$script_path" ]; then
+        echo -e "${RED}❌ Arquivo não encontrado: $script_path${NC}"
+        exit 1
+    fi
+    
+    echo -e "  ${CYAN}→${NC} Iniciando na porta $port..."
+    echo -e "  ${CYAN}→${NC} Modo: MONOLITH (chamadas diretas Python)"
+    echo ""
+    
+    python "$PROJECT_DIR/$script_path" > "/tmp/api.log" 2>&1 &
+    local pid=$!
+    
+    echo -e "  ${GREEN}✅${NC} API iniciada (PID: $pid)"
+    echo -e "  ${CYAN}📋${NC} Log: /tmp/api.log"
+    echo ""
+    echo -e "${GREEN}✅ API Principal iniciada com sucesso!${NC}"
+    echo -e "${CYAN}💡 Acesse: http://localhost:$port${NC}"
+}
+
+# Start WebSocket (Separate process)
+cmd_start_websocket() {
+    show_banner
+    echo -e "${BLUE}🚀 Iniciando WebSocket Service...${NC}"
+    echo ""
+    
+    _activate_conda
+    
+    export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
+    
+    local port=8022
+    local script_path="src/services/websocket/app_complete.py"
+    
+    if [ ! -f "$PROJECT_DIR/$script_path" ]; then
+        echo -e "${RED}❌ Arquivo não encontrado: $script_path${NC}"
+        exit 1
+    fi
+    
+    echo -e "  ${CYAN}→${NC} Iniciando na porta $port..."
+    echo -e "  ${CYAN}→${NC} Comunica com API via HTTP (localhost:8000)"
+    echo ""
+    
+    python "$PROJECT_DIR/$script_path" > "/tmp/websocket.log" 2>&1 &
+    local pid=$!
+    
+    echo -e "  ${GREEN}✅${NC} WebSocket iniciado (PID: $pid)"
+    echo -e "  ${CYAN}📋${NC} Log: /tmp/websocket.log"
+    echo ""
+    echo -e "${GREEN}✅ WebSocket Service iniciado com sucesso!${NC}"
 }
 
 # Test
@@ -121,10 +236,26 @@ cmd_start() {
         return
     fi
 
-    # Iniciar serviço individual
+    # Casos especiais: api e websocket
+    if [ "$service" = "api" ]; then
+        cmd_start_api
+        return
+    fi
+    
+    if [ "$service" = "websocket" ]; then
+        cmd_start_websocket
+        return
+    fi
+
+    # Iniciar serviço individual (legacy - para compatibilidade)
     show_banner
     echo -e "${BLUE}🚀 Iniciando serviço: ${CYAN}$service${NC}"
     echo ""
+    echo -e "${YELLOW}⚠️  Modo legacy - considere usar 'start api' para monolito${NC}"
+    echo ""
+
+    # Ativar ambiente conda
+    _activate_conda
 
     # Configurar PYTHONPATH
     export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
@@ -145,10 +276,6 @@ cmd_start() {
         llm)
             script_path="src/services/llm/app_complete.py"
             port=8110
-            ;;
-        websocket)
-            script_path="src/services/websocket/app_complete.py"
-            port=8022
             ;;
         orchestrator)
             script_path="src/services/orchestrator/app_complete.py"
@@ -198,6 +325,10 @@ cmd_start() {
             script_path="src/services/conversation_history/app_complete.py"
             port=8501
             ;;
+        diagnostic_module|speech_grader|diagnostic)
+            script_path="src/services/diagnostic_module/app_complete.py"
+            port=8960
+            ;;
         *)
             echo -e "${RED}❌ Serviço desconhecido: $service${NC}"
             echo ""
@@ -213,7 +344,7 @@ cmd_start() {
 
     # Iniciar serviço em background
     echo -e "  ${CYAN}→${NC} Iniciando na porta $port..."
-    python3 "$PROJECT_DIR/$script_path" > "/tmp/${service}.log" 2>&1 &
+    python "$PROJECT_DIR/$script_path" > "/tmp/${service}.log" 2>&1 &
     local pid=$!
     
     echo -e "  ${GREEN}✅${NC} Serviço iniciado (PID: $pid)"
@@ -222,13 +353,65 @@ cmd_start() {
     echo -e "${GREEN}✅ Serviço $service iniciado com sucesso!${NC}"
 }
 
-# Start all services
+# Start all services (API + WebSocket)
 cmd_start_all() {
     show_banner
-    echo -e "${BLUE}🚀 Iniciando todos os serviços...${NC}"
+    echo -e "${BLUE}🚀 Iniciando todos os serviços (API + WebSocket)...${NC}"
     echo ""
 
-    export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
+    # Start API
+    cmd_start_api
+    sleep 2
+    
+    # Start WebSocket
+    cmd_start_websocket
+    sleep 2
+    
+    echo ""
+    echo -e "${BLUE}⏳ Aguardando serviços iniciarem (5 segundos)...${NC}"
+    sleep 5
+    
+    echo ""
+    echo -e "${BLUE}🧪 Testando health checks...${NC}"
+    echo ""
+    
+    # Test health checks
+    local PASSED=0
+    local FAILED=0
+    
+    test_health() {
+        local service_name=$1
+        local port=$2
+        
+        echo -n "  Testando $service_name (port $port)... "
+        
+        if curl -s -f "http://localhost:${port}/health" > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ OK${NC}"
+            ((PASSED++))
+            return 0
+        else
+            echo -e "${RED}❌ FAILED${NC}"
+            ((FAILED++))
+            return 1
+        fi
+    }
+    
+    test_health "api" 8000
+    test_health "websocket" 8022
+    
+    echo ""
+    echo -e "${BLUE}============================================================${NC}"
+    echo -e "${BLUE}RESULTADOS${NC}"
+    echo -e "${BLUE}============================================================${NC}"
+    echo -e "${GREEN}✅ Passou: $PASSED${NC}"
+    echo -e "${RED}❌ Falhou: $FAILED${NC}"
+    echo -e "${CYAN}Total: $((PASSED + FAILED))${NC}"
+    echo ""
+    echo -e "${CYAN}💡 Para parar todos: main.sh stop --all${NC}"
+    echo -e "${CYAN}💡 Para ver logs: tail -f /tmp/api.log ou /tmp/websocket.log${NC}"
+    
+    # Old implementation (commented out for reference)
+    # export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
 
     # Array to store PIDs
     declare -a PIDS=()
@@ -288,13 +471,13 @@ cmd_start_all() {
         if curl -s -f "http://localhost:${port}/health" > /dev/null 2>&1; then
             echo -e "${GREEN}✅ OK${NC}"
             ((PASSED++))
-            return 0
-        else
+        return 0
+    else
             echo -e "${RED}❌ FAILED${NC}"
             ((FAILED++))
-            return 1
-        fi
-    }
+        return 1
+    fi
+}
 
     test_health "stt" 8099
     test_health "tts" 8103
@@ -874,6 +1057,39 @@ cmd_benchmark() {
 }
 
 # Configurar deploy para produção
+
+# Iniciar serviço de análise linguística
+cmd_start_linguistic() {
+    show_banner
+    echo -e "${BLUE}🚀 Iniciando Linguistic Analysis Service...${NC}"
+    echo -e "${BLUE}   Service will run on port 8901${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  Make sure SpaCy Portuguese model is installed:${NC}"
+    echo -e "   ${CYAN}python -m spacy download pt_core_news_lg${NC}"
+    echo ""
+    
+    python3 -m uvicorn src.services.linguistic_analysis.app_complete:app --host 0.0.0.0 --port 8901 --reload
+}
+
+cmd_start_acoustic() {
+    show_banner
+    echo -e "${BLUE}🚀 Iniciando Acoustic Features Service...${NC}"
+    echo -e "${BLUE}   Service will run on port 8970${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  Make sure PyTorch and transformers are installed:${NC}"
+    echo -e "   ${CYAN}pip install torch torchaudio transformers soundfile${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  Device: Will auto-detect (MPS for M1, CUDA for GPU, CPU otherwise)${NC}"
+    echo ""
+    
+    export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
+    
+    python3 -m uvicorn src.services.acoustic_features.app_complete:app --host 0.0.0.0 --port 8970 --reload
+}
+    echo ""
+    
+    python3 -m uvicorn src.services.acoustic_features.app_complete:app --host 0.0.0.0 --port 8970 --reload
+}
 cmd_deploy() {
     show_banner
     echo -e "${BLUE}🏭 Configurando deploy para produção...${NC}"
@@ -985,6 +1201,12 @@ main() {
         ;;
     deploy)
         cmd_deploy
+        ;;
+    start:linguistic)
+        cmd_start_linguistic
+        ;;
+    start:acoustic)
+        cmd_start_acoustic
         ;;
     help|--help|-h)
         show_help

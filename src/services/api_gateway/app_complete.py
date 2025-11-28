@@ -6,7 +6,7 @@ import uvicorn
 import os
 import sys
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from datetime import datetime, timedelta
@@ -197,6 +197,82 @@ app = FastAPI(
     version="1.0.0",
     description="Unified API Gateway for speech-to-speech processing"
 )
+
+# ============================================================================
+# Rate Limiting Middleware
+# ============================================================================
+
+try:
+    from .utils.rate_limiter import get_rate_limiter
+    
+    @app.middleware("http")
+    async def rate_limit_middleware(request: Request, call_next):
+        """Rate limiting middleware"""
+        # Skip rate limiting for health checks and auth endpoints
+        skip_paths = ["/health", "/", "/docs", "/openapi.json", "/auth/login", "/auth/refresh", "/redoc"]
+        if request.url.path in skip_paths:
+            return await call_next(request)
+        
+        # Get identifier (IP address or user ID from token)
+        identifier = request.client.host if request.client else "unknown"
+        
+        # Try to get user ID from JWT token if available
+        try:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                # Extract user ID from token (simplified - in production, verify token)
+                # For now, use IP + token hash as identifier
+                token = auth_header.split(" ")[1]
+                identifier = f"{identifier}:{hash(token) % 10000}"
+        except Exception:
+            pass  # Fall back to IP address
+        
+        # Check rate limit
+        rate_limiter = get_rate_limiter()
+        is_allowed, rate_limit_info = rate_limiter.check_rate_limit(identifier)
+        
+        if not is_allowed:
+            # Rate limit exceeded
+            headers = rate_limiter.get_rate_limit_headers(rate_limit_info)
+            
+            # Return 429 with rate limit headers
+            return Response(
+                content=f'{{"detail": "Rate limit exceeded: {rate_limit_info["limit"]} requests per {rate_limit_info["window"]}", "error_code": "RATE_LIMIT_EXCEEDED"}}',
+                status_code=429,
+                media_type="application/json",
+                headers=headers
+            )
+        
+        # Process request
+        response = await call_next(request)
+        
+        # Add rate limit headers to response
+        headers = rate_limiter.get_rate_limit_headers(rate_limit_info)
+        for header_name, header_value in headers.items():
+            response.headers[header_name] = header_value
+        
+        return response
+    
+    logger.info("✅ Rate limiting middleware enabled")
+    
+except ImportError as e:
+    logger.warning(f"⚠️  Rate limiting not available: {e}")
+except Exception as e:
+    logger.warning(f"⚠️  Failed to enable rate limiting: {e}")
+
+# ============================================================================
+# Error Handlers
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions"""
+    return Response(
+        content=f'{{"detail": "{exc.detail}"}}',
+        status_code=exc.status_code,
+        media_type="application/json"
+    )
+
 
 
 # ============================================================================

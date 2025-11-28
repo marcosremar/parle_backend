@@ -1,0 +1,663 @@
+{
+  "accuracy": 0.6428571428571429,
+  "total": 14,
+  "correct": 9,
+  "level_stats": {
+    "A1": {
+      "correct": 3,
+      "total": 3,
+      "precision": 0.6,
+      "recall": 1.0,
+      "f1": 0.7499999999999999
+    },
+    "A2": {
+      "correct": 1,
+      "total": 3,
+      "precision": 0.5,
+      "recall": 0.3333333333333333,
+      "f1": 0.4
+    },
+    "B1": {
+      "correct": 0,
+      "total": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "B2": {
+      "correct": 2,
+      "total": 2,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1": 0.8
+    },
+    "C1": {
+      "correct": 2,
+      "total": 2,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1": 0.8
+    },
+    "C2": {
+      "correct": 1,
+      "total": 2,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6666666666666666
+    }
+  },
+  "confusion_matrix": {
+    "A1": {
+      "A1": 3
+    },
+    "A2": {
+      "A1": 2,
+      "A2": 1
+    },
+    "B1": {
+      "A2": 1,
+      "B2": 1
+    },
+    "B2": {
+      "B2": 2
+    },
+    "C1": {
+      "C1": 2
+    },
+    "C2": {
+      "C2": 1,
+      "C1": 1
+    }
+  },
+  "results": [
+    {
+      "text": "Eu quero água. Onde fica banheiro?",
+      "true_level": "A1",
+      "predicted_level": "A1",
+      "confidence": 0.98,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.98,
+        "explanation": "O texto é claramente de nível A1 (Iniciante). Consiste em duas frases extremamente curtas e simples, com estrutura SVO básica. Utiliza apenas o presente do indicativo ('quero', 'fica') e vocabulário essencial de sobrevivência (água, banheiro). Não há subordinação, conectores, voz passiva, subjuntivo ou qualquer elemento de complexidade sintática. O vocabulário é limitado às palavras mais frequentes da língua, relacionadas a necessidades básicas imediatas. A ausência completa de coesão entre as frases (são duas demandas justapostas sem conexão) é típica do nível A1.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 3.5,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Frases extremamente curtas (3-4 palavras cada) com estrutura SVO básica. Primeira frase: Sujeito (Eu) + Verbo (quero) + Objeto (água). Segunda frase: Advérbio interrogativo (Onde) + Verbo (fica) + Sujeito (banheiro). Apenas presente do indicativo. Zero subordinação ou complexidade sintática."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 4.7,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário extremamente básico e concreto: 'água' e 'banheiro' são palavras essenciais de sobrevivência, entre as primeiras 500 palavras mais frequentes do português. Palavras curtas (média de 4-5 letras). Ausência total de vocabulário abstrato, técnico ou expressões idiomáticas. Típico de necessidades comunicativas imediatas de um iniciante absoluto."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "poor",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Ausência total de conectores ou marcadores discursivos. As duas frases são completamente independentes e justapostas, sem qualquer elemento de coesão. Não há progressão temática ou relação lógica explícita entre as frases - são simplesmente duas perguntas/demandas básicas apresentadas sequencialmente. Típico de comunicação A1 fragmentada."
+        },
+        "key_indicators": [
+          "Frases extremamente curtas (3-4 palavras) com estrutura SVO básica",
+          "Vocabulário limitado a palavras essenciais de sobrevivência (água, banheiro) - primeiras 500 palavras mais frequentes",
+          "Uso exclusivo do presente do indicativo sem qualquer tempo verbal complexo",
+          "Ausência total de subordinação, conectores, voz passiva ou subjuntivo",
+          "Zero coesão textual - frases justapostas sem relação discursiva explícita"
+        ]
+      }
+    },
+    {
+      "text": "Ontem eu fui no mercado. Comprei pão e leite.",
+      "true_level": "A2",
+      "predicted_level": "A1",
+      "confidence": 0.95,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.95,
+        "explanation": "O texto apresenta características típicas do nível A1, não A2. Consiste em duas frases muito curtas e simples (5 e 4 palavras), usando apenas estrutura SVO básica. O vocabulário é extremamente básico (mercado, pão, leite - palavras do cotidiano mais elementar). Usa apenas pretérito perfeito simples, sem qualquer subordinação, conectores complexos ou elementos gramaticais avançados. A coesão é mínima - são frases justapostas sem conectores. Embora use pretérito perfeito (que pode aparecer em A2), a extrema simplicidade sintática, o vocabulário muito limitado e a ausência total de subordinação ou conectores além do 'e' são mais característicos de A1.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 4.5,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura extremamente simples com apenas SVO básico. Frases muito curtas (5 e 4 palavras). Apenas pretérito perfeito simples, sem qualquer complexidade sintática. Nenhuma subordinação presente."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 3.8,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário extremamente básico e concreto: palavras do cotidiano elementar (mercado, pão, leite). Palavras muito curtas. Alta repetição de pronome 'eu'. Vocabulário típico das primeiras 500-1000 palavras mais frequentes."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "poor",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Coesão muito limitada. Apenas o conector básico 'e' presente. Frases justapostas sem progressão discursiva elaborada. Ausência total de marcadores discursivos."
+        },
+        "key_indicators": [
+          "Frases muito curtas (média 4.5 palavras) - típico de A1",
+          "Vocabulário extremamente básico e concreto (mercado, pão, leite)",
+          "Ausência total de subordinação e conectores além de 'e'",
+          "Estrutura sintática mínima: apenas SVO simples",
+          "Coesão muito limitada com frases justapostas"
+        ]
+      }
+    },
+    {
+      "text": "Eu já visitei o Brasil duas vezes e gostei muito da cultura brasileira.",
+      "true_level": "B1",
+      "predicted_level": "A2",
+      "confidence": 0.85,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.85,
+        "explanation": "O texto apresenta características predominantemente de nível A2, não B1. Embora use o pretérito perfeito composto ('já visitei'), a estrutura é muito simples: duas orações coordenadas com 'e', sem subordinação real. O vocabulário é básico e cotidiano (visitar, gostar, cultura), e não há elementos que caracterizem B1, como subordinações variadas, vocabulário abstrato ou estruturas mais complexas. A frase é curta e direta, típica de A2.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 13,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura muito simples com duas orações coordenadas por 'e'. Usa pretérito perfeito composto ('já visitei') e pretérito perfeito simples ('gostei'), mas sem subordinação. A estrutura é SVO básica em ambas as orações, característica de A2."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 5.3,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário cotidiano e concreto: 'visitar', 'Brasil', 'gostar', 'cultura', 'brasileira'. Palavras curtas e de alta frequência. Não há vocabulário abstrato, técnico ou expressões idiomáticas. Típico do repertório A2 (1000-2000 palavras)."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "basic",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Usa apenas o conector 'e' para coordenação simples. Não há marcadores discursivos, conectores causais ou adversativos mais elaborados. Coesão básica através de coordenação simples, característica de A2."
+        },
+        "key_indicators": [
+          "Ausência total de subordinação (esperada em B1)",
+          "Vocabulário básico e concreto sem termos abstratos",
+          "Apenas coordenação simples com 'e' (conector A2)",
+          "Uso correto mas limitado de tempos verbais (pretérito perfeito)",
+          "Ausência de elementos B1: subjuntivo, voz passiva, orações relativas ou subordinadas"
+        ]
+      }
+    },
+    {
+      "text": "Embora eu tenha estudado português por três anos, ainda acho difícil entender quando as pessoas falam muito rápido.",
+      "true_level": "B2",
+      "predicted_level": "B2",
+      "confidence": 0.95,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "B2",
+        "confidence": 0.95,
+        "explanation": "O texto demonstra claramente características de nível B2. A presença de subjuntivo ('tenha estudado') em uma oração subordinada concessiva introduzida por 'embora' é um marcador forte deste nível. A estrutura sintática apresenta subordinação complexa com duas orações subordinadas (uma concessiva e uma temporal). O vocabulário é apropriado para temas abstratos (dificuldade de compreensão auditiva), e a coesão é bem estabelecida. Embora seja uma frase única, sua complexidade sintática e o uso correto do subjuntivo em contexto apropriado são indicadores definitivos de B2.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 19,
+          "has_subordination": true,
+          "subordination_level": "advanced",
+          "has_passive_voice": false,
+          "has_subjunctive": true,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura complexa com oração principal e duas subordinadas: concessiva ('Embora eu tenha estudado...') com subjuntivo composto e temporal ('quando as pessoas falam...'). O uso do pretérito perfeito composto do subjuntivo ('tenha estudado') demonstra domínio de tempos verbais complexos característico de B2."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "intermediate",
+          "avg_word_length": 5.4,
+          "vocabulary_diversity": "medium",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário adequado para expressar conceitos abstratos relacionados à aprendizagem de idiomas ('estudado', 'difícil', 'entender'). Palavras de comprimento médio, sem vocabulário técnico especializado, mas com capacidade de expressar dificuldades e processos cognitivos, típico de B2."
+        },
+        "discursive_analysis": {
+          "connectors_level": "advanced",
+          "cohesion_quality": "very_good",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Uso sofisticado do conector concessivo 'embora' para estabelecer contraste entre esforço (três anos de estudo) e resultado (dificuldade persistente). A conjunção temporal 'quando' adiciona uma camada de especificidade. A coesão é excelente apesar de ser uma única frase, com progressão lógica clara."
+        },
+        "key_indicators": [
+          "Uso correto do subjuntivo composto ('tenha estudado') em oração concessiva - marcador definitivo de B2",
+          "Subordinação complexa com múltiplas orações (concessiva + temporal) em estrutura coesa",
+          "Capacidade de expressar conceitos abstratos sobre aprendizagem e dificuldades cognitivas",
+          "Uso apropriado de conector concessivo sofisticado ('embora') para estabelecer contraste",
+          "Estrutura sintática de 19 palavras com encadeamento natural, dentro da faixa esperada para B2 (12-20 palavras)"
+        ]
+      }
+    },
+    {
+      "text": "Considerando que já li diversos autores brasileiros, acredito que Machado de Assis seja aquele cuja obra mais me impactou profundamente.",
+      "true_level": "C1",
+      "predicted_level": "C1",
+      "confidence": 0.95,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "C1",
+        "confidence": 0.95,
+        "explanation": "O texto demonstra claramente características de nível C1. Apresenta subordinação múltipla com três níveis de encadeamento (oração principal + subordinada adverbial gerundiva + subordinada substantiva + oração relativa), uso correto do subjuntivo ('seja'), vocabulário sofisticado e abstrato ('impactou profundamente', 'cuja obra'), e estrutura sintática complexa. A presença do pronome relativo 'cuja' é particularmente indicativa de nível avançado, assim como a naturalidade na construção de períodos longos e bem articulados.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 21,
+          "has_subordination": true,
+          "subordination_level": "advanced",
+          "has_passive_voice": false,
+          "has_subjunctive": true,
+          "has_relative_clauses": true,
+          "complexity_assessment": "Estrutura sintática avançada com subordinação em múltiplos níveis: gerúndio adverbial ('Considerando que'), subordinada substantiva ('acredito que'), subjuntivo ('seja'), e oração relativa com 'cuja'. O encadeamento é sofisticado e natural, típico de C1."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "advanced",
+          "avg_word_length": 7.4,
+          "vocabulary_diversity": "high",
+          "has_technical_vocabulary": true,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário sofisticado e abstrato: 'considerando', 'diversos', 'impactou profundamente'. Uso de termos literários ('autores', 'obra') e construções que demonstram nuance semântica. Palavras longas e precisas indicam domínio lexical avançado."
+        },
+        "discursive_analysis": {
+          "connectors_level": "advanced",
+          "cohesion_quality": "very_good",
+          "has_discourse_markers": true,
+          "complexity_assessment": "Uso de gerúndio como marcador discursivo de contextualização ('Considerando que'). A coesão é mantida através de referências complexas e subordinação natural. O texto flui de forma sofisticada, estabelecendo relações lógicas avançadas entre ideias."
+        },
+        "key_indicators": [
+          "Uso correto e natural do subjuntivo ('seja') em contexto de subordinação substantiva",
+          "Presença do pronome relativo 'cuja', típico de níveis C1/C2",
+          "Subordinação múltipla em três níveis com encadeamento sofisticado",
+          "Vocabulário abstrato e sofisticado ('impactou profundamente', 'diversos autores')",
+          "Comprimento de frase (21 palavras) e complexidade sintática compatíveis com C1"
+        ]
+      }
+    },
+    {
+      "text": "Depreende-se da sua colocação que a questão transcende mera análise superficial, entrelaçando-se em complexidades que merecem atenção meticulosa.",
+      "true_level": "C2",
+      "predicted_level": "C2",
+      "confidence": 0.95,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "C2",
+        "confidence": 0.95,
+        "explanation": "O texto demonstra características inequívocas do nível C2 através de vocabulário extremamente sofisticado ('depreende-se', 'transcende', 'entrelaçando-se', 'meticulosa'), estruturas sintáticas complexas com voz passiva pronominal e subordinação múltipla, além de um registro formal elevado típico de falantes nativos cultos. A construção apresenta encadeamento complexo de ideias abstratas com precisão lexical refinada.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 18,
+          "has_subordination": true,
+          "subordination_level": "very_advanced",
+          "has_passive_voice": true,
+          "has_subjunctive": true,
+          "has_relative_clauses": true,
+          "complexity_assessment": "Estrutura altamente sofisticada com voz passiva pronominal ('depreende-se'), subordinação múltipla ('que a questão transcende... entrelaçando-se em complexidades que merecem...'), gerúndio em função adverbial ('entrelaçando-se') e oração relativa ('que merecem'). O uso de 'se' como partícula apassivadora e o encadeamento de subordinadas demonstram domínio nativo."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "native",
+          "avg_word_length": 9.2,
+          "vocabulary_diversity": "very_high",
+          "has_technical_vocabulary": true,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário extremamente sofisticado e abstrato: 'depreende-se' (verbo formal/técnico), 'transcende' (abstrato), 'mera' (modificador refinado), 'entrelaçando-se' (metafórico), 'meticulosa' (adjetivo culto). Palavras longas predominam (média 9+ caracteres). Registro formal elevado típico de textos acadêmicos ou literários de alto nível."
+        },
+        "discursive_analysis": {
+          "connectors_level": "sophisticated",
+          "cohesion_quality": "excellent",
+          "has_discourse_markers": true,
+          "complexity_assessment": "Coesão perfeita através de estruturas nominais complexas ('da sua colocação', 'mera análise superficial') e encadeamento sofisticado de ideias abstratas. O uso de 'que' como conector subordinativo múltiplo e a progressão lógica impecável demonstram domínio nativo da língua em registro formal."
+        },
+        "key_indicators": [
+          "Voz passiva pronominal sofisticada ('depreende-se') - característica de C2",
+          "Vocabulário abstrato e técnico de altíssimo nível ('transcende', 'entrelaçando-se', 'meticulosa')",
+          "Subordinação múltipla com encadeamento complexo de orações",
+          "Média de comprimento de palavra superior a 9 caracteres",
+          "Registro formal elevado com precisão lexical refinada típica de falantes nativos cultos"
+        ]
+      }
+    },
+    {
+      "text": "Olá! Meu nome é João. Eu sou estudante.",
+      "true_level": "A1",
+      "predicted_level": "A1",
+      "confidence": 0.98,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.98,
+        "explanation": "O texto apresenta características típicas do nível A1: frases extremamente curtas (3-4 palavras cada), estrutura SVO básica, uso exclusivo do presente do indicativo, vocabulário fundamental (saudação, nome, profissão), ausência total de subordinação, conectores, subjuntivo, voz passiva ou orações relativas. É um exemplo clássico de apresentação pessoal de nível iniciante.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 3.67,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura sintática extremamente simples com três frases independentes curtas. Apenas padrão SVO básico (Sujeito-Verbo-Complemento). Uso exclusivo do presente do indicativo nos verbos 'é' e 'sou'. Nenhuma variação estrutural ou complexidade sintática presente."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 3.82,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário fundamental do nível A1: saudação básica ('Olá'), pronomes pessoais ('Meu', 'Eu'), verbo 'ser' conjugado, substantivos concretos e cotidianos ('nome', 'estudante'). Palavras muito curtas e de alta frequência. Nenhum termo abstrato, técnico ou idiomático."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "poor",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Ausência total de conectores ou marcadores discursivos. As três frases são completamente independentes e justapostas sem elementos de coesão. A progressão é meramente sequencial (saudação → nome → profissão) sem articulação discursiva."
+        },
+        "key_indicators": [
+          "Frases muito curtas (média de 3.67 palavras), característica definidora do A1",
+          "Uso exclusivo do presente do indicativo sem variação temporal",
+          "Vocabulário restrito às 500 palavras mais frequentes (saudação, identificação pessoal)",
+          "Ausência completa de subordinação, conectores e elementos de coesão",
+          "Estrutura SVO básica repetida sem variação sintática"
+        ]
+      }
+    },
+    {
+      "text": "Eu gosto de café. Você gosta também?",
+      "true_level": "A1",
+      "predicted_level": "A1",
+      "confidence": 0.98,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.98,
+        "explanation": "O texto é claramente de nível A1 (Iniciante). Apresenta frases extremamente curtas (4 palavras cada), estrutura SVO básica, vocabulário do cotidiano mais elementar (café, gostar), uso exclusivo do presente do indicativo, ausência total de subordinação, subjuntivo, voz passiva e orações relativas. É um exemplo típico de interação básica para iniciantes.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 4.0,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura sintática extremamente simples. Duas frases independentes com padrão SVO básico (Sujeito-Verbo-Objeto). Apenas presente do indicativo. Nenhum elemento de complexidade sintática presente."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 4.1,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário extremamente básico e concreto. Palavras muito curtas e de alta frequência: pronomes pessoais (eu, você), verbo comum (gostar), substantivo cotidiano (café), advérbio básico (também). Todas pertencem às primeiras 500 palavras mais frequentes do português."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "poor",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Coesão mínima. Duas frases justapostas sem conectores (apenas pontuação). A segunda frase relaciona-se à primeira por contexto implícito, mas sem marcadores discursivos. Típico de interação A1 pergunta-resposta."
+        },
+        "key_indicators": [
+          "Frases muito curtas (4 palavras cada), dentro do padrão A1 de 3-8 palavras",
+          "Vocabulário das 500 palavras mais frequentes (café, gostar, você, eu, também)",
+          "Apenas presente do indicativo, sem outros tempos verbais",
+          "Ausência total de subordinação, subjuntivo, voz passiva e orações relativas",
+          "Estrutura SVO básica sem qualquer complexidade sintática"
+        ]
+      }
+    },
+    {
+      "text": "Eu trabalho em um escritório. Meu trabalho é interessante.",
+      "true_level": "A2",
+      "predicted_level": "A1",
+      "confidence": 0.95,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.95,
+        "explanation": "O texto apresenta características típicas do nível A1, não A2. Consiste em duas frases extremamente curtas e simples (5 e 4 palavras), usando apenas estrutura SVO básica no presente do indicativo. Não há subordinação, conectores, ou qualquer elemento de complexidade sintática. O vocabulário é elementar (trabalho, escritório, interessante) e pertence às primeiras 1000 palavras mais frequentes. A ausência total de conectores entre as frases e a justaposição simples são características definidoras de A1.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 4.5,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura sintática extremamente simples. Duas frases independentes com padrão SVO básico (Sujeito-Verbo-Complemento). Apenas presente do indicativo ('trabalho', 'é'). Comprimento médio de 4.5 palavras por frase está abaixo até do limite inferior de A2 (5-10 palavras). Nenhum elemento de complexidade presente."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 6.2,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário extremamente básico e concreto: 'trabalho', 'escritório', 'interessante' são palavras de alta frequência. Total de 9 palavras com apenas 7 palavras únicas (alta repetição de 'trabalho' e 'meu'). Todas as palavras pertencem ao vocabulário essencial A1 relacionado a rotina básica e descrições simples."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "poor",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Ausência total de conectores ou marcadores discursivos. As duas frases estão simplesmente justapostas sem qualquer elemento de coesão explícita. A única conexão é temática (ambas sobre trabalho), mas não há recursos linguísticos de coesão. Isso é característico de A1, onde frases são apresentadas de forma isolada."
+        },
+        "key_indicators": [
+          "Frases muito curtas (4-5 palavras) abaixo do padrão A2",
+          "Ausência total de subordinação e conectores",
+          "Apenas presente do indicativo, sem variação de tempos verbais",
+          "Vocabulário concreto e de altíssima frequência (escritório, trabalho, interessante)",
+          "Estrutura SVO básica repetida sem variação sintática"
+        ]
+      }
+    },
+    {
+      "text": "No fim de semana, eu gosto de ir ao cinema com meus amigos.",
+      "true_level": "A2",
+      "predicted_level": "A2",
+      "confidence": 0.95,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.95,
+        "explanation": "O texto apresenta características típicas do nível A2. A estrutura sintática é simples (SVO básico) com uma única frase de comprimento moderado (12 palavras). O vocabulário utilizado é elementar e cotidiano (fim de semana, cinema, amigos), pertencente ao repertório de 1000-2000 palavras do nível A2. Há uso correto do presente do indicativo ('gosto') e uma construção infinitiva simples ('ir ao cinema'). Não há subordinação complexa, voz passiva, subjuntivo ou orações relativas. O tema aborda rotina de lazer, típico de contextos A2. A ausência de conectores discursivos e a simplicidade estrutural confirmam que o texto está adequado para A2, não atingindo B1 por falta de subordinações ou complexidade sintática maior.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 12,
+          "has_subordination": false,
+          "subordination_level": "absent",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura simples SVO com verbo principal 'gostar de' + infinitivo. Frase única sem subordinação. Uso de presente do indicativo e construção infinitiva básica. Complementos preposicionais simples ('ao cinema', 'com meus amigos'). Complexidade compatível com A2."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "basic",
+          "avg_word_length": 4.5,
+          "vocabulary_diversity": "low",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário elementar e concreto relacionado a atividades de lazer cotidiano. Palavras curtas e de alta frequência: 'fim de semana', 'gostar', 'ir', 'cinema', 'amigos'. Ausência de termos abstratos, técnicos ou idiomáticos. Vocabulário típico do repertório A2 para contextos de rotina e lazer."
+        },
+        "discursive_analysis": {
+          "connectors_level": "basic",
+          "cohesion_quality": "basic",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Texto de frase única sem necessidade de conectores complexos. Ausência de marcadores discursivos. Coesão básica garantida pela estrutura simples da frase. Não há progressão textual por ser uma única sentença declarativa sobre preferência pessoal."
+        },
+        "key_indicators": [
+          "Frase única de 12 palavras com estrutura SVO simples, típica de A2",
+          "Vocabulário concreto e cotidiano (lazer, rotina) do repertório elementar A2",
+          "Ausência total de subordinação, voz passiva, subjuntivo ou orações relativas",
+          "Uso correto mas limitado ao presente do indicativo + infinitivo",
+          "Tema de rotina pessoal e lazer, característico de contextos comunicativos A2"
+        ]
+      }
+    },
+    {
+      "text": "Se eu tivesse mais tempo, viajaria para a Europa no próximo verão.",
+      "true_level": "B1",
+      "predicted_level": "B2",
+      "confidence": 0.95,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "B2",
+        "confidence": 0.95,
+        "explanation": "O texto apresenta características que excedem o nível B1 e se alinham melhor com B2. A presença do subjuntivo imperfeito ('tivesse') combinado com o futuro do pretérito ('viajaria') em uma estrutura condicional complexa (tipo 2 - condição irreal no presente) é um marcador claro de B2. Embora seja uma frase única, a estrutura sintática demonstra domínio de tempos verbais compostos e subordinação condicional que são típicos de B2, não de B1, onde o subjuntivo é 'muito raro' e o condicional é apenas 'simples'.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 13,
+          "has_subordination": true,
+          "subordination_level": "moderate",
+          "has_passive_voice": false,
+          "has_subjunctive": true,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura condicional complexa (tipo 2) com subordinação adverbial condicional. Uso correto do subjuntivo imperfeito ('tivesse') em correlação com futuro do pretérito ('viajaria'), demonstrando domínio de estruturas hipotéticas irreais que são características de B2."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "intermediate",
+          "avg_word_length": 5.5,
+          "vocabulary_diversity": "medium",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário cotidiano e acessível ('tempo', 'viajaria', 'Europa', 'verão'), mas apropriado para o contexto. Não há vocabulário técnico ou abstrato, mas a complexidade reside na estrutura gramatical, não no léxico."
+        },
+        "discursive_analysis": {
+          "connectors_level": "intermediate",
+          "cohesion_quality": "good",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Frase única com subordinação condicional introduzida por 'se'. Não há conectores adicionais ou marcadores discursivos, mas a coesão interna da estrutura condicional é apropriada e bem construída."
+        },
+        "key_indicators": [
+          "Uso correto do subjuntivo imperfeito ('tivesse') - indicador claro de B2, pois em B1 o subjuntivo é 'muito raro'",
+          "Estrutura condicional tipo 2 (irreal no presente) com correlação correta subjuntivo + futuro do pretérito",
+          "Comprimento de frase (13 palavras) dentro da faixa de B2 (12-20 palavras)",
+          "Subordinação condicional bem construída, demonstrando domínio de estruturas complexas",
+          "Ausência de erros gramaticais na construção de uma estrutura que requer conhecimento avançado de modos e tempos verbais"
+        ]
+      }
+    },
+    {
+      "text": "Apesar das dificuldades que enfrentei, consegui aprender português com sucesso.",
+      "true_level": "B2",
+      "predicted_level": "B2",
+      "confidence": 0.9,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "B2",
+        "confidence": 0.9,
+        "explanation": "O texto demonstra características claras do nível B2. A presença de subordinação complexa com 'Apesar de' (concessiva) seguida de oração relativa 'que enfrentei' indica domínio de estruturas sintáticas variadas. O vocabulário inclui termos abstratos ('dificuldades', 'sucesso') e o verbo 'conseguir' usado apropriadamente. A frase tem 12 palavras, dentro da faixa esperada para B2 (12-20). Não há elementos suficientemente sofisticados para C1 (como subordinações múltiplas ou vocabulário altamente técnico), mas supera claramente B1 pela complexidade da estrutura concessiva e pelo uso natural de subordinação.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 12,
+          "has_subordination": true,
+          "subordination_level": "moderate",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": true,
+          "complexity_assessment": "Estrutura complexa com oração concessiva ('Apesar das dificuldades') + oração relativa ('que enfrentei'). A subordinação é natural e bem construída, típica de B2. Ausência de voz passiva e subjuntivo não desqualifica o nível, pois a estrutura concessiva já demonstra competência intermediária superior."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "intermediate",
+          "avg_word_length": 7.5,
+          "vocabulary_diversity": "medium",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário apropriado para B2 com palavras de comprimento médio-longo ('dificuldades': 12 letras, 'enfrentei': 9 letras, 'português': 9 letras). Uso de conceitos abstratos ('dificuldades', 'sucesso') e verbo 'conseguir' demonstrando capacidade de expressar realização. Não há vocabulário técnico especializado, mas o nível de abstração é adequado para B2."
+        },
+        "discursive_analysis": {
+          "connectors_level": "intermediate",
+          "cohesion_quality": "good",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Uso de conector concessivo 'Apesar de' que demonstra capacidade de expressar contraste e superação de obstáculos. A coesão é boa, com progressão lógica clara (dificuldade → superação → resultado positivo). Ausência de marcadores discursivos é aceitável em frase única."
+        },
+        "key_indicators": [
+          "Uso de estrutura concessiva complexa 'Apesar de' + substantivo + oração relativa",
+          "Oração relativa 'que enfrentei' integrada naturalmente à estrutura",
+          "Vocabulário abstrato apropriado ('dificuldades', 'sucesso')",
+          "Comprimento de frase (12 palavras) e palavras (média 7.5 letras) dentro da faixa B2",
+          "Capacidade de expressar ideias complexas (contraste, superação) em estrutura coesa"
+        ]
+      }
+    },
+    {
+      "text": "Não obstante as adversidades encontradas ao longo do processo, logrei alcançar os objetivos propostos.",
+      "true_level": "C1",
+      "predicted_level": "C1",
+      "confidence": 0.95,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "C1",
+        "confidence": 0.95,
+        "explanation": "O texto apresenta características claramente avançadas (C1): vocabulário sofisticado e formal ('não obstante', 'adversidades', 'logrei'), estrutura sintática complexa com subordinação adverbial concessiva, e registro linguístico elevado. A escolha lexical demonstra domínio de sinônimos cultos ('logrei' em vez de 'consegui') e a capacidade de expressar ideias complexas de forma concisa e elegante, típica do nível C1.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 14,
+          "has_subordination": true,
+          "subordination_level": "advanced",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": false,
+          "complexity_assessment": "Estrutura complexa com oração subordinada adverbial concessiva ('Não obstante as adversidades encontradas ao longo do processo') seguida de oração principal. O uso de particípio ('encontradas') adiciona complexidade. A construção é sofisticada e típica de registro formal avançado."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "advanced",
+          "avg_word_length": 8.2,
+          "vocabulary_diversity": "high",
+          "has_technical_vocabulary": false,
+          "has_idiomatic_expressions": true,
+          "complexity_assessment": "Vocabulário altamente sofisticado: 'não obstante' (conector formal raro), 'adversidades' (substantivo abstrato culto), 'logrei' (verbo arcaizante/formal), 'alcançar' (preferência por verbo mais formal que 'conseguir'). Palavras longas e de registro elevado predominam. A escolha lexical demonstra domínio de sinônimos cultos e registro formal."
+        },
+        "discursive_analysis": {
+          "connectors_level": "sophisticated",
+          "cohesion_quality": "excellent",
+          "has_discourse_markers": true,
+          "complexity_assessment": "Uso de conector concessivo sofisticado 'não obstante' (equivalente culto de 'apesar de'), típico de C1/C2. A coesão é perfeita, com progressão lógica clara entre adversidade e superação. O registro é consistentemente formal e elevado."
+        },
+        "key_indicators": [
+          "Uso do conector concessivo sofisticado 'não obstante' (típico de C1/C2)",
+          "Vocabulário culto e formal: 'adversidades', 'logrei' (verbo arcaizante/literário)",
+          "Estrutura sintática complexa com subordinação adverbial e particípio adjetivo",
+          "Registro linguístico consistentemente elevado e formal",
+          "Capacidade de expressar ideias complexas de forma concisa e elegante"
+        ]
+      }
+    },
+    {
+      "text": "A complexidade inerente ao tema em questão demanda uma abordagem multidisciplinar que contemple as nuances culturais e históricas envolvidas.",
+      "true_level": "C2",
+      "predicted_level": "C1",
+      "confidence": 0.85,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "C1",
+        "confidence": 0.85,
+        "explanation": "O texto apresenta características predominantemente de nível C1, com vocabulário sofisticado e abstrato, estrutura sintática complexa com subordinação múltipla, e uso de linguagem formal acadêmica. Embora tenha elementos de C2 (vocabulário muito avançado como 'inerente', 'multidisciplinar', 'nuances'), a estrutura sintática, apesar de complexa, não atinge o nível de encadeamento muito avançado típico de C2. A frase única (25 palavras) está no limite superior de C1 e inferior de C2. A ausência de subjuntivo, voz passiva e múltiplos níveis de subordinação impede a classificação como C2 pleno.",
+        "syntactic_analysis": {
+          "avg_words_per_sentence": 25,
+          "has_subordination": true,
+          "subordination_level": "advanced",
+          "has_passive_voice": false,
+          "has_subjunctive": false,
+          "has_relative_clauses": true,
+          "complexity_assessment": "Estrutura complexa com oração relativa ('que contemple') e subordinação adjetiva. Presença de subjuntivo presente ('contemple') em oração subordinada adjetiva restritiva. Comprimento de 25 palavras indica complexidade avançada, mas não há encadeamento de múltiplos níveis de subordinação característico de C2."
+        },
+        "lexical_analysis": {
+          "vocabulary_level": "advanced",
+          "avg_word_length": 8.2,
+          "vocabulary_diversity": "very_high",
+          "has_technical_vocabulary": true,
+          "has_idiomatic_expressions": false,
+          "complexity_assessment": "Vocabulário altamente sofisticado e abstrato: 'complexidade inerente', 'abordagem multidisciplinar', 'contemple', 'nuances culturais e históricas'. Palavras longas e técnicas predominam. Média de 8.2 caracteres por palavra indica nível avançado/nativo. Ausência de repetições em texto curto."
+        },
+        "discursive_analysis": {
+          "connectors_level": "advanced",
+          "cohesion_quality": "very_good",
+          "has_discourse_markers": false,
+          "complexity_assessment": "Coesão interna forte através de relações sintáticas complexas. Ausência de conectores explícitos devido ao texto ser uma única frase, mas a estrutura subordinada garante coesão. Linguagem formal e acadêmica apropriada para contextos especializados."
+        },
+        "key_indicators": [
+          "Vocabulário abstrato e técnico de alto nível: 'inerente', 'multidisciplinar', 'nuances'",
+          "Uso correto de subjuntivo presente ('contemple') em contexto formal",
+          "Estrutura sintática complexa com subordinação adjetiva e oração relativa",
+          "Comprimento de frase de 25 palavras com média de 8.2 caracteres por palavra",
+          "Registro formal acadêmico com precisão terminológica"
+        ]
+      }
+    }
+  ],
+  "classifier": "llm_only"
+}

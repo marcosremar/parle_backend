@@ -1,0 +1,19 @@
+# FastAPI
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# PyTorch (will use system installation)
+# torch - installed via conda/pip separately
+torchaudio==2.1.0
+
+# Transformers for Wav2Vec 2.0
+transformers==4.35.2
+soundfile==0.12.1
+librosa==0.10.1
+
+# Utilities
+loguru==0.7.2
+aiohttp==3.9.1
+

@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Main Monolith API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parle_backend_api
+    ports:
+      - "8000:8000"
+    environment:
+      - MONOLITH_MODE=true
+      - PORT=8000
+      - DB_URL=postgresql://parle:parle@postgres:5432/parle
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - parle_network
+
+  # WebSocket Service (separate process for real-time communication)
+  websocket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parle_backend_websocket
+    command: python src/services/websocket/app_complete.py
+    ports:
+      - "8022:8022"
+    environment:
+      - MONOLITH_MODE=true
+      - API_URL=http://api:8000
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - api
+      - redis
+    restart: unless-stopped
+    networks:
+      - parle_network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: parle_postgres
+    environment:
+      - POSTGRES_USER=parle
+      - POSTGRES_PASSWORD=parle
+      - POSTGRES_DB=parle
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - parle_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: parle_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - parle_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  parle_network:
+    driver: bridge

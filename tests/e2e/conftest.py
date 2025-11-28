@@ -33,5 +33,9 @@ def services_config():
         "file_storage_url": os.getenv("FILE_STORAGE_SERVICE_URL", "http://localhost:8300"),
         "rest_polling_url": os.getenv("REST_POLLING_SERVICE_URL", "http://localhost:8701"),
         "api_gateway_url": os.getenv("API_GATEWAY_URL", "http://localhost:8000"),
+        "student_model_url": os.getenv("STUDENT_MODEL_URL", "http://localhost:8900"),
+        "pedagogical_policy_url": os.getenv("PEDAGOGICAL_POLICY_URL", "http://localhost:8950"),
+        "diagnostic_module_url": os.getenv("DIAGNOSTIC_MODULE_URL", "http://localhost:8960"),
+        "learning_path_url": os.getenv("LEARNING_PATH_URL", "http://localhost:8970"),
     }
 

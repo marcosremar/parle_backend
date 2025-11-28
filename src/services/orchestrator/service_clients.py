@@ -8,7 +8,9 @@ import aiohttp
 import base64
 import logging
 import os
-from typing import Dict, Any, Optional, List
+import asyncio
+import random
+from typing import Dict, Any, Optional, List, Callable
 import sys
 from pathlib import Path
 
@@ -18,6 +20,14 @@ sys.path.insert(0, str(project_root))
 
 # Priority enum for service calls (simplified - no communication manager needed)
 from enum import Enum
+
+# Import exception utilities for retry logic
+try:
+    from src.services.orchestrator.utils.exceptions import is_retryable
+except ImportError:
+    # Fallback if not available
+    def is_retryable(error: Exception) -> bool:
+        return isinstance(error, (ConnectionError, TimeoutError, aiohttp.ClientError))
 
 class Priority(str, Enum):
     """Request priority levels"""
@@ -34,13 +44,82 @@ class ServiceClientError(Exception):
 
 
 class BaseServiceClient:
-    """Base HTTP client with common functionality using direct HTTP calls"""
+    """Base HTTP client with common functionality using direct HTTP calls or direct module calls"""
 
-    def __init__(self, service_name: str, base_url: Optional[str] = None, is_module_service: bool = False):
+    def __init__(self, service_name: str, base_url: Optional[str] = None, is_module_service: bool = False,
+                 max_retries: int = None, base_backoff: float = None, timeout: float = None,
+                 use_circuit_breaker: bool = True):
         self.service_name = service_name
         self.base_url = base_url or self._get_service_url(service_name)
         self.session: Optional[aiohttp.ClientSession] = None
         self.is_module_service = is_module_service  # True if service runs in-process (MODULE)
+        
+        # Check if running in monolith mode
+        self.monolith_mode = os.getenv("MONOLITH_MODE", "false").lower() == "true"
+        self.direct_module = None
+        
+        # In monolith mode, try to get direct module
+        if self.monolith_mode:
+            try:
+                from src.modules import create
+                self.direct_module = create(service_name)
+                logger.debug(f"✅ {service_name} client using direct module (monolith mode)")
+            except Exception as e:
+                logger.warning(f"⚠️  Could not create direct module for {service_name}: {e}, falling back to HTTP")
+                self.monolith_mode = False
+        
+        # Retry configuration
+        self.max_retries = max_retries or int(os.getenv(f"{service_name.upper()}_MAX_RETRIES", "3"))
+        self.base_backoff = base_backoff or float(os.getenv(f"{service_name.upper()}_BASE_BACKOFF", "1.0"))
+        
+        # Timeout configuration
+        if timeout is not None:
+            self.default_timeout = timeout
+        else:
+            # Try to get from settings
+            try:
+                from config.settings import get_settings
+                settings = get_settings()
+                timeout_map = {
+                    "stt": settings.timeouts.stt,
+                    "llm": settings.timeouts.llm,
+                    "tts": settings.timeouts.tts,
+                    "session": settings.timeouts.session,
+                    "conversation_store": settings.timeouts.conversation_store,
+                    "scenarios": settings.timeouts.scenarios,
+                    "file_storage": settings.timeouts.file_storage,
+                    "database": settings.timeouts.database,
+                    "websocket": settings.timeouts.websocket,
+                    "webrtc": settings.timeouts.webrtc,
+                }
+                self.default_timeout = timeout_map.get(service_name, settings.timeouts.default)
+            except Exception:
+                # Fallback to environment variable or default
+                env_timeout = os.getenv(f"{service_name.upper()}_TIMEOUT")
+                self.default_timeout = float(env_timeout) if env_timeout else 30.0
+        
+        # Circuit breaker configuration
+        self.use_circuit_breaker = use_circuit_breaker
+        self.circuit_breaker = None
+        if self.use_circuit_breaker:
+            try:
+                from src.core.circuit_breaker import get_circuit_breaker, CircuitBreakerConfig
+                # Get config from settings if available
+                try:
+                    from config.settings import get_settings
+                    settings = get_settings()
+                    cb_config = CircuitBreakerConfig(
+                        failure_threshold=3,
+                        recovery_timeout=settings.pipeline_failover.recovery_timeout,
+                        timeout=int(self.default_timeout)
+                    )
+                except Exception:
+                    cb_config = CircuitBreakerConfig(timeout=int(self.default_timeout))
+                
+                self.circuit_breaker = get_circuit_breaker(service_name, cb_config)
+            except ImportError:
+                logger.warning(f"Circuit breaker not available for {service_name}")
+                self.use_circuit_breaker = False
 
     def _get_service_url(self, service_name: str) -> str:
         """Get service URL from environment or default ports (with Nomad service discovery support)"""
@@ -60,38 +139,125 @@ class BaseServiceClient:
     async def initialize(self, session: aiohttp.ClientSession):
         """Initialize with shared aiohttp session"""
         self.session = session
-        logger.info(f"✅ {self.service_name} client initialized with HTTP")
+        logger.info(f"✅ {self.service_name} client initialized with HTTP (max_retries={self.max_retries})")
 
-    async def _get(self, path: str, timeout: float = 5.0) -> Dict[str, Any]:
-        """Generic GET request using direct HTTP"""
+    async def _retry_with_backoff(
+        self,
+        operation: Callable,
+        operation_name: str,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Execute operation with exponential backoff retry logic and circuit breaker
+        
+        Args:
+            operation: Async function to execute
+            operation_name: Name of operation for logging
+            *args, **kwargs: Arguments to pass to operation
+            
+        Returns:
+            Result of operation
+            
+        Raises:
+            ServiceClientError: If all retries fail
+        """
+        # Wrap operation with circuit breaker if enabled
+        if self.use_circuit_breaker and self.circuit_breaker:
+            async def circuit_breaker_wrapper():
+                return await self.circuit_breaker.call(operation, *args, **kwargs)
+            operation = circuit_breaker_wrapper
+        
+        last_error = None
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                return await operation(*args, **kwargs)
+            except Exception as e:
+                last_error = e
+            
+            # Wrap exception using hierarchy if available
+            try:
+                from src.services.orchestrator.utils.exceptions import wrap_exception, ServiceUnavailableError, ServiceTimeoutError
+                wrapped_error = wrap_exception(e, service_name=self.service_name, operation=operation_name)
+                
+                # Check if error is retryable
+                if not is_retryable(wrapped_error):
+                    logger.debug(f"{self.service_name} {operation_name} failed with non-retryable error: {e}")
+                    raise wrapped_error
+            except ImportError:
+                # Fallback if exception utilities not available
+                if not is_retryable(e):
+                    logger.debug(f"{self.service_name} {operation_name} failed with non-retryable error: {e}")
+                    raise ServiceClientError(f"{self.service_name} {operation_name} failed: {e}") from e
+                
+                # Don't retry on last attempt
+                if attempt >= self.max_retries:
+                    break
+                
+                # Calculate backoff with exponential growth and jitter
+                backoff = self.base_backoff * (2 ** attempt)
+                jitter = random.uniform(0, backoff * 0.1)  # 10% jitter
+                wait_time = backoff + jitter
+                
+                logger.warning(
+                    f"⚠️ {self.service_name} {operation_name} failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}. "
+                    f"Retrying in {wait_time:.2f}s..."
+                )
+                
+                await asyncio.sleep(wait_time)
+        
+        # All retries exhausted - wrap final error
+        logger.error(f"❌ {self.service_name} {operation_name} failed after {self.max_retries + 1} attempts: {last_error}")
+        try:
+            from src.services.orchestrator.utils.exceptions import wrap_exception, ServiceUnavailableError
+            wrapped_error = wrap_exception(last_error, service_name=self.service_name, operation=operation_name)
+            raise wrapped_error
+        except ImportError:
+            raise ServiceClientError(f"{self.service_name} {operation_name} failed after {self.max_retries + 1} attempts: {last_error}") from last_error
+
+    async def _get(self, path: str, timeout: Optional[float] = None) -> Dict[str, Any]:
+        """Generic GET request using direct HTTP with retry logic"""
         if not self.session:
             raise ServiceClientError(f"{self.service_name}: Session not initialized")
 
         url = f"{self.base_url}{path}"
-        try:
-            async with self.session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+        timeout_value = timeout if timeout is not None else self.default_timeout
+        
+        async def _do_get():
+            async with self.session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_value)) as resp:
                 if resp.status == 200:
                     return await resp.json()
                 else:
                     error_text = await resp.text()
+                    # HTTP errors are not retryable (except 5xx)
+                    if resp.status >= 500:
+                        raise aiohttp.ClientResponseError(
+                            request_info=resp.request_info,
+                            history=resp.history,
+                            status=resp.status,
+                            message=error_text
+                        )
                     raise ServiceClientError(f"{self.service_name} GET {path} failed ({resp.status}): {error_text}")
-        except aiohttp.ClientError as e:
-            raise ServiceClientError(f"{self.service_name} GET {path} error: {e}")
+        
+        return await self._retry_with_backoff(_do_get, f"GET {path}")
 
     async def _post(self, path: str, data: Any = None, json_data: Dict = None,
-                   headers: Dict = None, timeout: float = 30.0) -> Any:
-        """Generic POST request using direct HTTP"""
+                   headers: Dict = None, timeout: Optional[float] = None) -> Any:
+        """Generic POST request using direct HTTP with retry logic"""
         if not self.session:
             raise ServiceClientError(f"{self.service_name}: Session not initialized")
 
         url = f"{self.base_url}{path}"
-        try:
+        timeout_value = timeout if timeout is not None else self.default_timeout
+        
+        async def _do_post():
             async with self.session.post(
                 url,
                 data=data,
                 json=json_data,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=timeout)
+                timeout=aiohttp.ClientTimeout(total=timeout_value)
             ) as resp:
                 if resp.status == 200:
                     # Try JSON first, fallback to bytes
@@ -101,35 +267,62 @@ class BaseServiceClient:
                         return await resp.read()
                 else:
                     error_text = await resp.text()
+                    # HTTP errors are not retryable (except 5xx)
+                    if resp.status >= 500:
+                        raise aiohttp.ClientResponseError(
+                            request_info=resp.request_info,
+                            history=resp.history,
+                            status=resp.status,
+                            message=error_text
+                        )
                     raise ServiceClientError(f"{self.service_name} POST {path} failed ({resp.status}): {error_text}")
-        except aiohttp.ClientError as e:
-            raise ServiceClientError(f"{self.service_name} POST {path} error: {e}")
+        
+        return await self._retry_with_backoff(_do_post, f"POST {path}")
 
-    async def _put(self, path: str, json_data: Dict, timeout: float = 5.0) -> Dict[str, Any]:
-        """Generic PUT request"""
+    async def _put(self, path: str, json_data: Dict, timeout: Optional[float] = None) -> Dict[str, Any]:
+        """Generic PUT request with retry logic"""
         if not self.session:
             raise ServiceClientError(f"{self.service_name}: Session not initialized")
 
         url = f"{self.base_url}{path}"
-        try:
+        timeout_value = timeout if timeout is not None else self.default_timeout
+        
+        async def _do_put():
             async with self.session.put(url, json=json_data,
-                                       timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                                       timeout=aiohttp.ClientTimeout(total=timeout_value)) as resp:
                 if resp.status == 200:
                     return await resp.json()
                 else:
                     error_text = await resp.text()
+                    # HTTP errors are not retryable (except 5xx)
+                    if resp.status >= 500:
+                        raise aiohttp.ClientResponseError(
+                            request_info=resp.request_info,
+                            history=resp.history,
+                            status=resp.status,
+                            message=error_text
+                        )
                     raise ServiceClientError(
                         f"{self.service_name} PUT {path} failed ({resp.status}): {error_text}"
                     )
-        except aiohttp.ClientError as e:
-            raise ServiceClientError(f"{self.service_name} PUT {path} error: {e}")
+        
+        return await self._retry_with_backoff(_do_put, f"PUT {path}")
 
     async def health_check(self) -> bool:
         """
         Check if service is healthy via HTTP GET /health check.
+        Uses short timeout for health checks.
         """
         try:
-            result = await self._get("/health", timeout=2.0)
+            # Use short timeout for health checks
+            try:
+                from config.settings import get_settings
+                settings = get_settings()
+                health_timeout = settings.timeouts.health_check
+            except Exception:
+                health_timeout = 2.0
+            
+            result = await self._get("/health", timeout=health_timeout)
             return result.get("status") in ["healthy", "ok", "running"]
         except Exception as e:
             logger.debug(f"HTTP health check failed for {self.service_name}: {e}")
@@ -1035,6 +1228,206 @@ class ViberGatewayClient(BaseServiceClient):
             return {}
 
 
+class StudentModelClient(BaseServiceClient):
+    """Student Model service client"""
+
+    def __init__(self):
+        super().__init__("student_model", is_module_service=True)
+
+    async def assess(self, user_id: str, skill_id: str, correct: bool,
+                    context: Optional[Dict[str, Any]] = None,
+                    user_text: Optional[str] = None,
+                    ai_text: Optional[str] = None,
+                    difficulty: Optional[float] = None,
+                    linguistic_features: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Assess student response and update knowledge with IRT difficulty and linguistic features"""
+        try:
+            json_data = {
+                "skill_id": skill_id,
+                "correct": correct,
+                "context": context,
+                "user_text": user_text,
+                "ai_text": ai_text
+            }
+            if difficulty is not None:
+                json_data["difficulty"] = difficulty
+            if linguistic_features:
+                json_data["linguistic_features"] = linguistic_features
+            
+            result = await self._post(
+                f"/api/student/{user_id}/assess",
+                json_data=json_data
+            )
+            return result
+        except ServiceClientError as e:
+            logger.warning(f"⚠️ Failed to assess student response: {e}")
+            return {}
+
+    async def get_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get student profile"""
+        try:
+            return await self._get(f"/api/student/{user_id}/profile")
+        except ServiceClientError:
+            logger.warning(f"⚠️ Student profile not found for {user_id}")
+            return None
+
+    async def get_focus_areas(self, user_id: str, limit: int = 3) -> List[Dict[str, Any]]:
+        """Get focus areas for student"""
+        try:
+            result = await self._get(f"/api/student/{user_id}/focus_areas?limit={limit}")
+            return result.get("focus_areas", [])
+        except ServiceClientError:
+            return []
+
+    async def get_cefr_progress(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get detailed CEFR progress for student"""
+        try:
+            return await self._get(f"/api/student/{user_id}/cefr_progress")
+        except ServiceClientError:
+            logger.warning(f"⚠️ CEFR progress not found for {user_id}")
+            return None
+    
+    async def get_interpretable_knowledge_state(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get interpretable knowledge state with recommendations"""
+        try:
+            return await self._get(f"/api/student/{user_id}/interpretable_knowledge_state")
+        except ServiceClientError:
+            logger.warning(f"⚠️ Interpretable knowledge state not found for {user_id}")
+            return None
+    
+    async def get_linguistic_error_patterns(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get analysis of error patterns by linguistic features"""
+        try:
+            return await self._get(f"/api/student/{user_id}/linguistic_error_patterns")
+        except ServiceClientError:
+            logger.warning(f"⚠️ Linguistic error patterns not found for {user_id}")
+            return None
+
+
+
+class PedagogicalPolicyClient(BaseServiceClient):
+    """Pedagogical Policy service client"""
+
+    def __init__(self):
+        super().__init__("pedagogical_policy", is_module_service=True)
+
+    async def compose_prompt(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Compose pedagogical prompt"""
+        try:
+            result = await self._post(
+                "/api/prompt/compose",
+                json_data={"context": context}
+            )
+            return result
+        except ServiceClientError as e:
+            logger.warning(f"⚠️ Failed to compose prompt: {e}")
+            return {"prompt": "", "strategy": "teach", "scaffolding_type": "explicit"}
+
+
+class DiagnosticModuleClient(BaseServiceClient):
+    """Speech Grader service client"""
+
+    def __init__(self):
+        super().__init__("speech_grader", is_module_service=True)
+
+    async def analyze_turn(self, user_text: str, ai_text: Optional[str] = None,
+                          language: str = "pt-BR", valid_skills: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Analyze a conversation turn with SINKT semantic tagging"""
+        try:
+            json_data = {
+                "user_text": user_text,
+                "ai_text": ai_text,
+                "language": language
+            }
+            if valid_skills:
+                json_data["valid_skills"] = valid_skills
+            
+            result = await self._post(
+                "/api/diagnostic/analyze_turn",
+                json_data=json_data
+            )
+            return result
+        except ServiceClientError as e:
+            logger.warning(f"⚠️ Failed to analyze turn: {e}")
+            return {"errors": [], "correct_skills": [], "linguistic_features": {}, "semantic_skill_mapping": {}, "summary": "Analysis failed"}
+
+    async def estimate_level(self, text: str, language: str = "pt-BR") -> Dict[str, Any]:
+        """Estimate CEFR level"""
+        try:
+            result = await self._post(
+                "/api/diagnostic/estimate_level",
+                json_data={"text": text, "language": language}
+            )
+            return result
+        except ServiceClientError:
+            return {"cefr_level": "A1", "confidence": 0.5}
+
+    async def extract_skills(
+        self,
+        user_text: str,
+        valid_skills: List[str],
+        ai_text: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Extract skills from user text using dedicated LLM call
+        
+        Args:
+            user_text: Texto do usuário
+            valid_skills: Lista obrigatória de skill_ids válidas
+            ai_text: Resposta do AI (opcional, para contexto)
+            
+        Returns:
+            Dicionário com:
+            - skills: Lista de dicts com skill_id, confidence, linguistic_features
+            - overall_linguistic_features: Features gerais do texto
+            - summary: Resumo da extração
+        """
+        try:
+            json_data = {
+                "user_text": user_text,
+                "valid_skills": valid_skills
+            }
+            if ai_text:
+                json_data["ai_text"] = ai_text
+            
+            result = await self._post(
+                "/api/diagnostic/extract_skills",
+                json_data=json_data
+            )
+            return result
+        except ServiceClientError as e:
+            logger.warning(f"⚠️ Failed to extract skills: {e}")
+            return {
+                "skills": [],
+                "overall_linguistic_features": {},
+                "summary": "Skill extraction failed"
+            }
+
+
+class LearningPathClient(BaseServiceClient):
+    """Learning Path Navigator service client"""
+
+    def __init__(self):
+        super().__init__("learning_path", is_module_service=True)
+
+    async def get_next_skill(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get next recommended skill"""
+        try:
+            result = await self._get(f"/api/path/{user_id}/next")
+            return result
+        except ServiceClientError:
+            logger.warning(f"⚠️ Failed to get next skill for {user_id}")
+            return None
+
+    async def get_review_skills(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get skills for review"""
+        try:
+            result = await self._get(f"/api/path/{user_id}/review?limit={limit}")
+            return result.get("review_skills", [])
+        except ServiceClientError:
+            return []
+
+
 class APIGatewayClient(BaseServiceClient):
     """API Gateway client (for reverse communication)"""
 
@@ -1132,7 +1525,13 @@ def create_service_clients(config: Optional[Dict[str, str]] = None) -> Dict[str,
 
         # Gateway Services
         "api_gateway": APIGatewayClient(),  # HTTP service - API Gateway (reverse communication)
-        "viber_gateway": ViberGatewayClient()  # HTTP service - Viber integration
+        "viber_gateway": ViberGatewayClient(),  # HTTP service - Viber integration
+
+        # Intelligent Tutoring System Services
+        "student_model": StudentModelClient(),  # MODULE service - Student knowledge tracking
+        "pedagogical_policy": PedagogicalPolicyClient(),  # MODULE service - Pedagogical decisions
+        "speech_grader": DiagnosticModuleClient(),  # MODULE service - Error analysis
+        "learning_path": LearningPathClient()  # MODULE service - Learning path navigation
     }
 
     return clients

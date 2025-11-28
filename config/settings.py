@@ -164,6 +164,25 @@ class PipelineFailoverSettings(BaseSettings):
     preserve_scenario: bool = True
 
 
+class TimeoutSettings(BaseSettings):
+    """Timeout configuration settings for service calls"""
+    model_config = SettingsConfigDict(extra='ignore')
+
+    # Default timeouts (in seconds)
+    health_check: float = Field(2.0, ge=0.5, le=10.0, description="Health check timeout")
+    stt: float = Field(15.0, ge=1.0, le=60.0, description="STT service timeout")
+    llm: float = Field(60.0, ge=5.0, le=300.0, description="LLM service timeout")
+    tts: float = Field(20.0, ge=1.0, le=120.0, description="TTS service timeout")
+    session: float = Field(5.0, ge=1.0, le=30.0, description="Session service timeout")
+    conversation_store: float = Field(10.0, ge=1.0, le=60.0, description="Conversation store timeout")
+    scenarios: float = Field(5.0, ge=1.0, le=30.0, description="Scenarios service timeout")
+    file_storage: float = Field(30.0, ge=5.0, le=300.0, description="File storage timeout")
+    database: float = Field(5.0, ge=1.0, le=30.0, description="Database service timeout")
+    websocket: float = Field(10.0, ge=1.0, le=60.0, description="WebSocket service timeout")
+    webrtc: float = Field(10.0, ge=1.0, le=60.0, description="WebRTC service timeout")
+    default: float = Field(30.0, ge=1.0, le=300.0, description="Default timeout for unspecified services")
+
+
 class TransportSettings(BaseSettings):
     """Transport services configuration settings"""
     model_config = SettingsConfigDict(extra='ignore')
@@ -266,6 +285,7 @@ class UltravoxSettings(BaseSettings):
     pipeline_failover: PipelineFailoverSettings = Field(default_factory=PipelineFailoverSettings)
     transport: TransportSettings = Field(default_factory=TransportSettings)
     service_endpoints: ServiceEndpointsSettings = Field(default_factory=ServiceEndpointsSettings)
+    timeouts: TimeoutSettings = Field(default_factory=TimeoutSettings)
 
     # Raw config for custom access
     _raw_config: Dict[str, Any] = {}
@@ -413,7 +433,64 @@ def get_settings() -> UltravoxSettings:
     Returns:
         UltravoxSettings instance with all configuration loaded
     """
-    return UltravoxSettings()
+    settings = UltravoxSettings()
+    
+    # Validate configuration
+    try:
+        validate_settings(settings)
+    except Exception as e:
+        logger.warning(f"⚠️  Configuration validation warning: {e}")
+    
+    return settings
+
+
+def validate_settings(settings: UltravoxSettings) -> None:
+    """
+    Validate settings configuration
+    
+    Args:
+        settings: Settings instance to validate
+        
+    Raises:
+        ValueError: If validation fails
+    """
+    errors = []
+    
+    # Validate worker settings
+    if settings.workers.max_workers < 1:
+        errors.append("workers.max_workers must be >= 1")
+    if settings.workers.timeout < 1:
+        errors.append("workers.timeout must be >= 1")
+    
+    # Validate pipeline settings
+    if settings.pipeline.device not in ["cuda", "cpu"]:
+        errors.append("pipeline.device must be 'cuda' or 'cpu'")
+    
+    # Validate server settings
+    if not 1024 <= settings.server.port <= 65535:
+        errors.append("server.port must be between 1024 and 65535")
+    
+    # Validate session settings
+    if settings.sessions.session_ttl < 60:
+        errors.append("sessions.session_ttl must be >= 60 seconds")
+    
+    # Validate timeout settings
+    if settings.timeouts.health_check < 0.5:
+        errors.append("timeouts.health_check must be >= 0.5 seconds")
+    if settings.timeouts.llm < 5:
+        errors.append("timeouts.llm must be >= 5 seconds")
+    
+    # Validate service URLs if provided
+    if hasattr(settings, 'service_endpoints') and settings.service_endpoints.endpoints:
+        for service_name, service_config in settings.service_endpoints.endpoints.items():
+            if 'host' in service_config and 'port' in service_config:
+                port = service_config.get('port')
+                if port and not (1024 <= port <= 65535):
+                    errors.append(f"service_endpoints.{service_name}.port must be between 1024 and 65535")
+    
+    if errors:
+        error_msg = "Configuration validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+        raise ValueError(error_msg)
 
 
 # ==============================================================================

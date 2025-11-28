@@ -1,0 +1,340 @@
+{
+  "accuracy": 0.2857142857142857,
+  "total": 14,
+  "correct": 4,
+  "level_stats": {
+    "A1": {
+      "correct": 3,
+      "total": 3,
+      "precision": 0.6,
+      "recall": 1.0,
+      "f1": 0.7499999999999999
+    },
+    "A2": {
+      "correct": 1,
+      "total": 3,
+      "precision": 0.125,
+      "recall": 0.3333333333333333,
+      "f1": 0.18181818181818182
+    },
+    "B1": {
+      "correct": 0,
+      "total": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "B2": {
+      "correct": 0,
+      "total": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "C1": {
+      "correct": 0,
+      "total": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "C2": {
+      "correct": 0,
+      "total": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    }
+  },
+  "confusion_matrix": {
+    "A1": {
+      "A1": 3
+    },
+    "A2": {
+      "A1": 2,
+      "A2": 1
+    },
+    "B1": {
+      "A2": 2
+    },
+    "B2": {
+      "A2": 2
+    },
+    "C1": {
+      "B1": 1,
+      "A2": 1
+    },
+    "C2": {
+      "A2": 2
+    }
+  },
+  "results": [
+    {
+      "text": "Eu quero água. Onde fica banheiro?",
+      "true_level": "A1",
+      "predicted_level": "A1",
+      "confidence": 0.3,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (6 words) suggests A1.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "Ontem eu fui no mercado. Comprei pão e leite.",
+      "true_level": "A2",
+      "predicted_level": "A1",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (9 words) suggests A1.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    },
+    {
+      "text": "Eu já visitei o Brasil duas vezes e gostei muito da cultura brasileira.",
+      "true_level": "B1",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (13 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "Embora eu tenha estudado português por três anos, ainda acho difícil entender quando as pessoas falam muito rápido.",
+      "true_level": "B2",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (18 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    },
+    {
+      "text": "Considerando que já li diversos autores brasileiros, acredito que Machado de Assis seja aquele cuja obra mais me impactou profundamente.",
+      "true_level": "C1",
+      "predicted_level": "B1",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "B1",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (20 words) suggests B1.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "Depreende-se da sua colocação que a questão transcende mera análise superficial, entrelaçando-se em complexidades que merecem atenção meticulosa.",
+      "true_level": "C2",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (18 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    },
+    {
+      "text": "Olá! Meu nome é João. Eu sou estudante.",
+      "true_level": "A1",
+      "predicted_level": "A1",
+      "confidence": 0.3,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (8 words) suggests A1.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "Eu gosto de café. Você gosta também?",
+      "true_level": "A1",
+      "predicted_level": "A1",
+      "confidence": 0.3,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (7 words) suggests A1.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    },
+    {
+      "text": "Eu trabalho em um escritório. Meu trabalho é interessante.",
+      "true_level": "A2",
+      "predicted_level": "A1",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A1",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (9 words) suggests A1.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "No fim de semana, eu gosto de ir ao cinema com meus amigos.",
+      "true_level": "A2",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": true,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (13 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    },
+    {
+      "text": "Se eu tivesse mais tempo, viajaria para a Europa no próximo verão.",
+      "true_level": "B1",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (12 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "Apesar das dificuldades que enfrentei, consegui aprender português com sucesso.",
+      "true_level": "B2",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (10 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    },
+    {
+      "text": "Não obstante as adversidades encontradas ao longo do processo, logrei alcançar os objetivos propostos.",
+      "true_level": "C1",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]. Simple heuristic based on word count (14 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8006, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8006)]"
+      }
+    },
+    {
+      "text": "A complexidade inerente ao tema em questão demanda uma abordagem multidisciplinar que contemple as nuances culturais e históricas envolvidas.",
+      "true_level": "C2",
+      "predicted_level": "A2",
+      "confidence": 0.3,
+      "is_correct": false,
+      "analysis": {
+        "identified_level": "A2",
+        "confidence": 0.3,
+        "explanation": "Fallback analysis due to: Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]. Simple heuristic based on word count (19 words) suggests A2.",
+        "syntactic_analysis": {},
+        "lexical_analysis": {},
+        "discursive_analysis": {},
+        "key_indicators": [
+          "Fallback heuristic - not reliable"
+        ],
+        "error": "Unexpected error: Cannot connect to host localhost:8006 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('127.0.0.1', 8006), [Errno 61] Connect call failed ('::1', 8006, 0, 0)]"
+      }
+    }
+  ],
+  "classifier": "llm_only"
+}

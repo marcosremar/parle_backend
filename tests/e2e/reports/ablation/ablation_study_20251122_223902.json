@@ -1,0 +1,13 @@
+{
+  "timestamp": "20251122_223902",
+  "baseline": {
+    "accuracy": 0.2857142857142857,
+    "description": "LLM apenas (Sonnet 4.5)"
+  },
+  "full_system": {
+    "accuracy": 0.2857142857142857,
+    "description": "Sistema completo (LLM + Phase 2-5)"
+  },
+  "improvement": 0.0,
+  "improvement_percentage": 0.0
+}

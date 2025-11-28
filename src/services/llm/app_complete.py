@@ -16,9 +16,45 @@ import time
 from loguru import logger
 
 # Add project root to path for src imports
-project_root = Path(__file__).parent.parent.parent
+# project_root should be the workspace root (parle_backend/)
+# From src/services/llm/app_complete.py, go up 4 levels: llm -> services -> src -> parle_backend
+project_root = Path(__file__).parent.parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+# Load .env file from project root
+def _load_env_file(force_reload=False):
+    """Load environment variables from .env file"""
+    try:
+        # Try using python-dotenv first (more reliable)
+        from dotenv import load_dotenv
+        env_file = project_root / ".env"
+        if env_file.exists():
+            load_dotenv(env_file, override=force_reload)
+            return
+    except ImportError:
+        pass
+    
+    # Fallback: manual parsing
+    env_file = project_root / ".env"
+    if env_file.exists():
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith('#'):
+                    continue
+                # Parse KEY=VALUE
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    # Set if not already in environment, or if force_reload
+                    if key and (force_reload or not os.getenv(key)):
+                        os.environ[key] = value
+
+# Load .env before anything else
+_load_env_file()
 
 # Try to import local utils (fallback implementations if not available)
 try:
@@ -42,7 +78,7 @@ except ImportError:
 DEFAULT_CONFIG = {
     "service": {
         "name": "llm",
-        "port": 8110,
+        "port": 8006,
         "host": "0.0.0.0"
     },
     "logging": {
@@ -108,8 +144,21 @@ class SimpleLLMProvider:
     """Simple LLM provider using LiteLLM"""
 
     def __init__(self):
-        self.default_model = "groq/llama-3.1-8b-instant"
-        self.fallback_model = "groq/llama-3.1-70b-instant"  # Updated fallback model
+        # Ensure .env is loaded
+        _load_env_file(force_reload=True)
+        
+        # Use Gemini Flash 2.5 via OpenRouter
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key:
+            # Gemini Flash 2.5 via OpenRouter
+            self.default_model = "openrouter/google/gemini-2.5-flash"  # Gemini Flash 2.5
+            self.fallback_model = "openrouter/google/gemini-2.5-flash"
+            logger.info(f"✅ Using OpenRouter with Gemini Flash 2.5 (key: {openrouter_key[:20]}...)")
+        else:
+            self.default_model = "openrouter/google/gemini-2.5-flash"
+            self.fallback_model = "openrouter/google/gemini-2.5-flash"
+            logger.warning("⚠️  OPENROUTER_API_KEY not found, using Gemini Flash 2.5 anyway (may fail)")
+        
         self.timeout = 60
         self.max_retries = 3
 
@@ -118,15 +167,32 @@ class SimpleLLMProvider:
             import litellm
             self.litellm = litellm
             self.available = True
-            print("✅ LiteLLM available")
+            logger.info("✅ LiteLLM available")
         except ImportError:
             self.available = False
-            print("⚠️  LiteLLM not available - LLM functionality disabled")
+            logger.warning("⚠️  LiteLLM not available - LLM functionality disabled")
 
-    def _get_api_key(self, api_key=None):
-        """Get API key from parameter or environment"""
+    def _get_api_key(self, api_key=None, model=None):
+        """Get API key from parameter or environment based on model"""
         if api_key:
             return api_key
+        
+        # Check if model uses OpenRouter
+        if model and "openrouter" in model.lower():
+            openrouter_key = os.getenv("OPENROUTER_API_KEY")
+            if openrouter_key:
+                return openrouter_key
+            raise ValueError("OPENROUTER_API_KEY required for OpenRouter models")
+        
+        # Check if model requires Anthropic API key
+        if model and ("claude" in model.lower() or "anthropic" in model.lower()):
+            anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+            if anthropic_key:
+                return anthropic_key
+            # Fallback to GROQ if Anthropic not available
+            return os.getenv("GROQ_API_KEY")
+        
+        # Default to Groq
         return os.getenv("GROQ_API_KEY")
 
     async def generate_text(self, prompt: str, **kwargs) -> Dict[str, Any]:
@@ -218,25 +284,85 @@ class SimpleLLMProvider:
         if not self.available:
             raise HTTPException(status_code=503, detail="LLM provider not available")
 
-        api_key = self._get_api_key(kwargs.get('api_key'))
+        model = kwargs.get('model', self.default_model)
+        api_key = self._get_api_key(kwargs.get('api_key'), model=model)
         if not api_key:
             raise HTTPException(status_code=500, detail="No API key available")
 
-        model = kwargs.get('model', self.default_model)
         temperature = kwargs.get('temperature', 0.7)
         max_tokens = kwargs.get('max_tokens', 1000)
 
         try:
             # Make API call
             start_time = time.time()
-            response = await self.litellm.acompletion(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                api_key=api_key,
-                timeout=self.timeout
-            )
+            # For OpenRouter models, use OPENROUTER_API_KEY
+            if "openrouter" in model.lower():
+                # Reload .env to ensure we have the latest key
+                _load_env_file(force_reload=True)
+                openrouter_key = os.getenv("OPENROUTER_API_KEY")
+                
+                # Debug: log if key is found
+                if openrouter_key:
+                    logger.info(f"✅ OPENROUTER_API_KEY found (length: {len(openrouter_key)})")
+                else:
+                    logger.error("❌ OPENROUTER_API_KEY not found in environment")
+                    # Try reading directly from .env file
+                    env_file = project_root / ".env"
+                    if env_file.exists():
+                        with open(env_file, 'r') as f:
+                            for line in f:
+                                if line.startswith('OPENROUTER_API_KEY='):
+                                    openrouter_key = line.split('=', 1)[1].strip().strip('"').strip("'")
+                                    os.environ["OPENROUTER_API_KEY"] = openrouter_key
+                                    logger.info(f"✅ Loaded OPENROUTER_API_KEY from .env file")
+                                    break
+                
+                if not openrouter_key:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"OPENROUTER_API_KEY required for {model}. Set OPENROUTER_API_KEY environment variable."
+                    )
+                # LiteLLM supports OpenRouter models with format: openrouter/model_name
+                # For OpenRouter, we need to pass the API key explicitly
+                # LiteLLM will use it if provided, otherwise it looks for OPENROUTER_API_KEY env var
+                # Set environment variable for LiteLLM
+                os.environ["OPENROUTER_API_KEY"] = openrouter_key
+                response = await self.litellm.acompletion(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    api_key=openrouter_key,
+                    timeout=self.timeout
+                )
+            # For Anthropic models, use ANTHROPIC_API_KEY environment variable
+            elif "claude" in model.lower() or "anthropic" in model.lower():
+                anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+                if not anthropic_key:
+                    # Fallback: try to use Groq with a compatible model
+                    print(f"⚠️  ANTHROPIC_API_KEY not set, cannot use {model}. Using fallback.")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"ANTHROPIC_API_KEY required for {model}. Set ANTHROPIC_API_KEY environment variable."
+                    )
+                # LiteLLM will automatically use ANTHROPIC_API_KEY env var for claude models
+                response = await self.litellm.acompletion(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    api_key=anthropic_key,
+                    timeout=self.timeout
+                )
+            else:
+                response = await self.litellm.acompletion(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    api_key=api_key,
+                    timeout=self.timeout
+                )
             end_time = time.time()
 
             # Extract response
@@ -323,8 +449,17 @@ class SimpleLLMProvider:
 # Global Provider Instance
 # ============================================================================
 
-# Initialize LLM provider (external API - Groq via LiteLLM)
-llm_provider = SimpleLLMProvider()
+# Initialize provider lazily to ensure .env is loaded
+llm_provider = None
+
+def get_llm_provider():
+    """Get or create LLM provider instance"""
+    global llm_provider
+    if llm_provider is None:
+        # Ensure .env is loaded before creating provider
+        _load_env_file(force_reload=True)
+        llm_provider = SimpleLLMProvider()
+    return llm_provider
 
 # ============================================================================
 # FastAPI App
@@ -339,8 +474,9 @@ app = FastAPI(title="External LLM Service", version="1.0.0")
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    provider_available = llm_provider.available if llm_provider else False
-    models_available = len(llm_provider.get_available_models()) > 0 if llm_provider and llm_provider.available else 0
+    provider = get_llm_provider()
+    provider_available = provider.available if provider else False
+    models_available = len(provider.get_available_models()) > 0 if provider and provider.available else 0
 
     return {
         "status": "healthy" if provider_available else "degraded",
@@ -356,7 +492,8 @@ async def health():
 async def generate_text(request: GenerateRequest):
     """Generate text completion"""
     try:
-        result = await llm_provider.generate_text(
+        provider = get_llm_provider()
+        result = await provider.generate_text(
             prompt=request.prompt,
             model=request.model,
             system_prompt=request.system_prompt,
@@ -374,10 +511,11 @@ async def generate_text(request: GenerateRequest):
 async def chat_completion(request: ChatRequest):
     """Chat completion"""
     try:
+        provider = get_llm_provider()
         # Convert Pydantic messages to dict
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
 
-        result = await llm_provider.chat_completion(
+        result = await provider.chat_completion(
             messages=messages,
             model=request.model,
             temperature=request.temperature,
@@ -394,7 +532,8 @@ async def chat_completion(request: ChatRequest):
 async def get_models():
     """Get available models"""
     try:
-        models = llm_provider.get_available_models() if llm_provider else []
+        provider = get_llm_provider()
+        models = provider.get_available_models() if provider else []
         return {"models": models}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
@@ -420,10 +559,11 @@ app.include_router(router)
 async def startup():
     """Initialize service"""
     print("🚀 Initializing LLM Service (External API - Groq)...")
-    if llm_provider:
-        print(f"   LLM Provider Available: {llm_provider.available}")
-        if llm_provider.available:
-            models = llm_provider.get_available_models()
+    provider = get_llm_provider()
+    if provider:
+        print(f"   LLM Provider Available: {provider.available}")
+        if provider.available:
+            models = provider.get_available_models()
             print(f"   Available Models: {len(models)}")
             for model in models:
                 print(f"     - {model['id']} ({model['provider']})")

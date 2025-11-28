@@ -1,0 +1,3 @@
+"""
+Routers organizados por domínio
+"""

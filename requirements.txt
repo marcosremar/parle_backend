@@ -1,27 +1,104 @@
-# python-version: 3.12
+# Parle Backend - Unified Requirements
+# Python 3.11+ (Monolith Modular Architecture)
 
-# Core dependencies (required by src.core modules)
-loguru>=0.7.0
-fastapi>=0.100.0
-uvicorn>=0.23.0
-pydantic>=2.0.0
+# ============================================================================
+# Core Framework
+# ============================================================================
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
 pydantic-settings>=2.0.0
-aiohttp>=3.9.0
-pyyaml>=6.0.0
-httpx>=0.24.0
-prometheus-client>=0.22.0
-python-json-logger>=2.0.0
-psutil>=5.9.0
-PyJWT>=2.8.0
 python-multipart>=0.0.9
+
+# ============================================================================
+# HTTP Clients & Communication
+# ============================================================================
+aiohttp>=3.9.1
+httpx>=0.25.0
+requests>=2.31.0
 websockets>=12.0
 
-# Inter-service communication
+# ============================================================================
+# Logging & Observability
+# ============================================================================
+loguru>=0.7.2
+python-json-logger>=2.0.0
+prometheus-client>=0.22.0
+psutil>=5.9.0
+
+# ============================================================================
+# Database & Storage
+# ============================================================================
+redis>=5.0.0
+sqlalchemy>=2.0.23
+aiosqlite>=0.19.0
+b2sdk>=1.20.0  # Backblaze B2 storage
+aiofiles>=23.0.0
+
+# ============================================================================
+# Security & Authentication
+# ============================================================================
+PyJWT>=2.8.0
+cryptography>=41.0.0
+passlib[bcrypt]>=1.7.4
+
+# ============================================================================
+# Configuration & Data Processing
+# ============================================================================
+pyyaml>=6.0.0
+numpy>=1.24.3
+msgpack>=1.0.5
+
+# ============================================================================
+# AI/ML Services
+# ============================================================================
+# TTS Providers
+elevenlabs>=2.23.0
+huggingface_hub>=0.26.2
+gtts>=2.5.0
+
+# LLM Providers
+openai>=1.3.0
+litellm>=1.0.0  # Multi-provider LLM
+
+# STT & Speech Processing
+torch>=2.0.0
+torchaudio>=2.1.0
+transformers>=4.35.2
+soundfile>=0.12.1
+librosa>=0.10.1
+
+# NLP & Linguistic Analysis
+spacy>=3.7.0
+sentence-transformers>=2.2.2
+scikit-learn>=1.3.2
+python-Levenshtein>=0.23.0
+
+# ============================================================================
+# Communication & Integration
+# ============================================================================
+# Viber Bot API
+viberbot>=1.0.12
+
+# Media Processing
+pydub>=0.25.1
+ffmpeg-python>=0.2.0
+Pillow>=10.0.0
+
+# ============================================================================
+# Template Engine
+# ============================================================================
+jinja2>=3.1.2
+
+# ============================================================================
+# Inter-service Communication (Legacy - will be removed)
+# ============================================================================
 pyzmq>=25.0.0
 grpcio>=1.76.0
 protobuf>=6.31.1
-msgpack>=1.0.5
 
+# ============================================================================
 # Testing
+# ============================================================================
 pytest>=7.4.0
 pytest-asyncio>=0.21.0

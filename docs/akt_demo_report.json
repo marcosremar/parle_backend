@@ -1,0 +1,1030 @@
+{
+  "user_id": "akt_demo_user_8400b4be",
+  "start_time": "2025-11-22T01:32:37.191915+00:00",
+  "skills_tracked": [
+    "verb_conjugation_past",
+    "verb_conjugation_present",
+    "articles_definite",
+    "vocabulary_basic",
+    "prepositions_basic"
+  ],
+  "iterations": [
+    {
+      "iteration": 1,
+      "skill_id": "verb_conjugation_past",
+      "correct": true,
+      "mastery": 0.3082,
+      "previous_mastery": 0.2582,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 2,
+      "skill_id": "verb_conjugation_present",
+      "correct": false,
+      "mastery": 0.2904,
+      "previous_mastery": 0.3204,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 3,
+      "skill_id": "articles_definite",
+      "correct": false,
+      "mastery": 0.2859,
+      "previous_mastery": 0.31589999999999996,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 4,
+      "skill_id": "vocabulary_basic",
+      "correct": true,
+      "mastery": 0.3352,
+      "previous_mastery": 0.2852,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 5,
+      "skill_id": "prepositions_basic",
+      "correct": false,
+      "mastery": 0.27749999999999997,
+      "previous_mastery": 0.3075,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 6,
+      "skill_id": "verb_conjugation_past",
+      "correct": false,
+      "mastery": 0.2736,
+      "previous_mastery": 0.3036,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 7,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.3658,
+      "previous_mastery": 0.3158,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 8,
+      "skill_id": "articles_definite",
+      "correct": false,
+      "mastery": 0.26639999999999997,
+      "previous_mastery": 0.2964,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 9,
+      "skill_id": "vocabulary_basic",
+      "correct": false,
+      "mastery": 0.2631,
+      "previous_mastery": 0.2931,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 10,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.4,
+      "previous_mastery": 0.35000000000000003,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 11,
+      "skill_id": "verb_conjugation_past",
+      "correct": true,
+      "mastery": 0.4122,
+      "previous_mastery": 0.3622,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 12,
+      "skill_id": "verb_conjugation_present",
+      "correct": false,
+      "mastery": 0.25439999999999996,
+      "previous_mastery": 0.2844,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 13,
+      "skill_id": "articles_definite",
+      "correct": true,
+      "mastery": 0.43779999999999997,
+      "previous_mastery": 0.3878,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 14,
+      "skill_id": "vocabulary_basic",
+      "correct": false,
+      "mastery": 0.2496,
+      "previous_mastery": 0.27959999999999996,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 15,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.46499999999999997,
+      "previous_mastery": 0.415,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 16,
+      "skill_id": "verb_conjugation_past",
+      "correct": false,
+      "mastery": 0.24559999999999998,
+      "previous_mastery": 0.27559999999999996,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 17,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.4938,
+      "previous_mastery": 0.44380000000000003,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 18,
+      "skill_id": "articles_definite",
+      "correct": false,
+      "mastery": 0.24239999999999998,
+      "previous_mastery": 0.2724,
+      "improvement": -0.03,
+      "status": "learning"
+    },
+    {
+      "iteration": 19,
+      "skill_id": "vocabulary_basic",
+      "correct": true,
+      "mastery": 0.5242,
+      "previous_mastery": 0.4742,
+      "improvement": 0.04999999999999999,
+      "status": "learning"
+    },
+    {
+      "iteration": 20,
+      "skill_id": "prepositions_basic",
+      "correct": false,
+      "mastery": 0.24,
+      "previous_mastery": 0.27,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 21,
+      "skill_id": "verb_conjugation_past",
+      "correct": true,
+      "mastery": 0.5562,
+      "previous_mastery": 0.5062,
+      "improvement": 0.050000000000000044,
+      "status": "learning"
+    },
+    {
+      "iteration": 22,
+      "skill_id": "verb_conjugation_present",
+      "correct": false,
+      "mastery": 0.23839999999999997,
+      "previous_mastery": 0.26839999999999997,
+      "improvement": -0.03,
+      "status": "learning"
+    },
+    {
+      "iteration": 23,
+      "skill_id": "articles_definite",
+      "correct": true,
+      "mastery": 0.5898,
+      "previous_mastery": 0.5398,
+      "improvement": 0.050000000000000044,
+      "status": "learning"
+    },
+    {
+      "iteration": 24,
+      "skill_id": "vocabulary_basic",
+      "correct": false,
+      "mastery": 0.23759999999999998,
+      "previous_mastery": 0.26759999999999995,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 25,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.625,
+      "previous_mastery": 0.575,
+      "improvement": 0.050000000000000044,
+      "status": "learning"
+    },
+    {
+      "iteration": 26,
+      "skill_id": "verb_conjugation_past",
+      "correct": false,
+      "mastery": 0.23759999999999998,
+      "previous_mastery": 0.26759999999999995,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 27,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.6617999999999999,
+      "previous_mastery": 0.6117999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "learning"
+    },
+    {
+      "iteration": 28,
+      "skill_id": "articles_definite",
+      "correct": false,
+      "mastery": 0.23839999999999997,
+      "previous_mastery": 0.26839999999999997,
+      "improvement": -0.03,
+      "status": "learning"
+    },
+    {
+      "iteration": 29,
+      "skill_id": "vocabulary_basic",
+      "correct": true,
+      "mastery": 0.7002,
+      "previous_mastery": 0.6502,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 30,
+      "skill_id": "prepositions_basic",
+      "correct": false,
+      "mastery": 0.24,
+      "previous_mastery": 0.27,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 31,
+      "skill_id": "verb_conjugation_past",
+      "correct": false,
+      "mastery": 0.24109999999999998,
+      "previous_mastery": 0.2711,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 32,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.7608,
+      "previous_mastery": 0.7108,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 33,
+      "skill_id": "articles_definite",
+      "correct": true,
+      "mastery": 0.7818,
+      "previous_mastery": 0.7318,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 34,
+      "skill_id": "vocabulary_basic",
+      "correct": true,
+      "mastery": 0.8032000000000001,
+      "previous_mastery": 0.7532000000000001,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 35,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.8250000000000002,
+      "previous_mastery": 0.7750000000000001,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 36,
+      "skill_id": "verb_conjugation_past",
+      "correct": false,
+      "mastery": 0.2496,
+      "previous_mastery": 0.27959999999999996,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 37,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.8697999999999999,
+      "previous_mastery": 0.8197999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 38,
+      "skill_id": "articles_definite",
+      "correct": true,
+      "mastery": 0.8928,
+      "previous_mastery": 0.8428,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 39,
+      "skill_id": "vocabulary_basic",
+      "correct": true,
+      "mastery": 0.9161999999999999,
+      "previous_mastery": 0.8661999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 40,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.94,
+      "previous_mastery": 0.8899999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 41,
+      "skill_id": "verb_conjugation_past",
+      "correct": false,
+      "mastery": 0.2631,
+      "previous_mastery": 0.2931,
+      "improvement": -0.030000000000000027,
+      "status": "learning"
+    },
+    {
+      "iteration": 42,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 43,
+      "skill_id": "articles_definite",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 44,
+      "skill_id": "vocabulary_basic",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 45,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 46,
+      "skill_id": "verb_conjugation_past",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 47,
+      "skill_id": "verb_conjugation_present",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 48,
+      "skill_id": "articles_definite",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    },
+    {
+      "iteration": 49,
+      "skill_id": "vocabulary_basic",
+      "correct": false,
+      "mastery": 0.2951,
+      "previous_mastery": 0.32509999999999994,
+      "improvement": -0.02999999999999997,
+      "status": "learning"
+    },
+    {
+      "iteration": 50,
+      "skill_id": "prepositions_basic",
+      "correct": true,
+      "mastery": 0.95,
+      "previous_mastery": 0.8999999999999999,
+      "improvement": 0.050000000000000044,
+      "status": "mastered"
+    }
+  ],
+  "skill_progression": {
+    "verb_conjugation_past": [
+      {
+        "iteration": 1,
+        "mastery": 0.3082,
+        "correct": true
+      },
+      {
+        "iteration": 6,
+        "mastery": 0.2736,
+        "correct": false
+      },
+      {
+        "iteration": 11,
+        "mastery": 0.4122,
+        "correct": true
+      },
+      {
+        "iteration": 16,
+        "mastery": 0.24559999999999998,
+        "correct": false
+      },
+      {
+        "iteration": 21,
+        "mastery": 0.5562,
+        "correct": true
+      },
+      {
+        "iteration": 26,
+        "mastery": 0.23759999999999998,
+        "correct": false
+      },
+      {
+        "iteration": 31,
+        "mastery": 0.24109999999999998,
+        "correct": false
+      },
+      {
+        "iteration": 36,
+        "mastery": 0.2496,
+        "correct": false
+      },
+      {
+        "iteration": 41,
+        "mastery": 0.2631,
+        "correct": false
+      },
+      {
+        "iteration": 46,
+        "mastery": 0.95,
+        "correct": true
+      }
+    ],
+    "verb_conjugation_present": [
+      {
+        "iteration": 2,
+        "mastery": 0.2904,
+        "correct": false
+      },
+      {
+        "iteration": 7,
+        "mastery": 0.3658,
+        "correct": true
+      },
+      {
+        "iteration": 12,
+        "mastery": 0.25439999999999996,
+        "correct": false
+      },
+      {
+        "iteration": 17,
+        "mastery": 0.4938,
+        "correct": true
+      },
+      {
+        "iteration": 22,
+        "mastery": 0.23839999999999997,
+        "correct": false
+      },
+      {
+        "iteration": 27,
+        "mastery": 0.6617999999999999,
+        "correct": true
+      },
+      {
+        "iteration": 32,
+        "mastery": 0.7608,
+        "correct": true
+      },
+      {
+        "iteration": 37,
+        "mastery": 0.8697999999999999,
+        "correct": true
+      },
+      {
+        "iteration": 42,
+        "mastery": 0.95,
+        "correct": true
+      },
+      {
+        "iteration": 47,
+        "mastery": 0.95,
+        "correct": true
+      }
+    ],
+    "articles_definite": [
+      {
+        "iteration": 3,
+        "mastery": 0.2859,
+        "correct": false
+      },
+      {
+        "iteration": 8,
+        "mastery": 0.26639999999999997,
+        "correct": false
+      },
+      {
+        "iteration": 13,
+        "mastery": 0.43779999999999997,
+        "correct": true
+      },
+      {
+        "iteration": 18,
+        "mastery": 0.24239999999999998,
+        "correct": false
+      },
+      {
+        "iteration": 23,
+        "mastery": 0.5898,
+        "correct": true
+      },
+      {
+        "iteration": 28,
+        "mastery": 0.23839999999999997,
+        "correct": false
+      },
+      {
+        "iteration": 33,
+        "mastery": 0.7818,
+        "correct": true
+      },
+      {
+        "iteration": 38,
+        "mastery": 0.8928,
+        "correct": true
+      },
+      {
+        "iteration": 43,
+        "mastery": 0.95,
+        "correct": true
+      },
+      {
+        "iteration": 48,
+        "mastery": 0.95,
+        "correct": true
+      }
+    ],
+    "vocabulary_basic": [
+      {
+        "iteration": 4,
+        "mastery": 0.3352,
+        "correct": true
+      },
+      {
+        "iteration": 9,
+        "mastery": 0.2631,
+        "correct": false
+      },
+      {
+        "iteration": 14,
+        "mastery": 0.2496,
+        "correct": false
+      },
+      {
+        "iteration": 19,
+        "mastery": 0.5242,
+        "correct": true
+      },
+      {
+        "iteration": 24,
+        "mastery": 0.23759999999999998,
+        "correct": false
+      },
+      {
+        "iteration": 29,
+        "mastery": 0.7002,
+        "correct": true
+      },
+      {
+        "iteration": 34,
+        "mastery": 0.8032000000000001,
+        "correct": true
+      },
+      {
+        "iteration": 39,
+        "mastery": 0.9161999999999999,
+        "correct": true
+      },
+      {
+        "iteration": 44,
+        "mastery": 0.95,
+        "correct": true
+      },
+      {
+        "iteration": 49,
+        "mastery": 0.2951,
+        "correct": false
+      }
+    ],
+    "prepositions_basic": [
+      {
+        "iteration": 5,
+        "mastery": 0.27749999999999997,
+        "correct": false
+      },
+      {
+        "iteration": 10,
+        "mastery": 0.4,
+        "correct": true
+      },
+      {
+        "iteration": 15,
+        "mastery": 0.46499999999999997,
+        "correct": true
+      },
+      {
+        "iteration": 20,
+        "mastery": 0.24,
+        "correct": false
+      },
+      {
+        "iteration": 25,
+        "mastery": 0.625,
+        "correct": true
+      },
+      {
+        "iteration": 30,
+        "mastery": 0.24,
+        "correct": false
+      },
+      {
+        "iteration": 35,
+        "mastery": 0.8250000000000002,
+        "correct": true
+      },
+      {
+        "iteration": 40,
+        "mastery": 0.94,
+        "correct": true
+      },
+      {
+        "iteration": 45,
+        "mastery": 0.95,
+        "correct": true
+      },
+      {
+        "iteration": 50,
+        "mastery": 0.95,
+        "correct": true
+      }
+    ]
+  },
+  "summary": {
+    "total_iterations": 50,
+    "initial_avg_mastery": 0.29944,
+    "final_avg_mastery": 0.8190199999999999,
+    "overall_improvement": 0.5195799999999999,
+    "total_accuracy": 0.6,
+    "skill_statistics": {
+      "verb_conjugation_past": {
+        "initial_mastery": 0.3082,
+        "final_mastery": 0.95,
+        "mastery_gain": 0.6417999999999999,
+        "accuracy": 0.4,
+        "total_practices": 10,
+        "correct_practices": 4
+      },
+      "verb_conjugation_present": {
+        "initial_mastery": 0.2904,
+        "final_mastery": 0.95,
+        "mastery_gain": 0.6596,
+        "accuracy": 0.7,
+        "total_practices": 10,
+        "correct_practices": 7
+      },
+      "articles_definite": {
+        "initial_mastery": 0.2859,
+        "final_mastery": 0.95,
+        "mastery_gain": 0.6640999999999999,
+        "accuracy": 0.6,
+        "total_practices": 10,
+        "correct_practices": 6
+      },
+      "vocabulary_basic": {
+        "initial_mastery": 0.3352,
+        "final_mastery": 0.2951,
+        "mastery_gain": -0.040100000000000025,
+        "accuracy": 0.6,
+        "total_practices": 10,
+        "correct_practices": 6
+      },
+      "prepositions_basic": {
+        "initial_mastery": 0.27749999999999997,
+        "final_mastery": 0.95,
+        "mastery_gain": 0.6725,
+        "accuracy": 0.7,
+        "total_practices": 10,
+        "correct_practices": 7
+      }
+    }
+  },
+  "final_state": {
+    "cefr_progress": {
+      "current_estimated_level": "A1",
+      "cefr_details": {
+        "A1": {
+          "progress": 0.14,
+          "percentage": "14%",
+          "status": "in_progress",
+          "skills_breakdown": [
+            {
+              "skill_id": "verb_conjugation_present",
+              "mastery": 0.4
+            },
+            {
+              "skill_id": "verb_to_be",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "articles_definite",
+              "mastery": 0.3
+            },
+            {
+              "skill_id": "articles_indefinite",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "prepositions_basic",
+              "mastery": 0.25
+            },
+            {
+              "skill_id": "vocabulary_basic",
+              "mastery": 0.6
+            },
+            {
+              "skill_id": "vocabulary_family",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "vocabulary_numbers",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "pronunciation_basic",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "greeting_formal",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "greeting_informal",
+              "mastery": 0.0
+            }
+          ]
+        },
+        "A2": {
+          "progress": 0.03,
+          "percentage": "2%",
+          "status": "locked",
+          "skills_breakdown": [
+            {
+              "skill_id": "verb_conjugation_past",
+              "mastery": 0.2
+            },
+            {
+              "skill_id": "verb_past_irregular",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "prepositions_location",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "vocabulary_intermediate",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "vocabulary_daily_routine",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "vocabulary_travel",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "comparatives",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "superlatives",
+              "mastery": 0.0
+            }
+          ]
+        },
+        "B1": {
+          "progress": 0.0,
+          "percentage": "0%",
+          "status": "locked",
+          "skills_breakdown": [
+            {
+              "skill_id": "verb_conjugation_future",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "verb_conditional",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "modal_verbs",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "vocabulary_feelings",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "discourse_markers",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "passive_voice",
+              "mastery": 0.0
+            }
+          ]
+        },
+        "B2": {
+          "progress": 0.0,
+          "percentage": "0%",
+          "status": "locked",
+          "skills_breakdown": [
+            {
+              "skill_id": "vocabulary_advanced",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "pronunciation_advanced",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "subjunctive_present",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "subjunctive_past",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "idioms_common",
+              "mastery": 0.0
+            }
+          ]
+        },
+        "C1": {
+          "progress": 0.0,
+          "percentage": "0%",
+          "status": "locked",
+          "skills_breakdown": [
+            {
+              "skill_id": "vocabulary_proficient",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "nuances_cultural",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "rhetorical_devices",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "complex_syntax",
+              "mastery": 0.0
+            }
+          ]
+        },
+        "C2": {
+          "progress": 0.0,
+          "percentage": "0%",
+          "status": "locked",
+          "skills_breakdown": [
+            {
+              "skill_id": "vocabulary_native",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "idioms_rare",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "dialect_variations",
+              "mastery": 0.0
+            },
+            {
+              "skill_id": "literary_expressions",
+              "mastery": 0.0
+            }
+          ]
+        }
+      },
+      "dimension_progress": {
+        "grammar": 0.2875,
+        "vocabulary": 0.6
+      }
+    },
+    "skills": {
+      "skills": [
+        {
+          "skill_id": "verb_conjugation_past",
+          "skill_name": "Conjugação de Verbos no Passado",
+          "mastery_probability": 0.2,
+          "difficulty": 0.4,
+          "attempts": 0,
+          "successes": 0,
+          "last_practiced": "2025-11-22T01:32:37.208234"
+        },
+        {
+          "skill_id": "verb_conjugation_present",
+          "skill_name": "Conjugação de Verbos no Presente",
+          "mastery_probability": 0.4,
+          "difficulty": 0.2,
+          "attempts": 0,
+          "successes": 0,
+          "last_practiced": "2025-11-22T01:32:37.212865"
+        },
+        {
+          "skill_id": "articles_definite",
+          "skill_name": "Artigos Definidos",
+          "mastery_probability": 0.3,
+          "difficulty": 0.2,
+          "attempts": 0,
+          "successes": 0,
+          "last_practiced": "2025-11-22T01:32:37.215363"
+        },
+        {
+          "skill_id": "vocabulary_basic",
+          "skill_name": "Vocabulário Básico",
+          "mastery_probability": 0.6,
+          "difficulty": 0.2,
+          "attempts": 0,
+          "successes": 0,
+          "last_practiced": "2025-11-22T01:32:37.218024"
+        },
+        {
+          "skill_id": "prepositions_basic",
+          "skill_name": "Preposições Básicas",
+          "mastery_probability": 0.25,
+          "difficulty": 0.2,
+          "attempts": 0,
+          "successes": 0,
+          "last_practiced": "2025-11-22T01:32:37.220563"
+        }
+      ],
+      "total": 5
+    }
+  },
+  "end_time": "2025-11-22T01:32:37.297501+00:00"
+}

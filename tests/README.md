@@ -21,6 +21,10 @@ tests/
 │   ├── test_file_storage.py         # Testes E2E para File Storage
 │   ├── test_rest_polling.py         # Testes E2E para Rest Polling
 │   ├── test_api_gateway.py          # Testes E2E para API Gateway
+│   ├── test_intelligent_tutoring.py # Testes E2E para ITS (unit tests)
+│   ├── test_learning_progression.py # Testes E2E para progressão de aprendizado
+│   ├── test_its_complete_flow.py    # Testes E2E completos para fluxo ITS
+│   ├── test_cefr_adaptation.py      # Testes E2E para adaptação CEFR
 │   └── conftest.py                  # Configuração do pytest
 └── fixtures/
     └── test_audio_real_speech.wav  # Áudio de teste
@@ -90,6 +94,14 @@ pytest tests/e2e/test_rest_polling.py -v
 
 # API Gateway
 pytest tests/e2e/test_api_gateway.py -v
+
+# Intelligent Tutoring System (ITS)
+pytest tests/e2e/test_intelligent_tutoring.py -v
+pytest tests/e2e/test_learning_progression.py -v
+pytest tests/e2e/test_its_complete_flow.py -v
+
+# CEFR Adaptation
+pytest tests/e2e/test_cefr_adaptation.py -v
 ```
 
 ## Variáveis de Ambiente
@@ -111,6 +123,10 @@ export DATABASE_SERVICE_URL="http://localhost:8400"
 export FILE_STORAGE_SERVICE_URL="http://localhost:8300"
 export REST_POLLING_SERVICE_URL="http://localhost:8701"
 export API_GATEWAY_URL="http://localhost:8000"
+export STUDENT_MODEL_URL="http://localhost:8900"
+export PEDAGOGICAL_POLICY_URL="http://localhost:8950"
+export DIAGNOSTIC_MODULE_URL="http://localhost:8960"
+export LEARNING_PATH_URL="http://localhost:8970"
 ```
 
 ## Serviços Testados
@@ -126,6 +142,17 @@ export API_GATEWAY_URL="http://localhost:8000"
 - **Conversation Store**: Health check, criação de conversas, adicionar turnos, recuperar mensagens
 - **Conversation History**: Health check, criar/listar conversas, salvar/recuperar mensagens, busca semântica, estatísticas
 - **Database**: Health check, set/get/delete de dados, busca
+
+### Serviços de Intelligent Tutoring System (ITS)
+- **Student Model**: Health check, assess response, get profile, get CEFR progress, get interpretable knowledge state, linguistic error patterns
+- **Pedagogical Policy**: Health check, compose prompt, get strategy
+- **Diagnostic Module**: Health check, analyze turn, analyze session, estimate level
+- **Learning Path**: Health check, get next skill, get review skills
+- **Complete Flow**: STT → Diagnostic → Student Model → Pedagogical Policy → LLM → TTS
+- **Multi-Turn Analysis**: Session-level pattern identification, historical aggregation
+- **Linguistic Features**: Feature extraction, storage, AKT pattern adaptation
+- **CEFR Progress**: Level calculation, dimension breakdown, progress tracking
+- **CEFR Adaptation**: Automatic language adaptation based on student's CEFR level (A1-C2), grammar and vocabulary constraints, LLM response adaptation
 - **File Storage**: Health check, upload/download/delete de arquivos, listagem, estatísticas
 
 ### Serviços de Gerenciamento

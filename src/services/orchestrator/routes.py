@@ -15,6 +15,20 @@ import os
 from .models import ConversationRequest, ConversationResponse
 from .utils.route_helpers import add_standard_endpoints
 
+# Import validation utilities
+try:
+    from src.core.validation import (
+        AudioInputValidator, TextInputValidator,
+        validate_voice_id, AudioValidationError, TextValidationError
+    )
+except ImportError:
+    # Fallback if validation not available
+    AudioInputValidator = None
+    TextInputValidator = None
+    validate_voice_id = None
+    AudioValidationError = Exception
+    TextValidationError = Exception
+
 logger = logging.getLogger(__name__)
 
 async def transcribe_audio(
@@ -113,12 +127,120 @@ def create_router(orchestrator_service: Any) -> APIRouter:
 
     @router.get("/health")
     async def health_check():
-        """Health check endpoint"""
+        """Basic health check endpoint (liveness)"""
         return {
             "status": "healthy",
             "service": "orchestrator",
             "timestamp": datetime.now().isoformat()
         }
+    
+    @router.get("/health/live")
+    async def liveness_probe():
+        """Liveness probe - checks if service is alive"""
+        return {
+            "status": "healthy",
+            "service": "orchestrator",
+            "probe": "liveness",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    @router.get("/health/ready")
+    async def readiness_probe():
+        """Readiness probe - checks if service is ready to accept traffic"""
+        if not orchestrator_service or not orchestrator_service.orchestrator:
+            return {
+                "status": "unhealthy",
+                "service": "orchestrator",
+                "probe": "readiness",
+                "message": "Service not initialized",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        try:
+            # Check dependencies
+            health_status = await orchestrator_service.orchestrator._health_check_services()
+            
+            # Determine if ready
+            critical_services = ["llm", "stt", "tts"]
+            critical_healthy = all(health_status.get(s, False) for s in critical_services)
+            
+            if critical_healthy:
+                status = "healthy"
+                message = "Service is ready"
+            else:
+                status = "degraded"
+                message = "Service is ready but some dependencies are unhealthy"
+            
+            return {
+                "status": status,
+                "service": "orchestrator",
+                "probe": "readiness",
+                "message": message,
+                "dependencies": health_status,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Readiness check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "service": "orchestrator",
+                "probe": "readiness",
+                "message": f"Readiness check failed: {e}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    @router.get("/health/detailed")
+    async def detailed_health_check():
+        """Detailed health check with comprehensive information"""
+        if not orchestrator_service or not orchestrator_service.orchestrator:
+            return {
+                "status": "unhealthy",
+                "service": "orchestrator",
+                "message": "Service not initialized",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        try:
+            # Check dependencies
+            health_status = await orchestrator_service.orchestrator._health_check_services()
+            
+            # Collect metrics
+            metrics = {}
+            if orchestrator_service.orchestrator:
+                metrics["clients_initialized"] = len(orchestrator_service.orchestrator.clients)
+                metrics["in_process_mode"] = orchestrator_service.orchestrator.in_process_mode
+            
+            # Determine overall status
+            critical_services = ["llm", "stt", "tts"]
+            critical_healthy = all(health_status.get(s, False) for s in critical_services)
+            all_healthy = all(health_status.values())
+            
+            if all_healthy:
+                status = "healthy"
+                message = "All systems operational"
+            elif critical_healthy:
+                status = "degraded"
+                message = "Critical services healthy, some non-critical services unavailable"
+            else:
+                status = "unhealthy"
+                message = "Critical services unavailable"
+            
+            return {
+                "status": status,
+                "service": "orchestrator",
+                "message": message,
+                "dependencies": health_status,
+                "metrics": metrics,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Detailed health check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "service": "orchestrator",
+                "message": f"Health check failed: {e}",
+                "timestamp": datetime.now().isoformat()
+            }
 
     # ==================== Speech-to-Speech Processing ====================
 
@@ -160,23 +282,49 @@ def create_router(orchestrator_service: Any) -> APIRouter:
         processing_times = {}
 
         try:
-            # Normalize voice_id - handle FastAPI Form edge cases where None becomes "None"
-            original_voice_id = voice_id
-            if voice_id in (None, "None", ""):
-                voice_id = None
-                logger.info(f"🎤 Using default TTS voice (voice_id was '{original_voice_id}', normalized to None)")
+            # Validate and normalize voice_id
+            if validate_voice_id:
+                is_valid, error, normalized_voice_id = validate_voice_id(voice_id)
+                if not is_valid:
+                    raise ValueError(f"Invalid voice_id: {error}")
+                voice_id = normalized_voice_id
             else:
-                logger.info(f"🎤 Using specified voice: {voice_id}")
+                # Fallback normalization
+                original_voice_id = voice_id
+                if voice_id in (None, "None", ""):
+                    voice_id = None
+                logger.info(f"🎤 Using voice: {voice_id if voice_id else 'default'}")
             
-            # Step 1: Get audio data
+            # Step 1: Get and validate audio data
+            audio_data = None
             if file and file.size > 0:
                 audio_data = await file.read()
                 logger.info(f"📁 Received uploaded file: {len(audio_data)} bytes")
             elif audio_base64:
-                audio_data = base64.b64decode(audio_base64)
+                if AudioInputValidator:
+                    validator = AudioInputValidator()
+                    is_valid, error, decoded = validator.validate(audio_base64=audio_base64)
+                    if not is_valid:
+                        raise AudioValidationError(error)
+                    audio_data = decoded
+                else:
+                    audio_data = base64.b64decode(audio_base64)
                 logger.info(f"📄 Received base64 audio: {len(audio_data)} bytes")
             else:
                 raise ValueError("Either 'file' or 'audio_base64' must be provided")
+            
+            # Validate audio data
+            if AudioInputValidator:
+                validator = AudioInputValidator()
+                is_valid, error, validated_audio = validator.validate(audio_data=audio_data)
+                if not is_valid:
+                    raise AudioValidationError(error)
+                audio_data = validated_audio
+            
+            # Validate max_tokens
+            if max_tokens > 2000:
+                logger.warning(f"⚠️  max_tokens ({max_tokens}) exceeds recommended limit (2000)")
+                max_tokens = min(max_tokens, 2000)
 
             # Step 2: STT - Transcribe audio to text
             logger.info("🎙️ Step 2: Starting STT transcription...")
@@ -206,6 +354,15 @@ def create_router(orchestrator_service: Any) -> APIRouter:
 
                     stt_result = await resp.json()
                     transcription = stt_result.get("text", "").strip()
+            
+            # Validate transcription text
+            if TextInputValidator and transcription:
+                text_validator = TextInputValidator()
+                is_valid, error, sanitized = text_validator.validate(transcription, for_llm=False)
+                if not is_valid:
+                    logger.warning(f"⚠️  Transcription validation warning: {error}")
+                else:
+                    transcription = sanitized
 
             processing_times["stt"] = (time.time() - stt_start) * 1000
             if not transcription:
@@ -311,6 +468,15 @@ def create_router(orchestrator_service: Any) -> APIRouter:
 
             logger.info(f"🎉 Pipeline completed successfully in {total_time:.1f}ms")
 
+            # Record success and latency
+            total_time = time.time() - start_time
+            try:
+                from src.core.prometheus_metrics import increment_counter, record_latency
+                increment_counter("orchestrator", "requests_total", labels={"endpoint": "process", "status": "success"})
+                record_latency("orchestrator", "process", total_time)
+            except ImportError:
+                pass
+            
             return {
                 "success": True,
                 "audio_base64": response_audio_base64,
@@ -325,6 +491,14 @@ def create_router(orchestrator_service: Any) -> APIRouter:
             }
 
         except Exception as e:
+            # Record error
+            total_time = time.time() - start_time
+            try:
+                from src.core.prometheus_metrics import increment_counter, record_latency
+                increment_counter("orchestrator", "requests_total", labels={"endpoint": "process", "status": "error"})
+                increment_counter("orchestrator", "errors_total", labels={"endpoint": "process", "error_type": type(e).__name__})
+            except ImportError:
+                pass
             error_msg = f"Speech-to-speech processing failed: {str(e)}"
             logger.error(error_msg)
 

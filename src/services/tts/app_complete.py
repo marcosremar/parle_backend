@@ -67,10 +67,10 @@ DEFAULT_CONFIG = {
         "format": "json"
     },
     "tts": {
-        "provider": "huggingface",
+        "provider": "gtts",
         "model": "default",
-        "default_voice": "af_heart",
-        "default_language": "en-us",
+        "default_voice": "pt-br",
+        "default_language": "pt-br",
         "timeout_seconds": 30,
         "max_retries": 3
     }
@@ -118,6 +118,184 @@ class VoiceInfo(BaseModel):
     language: str
     gender: str
     description: Optional[str] = None
+
+# ============================================================================
+# Google TTS (gTTS) Provider (Standalone)
+# ============================================================================
+
+class GTTSProvider:
+    """Google Text-to-Speech (gTTS) provider - Free and no API key required"""
+
+    def __init__(self):
+        self.available = False
+        
+        # Try to import gTTS
+        try:
+            from gtts import gTTS
+            self.gTTS = gTTS
+            self.available = True
+            print("✅ Google TTS (gTTS) provider initialized")
+        except ImportError as e:
+            print(f"⚠️  gTTS not available - TTS functionality disabled: {e}")
+            self.available = False
+        except Exception as e:
+            print(f"⚠️  Failed to initialize gTTS: {e}")
+            self.available = False
+
+    def _get_language_code(self, voice: str) -> str:
+        """Map voice to language code for gTTS"""
+        # Default language mapping
+        language_map = {
+            "pt-br": "pt-br",
+            "pt": "pt",
+            "en": "en",
+            "es": "es",
+            "fr": "fr",
+            "de": "de",
+            "it": "it",
+            "ja": "ja",
+            "ko": "ko",
+            "zh": "zh",
+            "zh-cn": "zh-cn",
+            "ru": "ru",
+            "ar": "ar",
+            "hi": "hi",
+            "nl": "nl",
+            "pl": "pl",
+            "tr": "tr",
+            "cs": "cs",
+            "hu": "hu"
+        }
+        
+        # If voice is a language code, use it directly
+        if voice and voice in language_map:
+            return language_map[voice]
+        
+        # Default to Portuguese (Brazil) if not specified
+        return "pt-br"
+
+    async def synthesize_speech(self, text: str, voice: str = "pt-br", speed: float = 1.0, **kwargs) -> Dict[str, Any]:
+        """Synthesize speech using gTTS"""
+        if not self.available:
+            raise HTTPException(status_code=503, detail="gTTS provider not available")
+
+        try:
+            import time
+            import io
+            import base64
+            import subprocess
+            import tempfile
+            import os
+            start_time = time.time()
+
+            # Get language code
+            language = self._get_language_code(voice)
+            
+            # gTTS only supports slow=True/False, so we approximate
+            slow = speed < 0.9
+
+            # Generate with gTTS
+            tts = self.gTTS(text=text, lang=language, slow=slow)
+
+            # Save to temporary MP3 file
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_mp3:
+                tts.write_to_fp(tmp_mp3)
+                tmp_mp3_path = tmp_mp3.name
+
+            try:
+                # Try to convert MP3 to WAV using ffmpeg if available
+                # Otherwise, return MP3 directly
+                try:
+                    # Check if ffmpeg is available
+                    subprocess.run(['ffmpeg', '-version'], 
+                                 capture_output=True, 
+                                 check=True, 
+                                 timeout=2)
+                    
+                    # Convert MP3 to WAV 16kHz mono using ffmpeg
+                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_wav:
+                        tmp_wav_path = tmp_wav.name
+                    
+                    # Use ffmpeg to convert
+                    cmd = [
+                        'ffmpeg', '-i', tmp_mp3_path,
+                        '-ar', '16000',  # Sample rate
+                        '-ac', '1',      # Mono
+                        '-f', 'wav',     # Format
+                        '-y',             # Overwrite
+                        tmp_wav_path
+                    ]
+                    
+                    subprocess.run(cmd, capture_output=True, check=True, timeout=30)
+                    
+                    # Read WAV file
+                    with open(tmp_wav_path, 'rb') as f:
+                        audio_bytes = f.read()
+                    
+                    # Clean up
+                    os.unlink(tmp_wav_path)
+                    
+                    format_type = "wav"
+                    sample_rate = 16000
+                    
+                except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+                    # ffmpeg not available or failed - return MP3 directly
+                    with open(tmp_mp3_path, 'rb') as f:
+                        audio_bytes = f.read()
+                    
+                    format_type = "mp3"
+                    sample_rate = 24000  # gTTS default
+                    
+            finally:
+                # Clean up MP3 file
+                if os.path.exists(tmp_mp3_path):
+                    os.unlink(tmp_mp3_path)
+
+            end_time = time.time()
+
+            # Convert to base64
+            audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+            # Estimate duration (rough estimate: ~150 words per minute, ~10 chars per word)
+            # This is approximate
+            estimated_duration = len(text) / 10.0  # Rough estimate
+
+            return {
+                "audio_data": audio_b64,
+                "duration": estimated_duration,
+                "sample_rate": sample_rate,
+                "format": format_type,
+                "voice": voice,
+                "model": "gtts",
+                "provider": "gtts",
+                "latency_ms": (end_time - start_time) * 1000
+            }
+
+        except Exception as e:
+            if isinstance(e, HTTPException):
+                raise
+            raise HTTPException(status_code=500, detail=f"gTTS synthesis failed: {str(e)}")
+
+    def get_available_voices(self) -> List[Dict[str, Any]]:
+        """Get available languages for gTTS"""
+        if not self.available:
+            return []
+
+        return [
+            {"id": "pt-br", "name": "Portuguese (Brazil)", "language": "pt-br", "gender": "neutral", "description": "Portuguese (Brazil)", "provider": "gtts"},
+            {"id": "pt", "name": "Portuguese", "language": "pt", "gender": "neutral", "description": "Portuguese", "provider": "gtts"},
+            {"id": "en", "name": "English", "language": "en", "gender": "neutral", "description": "English", "provider": "gtts"},
+            {"id": "es", "name": "Spanish", "language": "es", "gender": "neutral", "description": "Spanish", "provider": "gtts"},
+            {"id": "fr", "name": "French", "language": "fr", "gender": "neutral", "description": "French", "provider": "gtts"},
+            {"id": "de", "name": "German", "language": "de", "gender": "neutral", "description": "German", "provider": "gtts"},
+            {"id": "it", "name": "Italian", "language": "it", "gender": "neutral", "description": "Italian", "provider": "gtts"},
+            {"id": "ja", "name": "Japanese", "language": "ja", "gender": "neutral", "description": "Japanese", "provider": "gtts"},
+            {"id": "ko", "name": "Korean", "language": "ko", "gender": "neutral", "description": "Korean", "provider": "gtts"},
+            {"id": "zh", "name": "Chinese", "language": "zh", "gender": "neutral", "description": "Chinese", "provider": "gtts"},
+            {"id": "ru", "name": "Russian", "language": "ru", "gender": "neutral", "description": "Russian", "provider": "gtts"},
+            {"id": "ar", "name": "Arabic", "language": "ar", "gender": "neutral", "description": "Arabic", "provider": "gtts"},
+            {"id": "hi", "name": "Hindi", "language": "hi", "gender": "neutral", "description": "Hindi", "provider": "gtts"},
+        ]
 
 # ============================================================================
 # Hugging Face TTS Provider (Standalone)
@@ -594,6 +772,17 @@ class TTSProviderManager:
         self.providers = {}
         self.available_providers = []
 
+        # Initialize gTTS provider (default - free, no API key required)
+        try:
+            gtts_provider = GTTSProvider()
+            if gtts_provider.available:
+                self.providers["gtts"] = gtts_provider
+                # Add gTTS first to make it the default
+                self.available_providers.insert(0, "gtts")
+                print("✅ Google TTS (gTTS) provider registered (DEFAULT - free)")
+        except Exception as e:
+            print(f"⚠️  gTTS provider initialization failed: {e}")
+
         # Initialize Hugging Face provider
         try:
             hf_provider = HuggingFaceTTSProvider()
@@ -604,14 +793,13 @@ class TTSProviderManager:
         except Exception as e:
             print(f"⚠️  Hugging Face provider initialization failed: {e}")
 
-        # Initialize Eleven Labs provider (default provider)
+        # Initialize Eleven Labs provider
         try:
             elevenlabs_provider = ElevenLabsTTSProvider()
             if elevenlabs_provider.available:
                 self.providers["elevenlabs"] = elevenlabs_provider
-                # Add Eleven Labs first to make it the default
-                self.available_providers.insert(0, "elevenlabs")
-                print("✅ Eleven Labs provider registered (DEFAULT)")
+                self.available_providers.append("elevenlabs")
+                print("✅ Eleven Labs provider registered")
         except Exception as e:
             print(f"⚠️  Eleven Labs provider initialization failed: {e}")
 
@@ -635,7 +823,7 @@ class TTSProviderManager:
 
         return voices
 
-    async def synthesize_speech(self, text: str, provider: str = "huggingface", voice: str = None, **kwargs) -> Dict[str, Any]:
+    async def synthesize_speech(self, text: str, provider: str = "gtts", voice: str = None, **kwargs) -> Dict[str, Any]:
         """Synthesize speech using the specified provider"""
         if provider not in self.providers:
             raise HTTPException(status_code=400, detail=f"Provider '{provider}' not available")
@@ -670,12 +858,14 @@ class TTSProviderManager:
 
         # Set default voice based on provider if not specified
         if not voice:
-            if provider == "elevenlabs":
+            if provider == "gtts":
+                voice = "pt-br"
+            elif provider == "elevenlabs":
                 voice = "Rachel"
             elif provider == "huggingface":
                 voice = "af_heart"
             else:
-                voice = "Rachel"
+                voice = "pt-br"
             logger.info(f"🎤 Using default voice '{voice}' for provider '{provider}'")
 
         return await provider_instance.synthesize_speech(text=text, voice=voice, **kwargs)
@@ -736,8 +926,10 @@ async def synthesize_speech(request: TTSRequest):
         
         # Auto-select provider if not specified
         if not provider:
-            # Prefer Eleven Labs if available
-            if "elevenlabs" in tts_provider_manager.available_providers:
+            # Prefer gTTS (free, no API key) if available
+            if "gtts" in tts_provider_manager.available_providers:
+                provider = "gtts"
+            elif "elevenlabs" in tts_provider_manager.available_providers:
                 provider = "elevenlabs"
             elif "huggingface" in tts_provider_manager.available_providers:
                 provider = "huggingface"
@@ -798,6 +990,19 @@ async def get_models():
 
     models = []
 
+    # gTTS models (default - free)
+    if "gtts" in tts_provider_manager.available_providers:
+        gtts_provider = tts_provider_manager.get_provider("gtts")
+        if gtts_provider and gtts_provider.available:
+            voices = gtts_provider.get_available_voices()
+            models.append({
+                "id": "gtts",
+                "provider": "gtts",
+                "description": "Google Text-to-Speech (gTTS) - Free, no API key required",
+                "languages": [v["language"] for v in voices],
+                "voices": [v["id"] for v in voices]
+            })
+
     # Hugging Face models
     if "huggingface" in tts_provider_manager.available_providers:
         models.append({
@@ -834,7 +1039,10 @@ async def synthesize_speech_stream(request: TTSRequest):
         # Auto-select provider if not specified
         provider = request.provider
         if not provider:
-            if "elevenlabs" in tts_provider_manager.available_providers:
+            # Prefer gTTS (free, no API key) if available
+            if "gtts" in tts_provider_manager.available_providers:
+                provider = "gtts"
+            elif "elevenlabs" in tts_provider_manager.available_providers:
                 provider = "elevenlabs"
             elif "huggingface" in tts_provider_manager.available_providers:
                 provider = "huggingface"

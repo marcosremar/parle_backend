@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, status, APIRouter
 from typing import Dict, Optional, Any
+from datetime import datetime
 from loguru import logger
 
 # Add project root to path for src imports
@@ -132,18 +133,121 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    if service:
-        try:
-            return await service.health_check()
-        except Exception:
-            pass
-    
+    """Basic health check endpoint (liveness)"""
     return {
         "status": "healthy",
         "service": "orchestrator",
-        "initialized": service is not None
+        "initialized": service is not None,
+        "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/health/live")
+async def liveness_probe():
+    """Liveness probe - checks if service is alive"""
+    return {
+        "status": "healthy",
+        "service": "orchestrator",
+        "probe": "liveness",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.get("/health/ready")
+async def readiness_probe():
+    """Readiness probe - checks if service is ready to accept traffic"""
+    if not service or not hasattr(service, 'orchestrator') or not service.orchestrator:
+        return {
+            "status": "unhealthy",
+            "service": "orchestrator",
+            "probe": "readiness",
+            "message": "Service not initialized",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    try:
+        # Check dependencies
+        health_status = await service.orchestrator._health_check_services()
+        
+        # Determine if ready
+        critical_services = ["llm", "stt", "tts"]
+        critical_healthy = all(health_status.get(s, False) for s in critical_services)
+        
+        if critical_healthy:
+            status = "healthy"
+            message = "Service is ready"
+        else:
+            status = "degraded"
+            message = "Service is ready but some dependencies are unhealthy"
+        
+        return {
+            "status": status,
+            "service": "orchestrator",
+            "probe": "readiness",
+            "message": message,
+            "dependencies": health_status,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "service": "orchestrator",
+            "probe": "readiness",
+            "message": f"Readiness check failed: {e}",
+            "timestamp": datetime.now().isoformat()
+        }
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with comprehensive information"""
+    if not service or not hasattr(service, 'orchestrator') or not service.orchestrator:
+        return {
+            "status": "unhealthy",
+            "service": "orchestrator",
+            "message": "Service not initialized",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    try:
+        # Check dependencies
+        health_status = await service.orchestrator._health_check_services()
+        
+        # Collect metrics
+        metrics = {}
+        if service.orchestrator:
+            metrics["clients_initialized"] = len(service.orchestrator.clients)
+            metrics["in_process_mode"] = service.orchestrator.in_process_mode
+        
+        # Determine overall status
+        critical_services = ["llm", "stt", "tts"]
+        critical_healthy = all(health_status.get(s, False) for s in critical_services)
+        all_healthy = all(health_status.values())
+        
+        if all_healthy:
+            status = "healthy"
+            message = "All systems operational"
+        elif critical_healthy:
+            status = "degraded"
+            message = "Critical services healthy, some non-critical services unavailable"
+        else:
+            status = "unhealthy"
+            message = "Critical services unavailable"
+        
+        return {
+            "status": status,
+            "service": "orchestrator",
+            "message": message,
+            "dependencies": health_status,
+            "metrics": metrics,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Detailed health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "service": "orchestrator",
+            "message": f"Health check failed: {e}",
+            "timestamp": datetime.now().isoformat()
+        }
 
 # Try to mount service routes
 try:

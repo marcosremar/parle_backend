@@ -14,7 +14,7 @@ import aiohttp
 import asyncio
 import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import sys
 from pathlib import Path
 import time
@@ -48,6 +48,11 @@ class ConversationOrchestrator:
     4. Track session state
     5. Save conversation history
     """
+    
+    # Cache para valid_skills (evita recalcular a cada turno)
+    _valid_skills_cache: Optional[List[str]] = None
+    _valid_skills_cache_timestamp: Optional[float] = None
+    _valid_skills_cache_ttl: float = 300.0  # 5 minutos
 
     def __init__(self, config: Optional[Dict[str, str]] = None, in_process_mode: bool = False):
         """
@@ -94,9 +99,22 @@ class ConversationOrchestrator:
 
         mode_str = "IN-PROCESS (ultra-low latency)" if in_process_mode else "HTTP (with fallback)"
         logger.info(f"🏗️ ConversationOrchestrator created - Mode: {mode_str}")
+        
+        # Import get_skill_difficulty once (for use in loops)
+        try:
+            from src.services.student_model.skill_registry import get_skill_difficulty, get_relevant_skills_for_context
+            self._get_skill_difficulty = get_skill_difficulty
+            self._get_relevant_skills_func = get_relevant_skills_for_context  # Renamed to avoid conflict
+        except Exception as e:
+            logger.warning(f"Could not import skill registry functions: {e}")
+            self._get_skill_difficulty = None
+            self._get_relevant_skills_func = None
 
     def _load_config_from_env(self):
         """Load service URLs from environment variables (with Nomad service discovery support)"""
+        # Check if running in monolith mode
+        self.monolith_mode = os.getenv("MONOLITH_MODE", "false").lower() == "true"
+        
         env_mappings = {
             "llm_url": ("LLM_SERVICE_URL", "http://localhost:8110"),
             "tts_url": ("TTS_SERVICE_URL", "http://localhost:8103"),
@@ -111,6 +129,55 @@ class ConversationOrchestrator:
         for key, (env_var, default) in env_mappings.items():
             if key not in self.config:
                 self.config[key] = os.getenv(env_var, default)
+        
+        if self.monolith_mode:
+            logger.info("🏗️  Orchestrator running in MONOLITH mode (direct module calls)")
+    
+    def _get_relevant_skills_for_context(
+        self,
+        user_text: str,
+        cefr_level: str,
+        context_type: str = "production",
+        force_refresh: bool = False
+    ) -> List[str]:
+        """
+        Get relevant skills for context with caching
+        
+        Args:
+            user_text: Texto do aluno
+            cefr_level: Nível CEFR atual
+            context_type: Tipo de contexto ("production", "comprehension", "interaction")
+            force_refresh: Forçar atualização do cache
+            
+        Returns:
+            Lista filtrada de skill_ids relevantes
+        """
+        # Se temos a função importada, usar ela
+        if self._get_relevant_skills_func:
+            return self._get_relevant_skills_func(user_text, cefr_level, context_type)
+        
+        # Fallback: usar cache simples de todas as skills
+        current_time = time.time()
+        
+        if (not force_refresh and 
+            self._valid_skills_cache and 
+            self._valid_skills_cache_timestamp and
+            current_time - self._valid_skills_cache_timestamp < self._valid_skills_cache_ttl):
+            return self._valid_skills_cache
+        
+        # Recalcular cache
+        try:
+            from src.services.student_model.skill_registry import SKILL_CEFR_MAP
+            valid_skills = []
+            for level_skills in SKILL_CEFR_MAP.values():
+                valid_skills.extend(level_skills)
+            
+            self._valid_skills_cache = valid_skills
+            self._valid_skills_cache_timestamp = current_time
+            return valid_skills
+        except Exception as e:
+            logger.warning(f"Could not fetch valid skills: {e}")
+            return []
 
     async def initialize(self):
         """
@@ -331,13 +398,17 @@ Listen to the audio, identify the question, and answer it directly."""
             conversation_history = []
             scenario_id = None
             validation_result = None
+            user_id = session_id  # Use session_id as user_id for now (can be extracted from session_data if available)
+            target_skill = None
+            student_profile = None
 
             if session_data:
                 conversation_id = session_data.get("conversation_id")
                 scenario_id = session_data.get("scenario_id")
                 voice_id = voice_id or session_data.get("voice_id", None)
+                user_id = session_data.get("user_id", session_id)  # Try to get user_id from session
 
-                # Step 1b: Load scenario + history in PARALLEL (20ms → 10ms)
+                # Step 1b: Load scenario + history + student data in PARALLEL
                 tasks = []
 
                 # Add scenario task if scenario_id exists
@@ -354,6 +425,19 @@ Listen to the audio, identify the question, and answer it directly."""
                     ))
                 else:
                     tasks.append(None)  # Placeholder
+
+                # Add student profile task (if student_model client exists)
+                if "student_model" in self.clients:
+                    # NEW: Get detailed CEFR progress instead of just profile
+                    tasks.append(self.clients["student_model"].get_cefr_progress(user_id))
+                else:
+                    tasks.append(None)
+
+                # Add next skill task (if learning_path client exists)
+                if "learning_path" in self.clients:
+                    tasks.append(self.clients["learning_path"].get_next_skill(user_id))
+                else:
+                    tasks.append(None)
 
                 # Execute in parallel (asyncio.gather)
                 if any(task is not None for task in tasks):
@@ -376,16 +460,360 @@ Listen to the audio, identify the question, and answer it directly."""
                     elif conversation_id and isinstance(results[1], Exception):
                         logger.warning(f"⚠️ Failed to load conversation history: {results[1]}")
 
+                    # Process student profile/CEFR result
+                    student_cefr_progress = None
+                    current_cefr_level = "A1"
+                    if "student_model" in self.clients and not isinstance(results[2], Exception) and results[2]:
+                        student_cefr_progress = results[2]
+                        # Alguns endpoints usam "current_estimated_level", outros "current_level"
+                        current_cefr_level = (
+                            student_cefr_progress.get("current_estimated_level")
+                            or student_cefr_progress.get("current_level")
+                            or "A1"
+                        )
+                        logger.info(f"👤 Loaded student CEFR progress: {current_cefr_level}")
+
+                    # Process next skill result
+                    if "learning_path" in self.clients and not isinstance(results[3], Exception) and results[3]:
+                        target_skill = results[3]
+                        logger.info(f"🎯 Target skill: {target_skill.get('skill_name', target_skill.get('skill_id', 'unknown'))}")
+
             else:
                 logger.warning(f"⚠️ Session {session_id} not found, using defaults")
                 voice_id = voice_id or None
 
             # ==========================================
-            # STEP 2: Call LLM (In-Process or HTTP with Failover)
+            # STEP 2: Get User Transcript (STT) - Required for analysis
             # ==========================================
+            # We need transcript BEFORE analysis, so we do STT first if not already done
+            user_transcript = ""
+            
+            # Try in-process STT first if enabled
+            if self.in_process_mode and self.llm_instance and not force_external_llm:
+                try:
+                    # Convert audio_data to numpy array
+                    import numpy as np
+                    audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
+                    
+                    # Get transcript from Ultravox (it does STT internally)
+                    # We'll call it just for transcript, then use it for analysis
+                    result = await self.llm_instance.process_audio(
+                        audio_array=audio_array,
+                        sample_rate=sample_rate,
+                        system_prompt="Transcribe the audio.",  # Minimal prompt for STT
+                        conversation_history=[]
+                    )
+                    user_transcript = result.get("transcript", "")
+                    logger.info(f"📝 Got transcript from in-process: {user_transcript[:50]}...")
+                except Exception as e:
+                    logger.debug(f"Could not get transcript from in-process: {e}")
+            
+            # Fallback to HTTP STT if needed
+            if not user_transcript and "stt" in self.clients:
+                try:
+                    stt_result = await self.clients["stt"].transcribe(audio_data, sample_rate)
+                    user_transcript = stt_result.get("text", "")
+                    logger.info(f"📝 Got transcript from STT service: {user_transcript[:50]}...")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to get transcript: {e}")
+
+            # ==========================================
+            # STEP 2.5: Analyze Current Turn (BEFORE generating response)
+            # ==========================================
+            # Analyze user speech to adapt pedagogy BEFORE generating response
+            # Call analyze_turn and extract_skills in parallel for better performance
+            turn_analysis = None
+            skills_extraction = None
+            if user_transcript and "speech_grader" in self.clients:
+                try:
+                    # Get valid skills with context filtering and caching
+                    valid_skills = self._get_relevant_skills_for_context(
+                        user_text=user_transcript,
+                        # Se não tivermos progresso CEFR ainda, assume A1–A2 (diagnóstico inicial simples)
+                        cefr_level=current_cefr_level if student_cefr_progress else "A1",
+                        context_type="production"
+                    )
+                    
+                    # Call both endpoints in parallel using asyncio.gather
+                    if valid_skills:
+                        try:
+                            turn_analysis_task = self.clients["speech_grader"].analyze_turn(
+                                user_text=user_transcript,
+                                ai_text=None,  # No AI text yet (we're analyzing BEFORE response)
+                                valid_skills=valid_skills
+                            )
+                            skills_extraction_task = self.clients["speech_grader"].extract_skills(
+                                user_text=user_transcript,
+                                valid_skills=valid_skills,
+                                ai_text=None
+                            )
+                            
+                            # Execute both in parallel
+                            turn_analysis, skills_extraction = await asyncio.gather(
+                                turn_analysis_task,
+                                skills_extraction_task,
+                                return_exceptions=True
+                            )
+                            
+                            # Handle exceptions with traceback
+                            if isinstance(turn_analysis, Exception):
+                                logger.error(f"⚠️ analyze_turn failed: {turn_analysis}")
+                                import traceback
+                                logger.debug(f"Traceback: {traceback.format_exc()}")
+                                turn_analysis = None
+                            if isinstance(skills_extraction, Exception):
+                                logger.error(f"⚠️ extract_skills failed: {skills_extraction}")
+                                import traceback
+                                logger.debug(f"Traceback: {traceback.format_exc()}")
+                                skills_extraction = None
+                            
+                            logger.info(f"🔍 Analyzed turn: {len(turn_analysis.get('errors', [])) if turn_analysis else 0} errors, "
+                                      f"{len(turn_analysis.get('correct_skills', [])) if turn_analysis else 0} correct skills, "
+                                      f"{len(skills_extraction.get('skills', [])) if skills_extraction else 0} extracted skills")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Failed to run parallel analysis: {e}")
+                            # Fallback: try analyze_turn alone
+                            try:
+                                turn_analysis = await self.clients["speech_grader"].analyze_turn(
+                                    user_text=user_transcript,
+                                    ai_text=None,
+                                    valid_skills=valid_skills
+                                )
+                            except Exception as e2:
+                                logger.warning(f"⚠️ Fallback analyze_turn also failed: {e2}")
+                                turn_analysis = None
+                    else:
+                        # No valid_skills, just call analyze_turn
+                        turn_analysis = await self.clients["speech_grader"].analyze_turn(
+                            user_text=user_transcript,
+                            ai_text=None,
+                            valid_skills=None
+                        )
+                        logger.info(f"🔍 Analyzed turn (no valid_skills): {len(turn_analysis.get('errors', []))} errors")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to analyze turn: {e}")
+                    turn_analysis = None
+                    skills_extraction = None
+
+            # ==========================================
+            # STEP 1.6: Combine Results from Parallel Analysis
+            # ==========================================
+            # Merge results from analyze_turn and extract_skills
+            if turn_analysis or skills_extraction:
+                # Combine linguistic features: prioritize extract_skills if more complete
+                combined_linguistic_features = {}
+                if skills_extraction and skills_extraction.get("overall_linguistic_features"):
+                    combined_linguistic_features = skills_extraction.get("overall_linguistic_features", {})
+                elif turn_analysis:
+                    combined_linguistic_features = turn_analysis.get("linguistic_features", {})
+                
+                # Merge correct_skills: combine from both sources, keeping confidence scores
+                combined_skills_with_confidence = {}  # skill_id -> max_confidence
+                
+                # From turn_analysis (implicit high confidence)
+                if turn_analysis:
+                    for skill_id in turn_analysis.get("correct_skills", []):
+                        combined_skills_with_confidence[skill_id] = 1.0
+                
+                # From extract_skills (with actual confidence scores)
+                if skills_extraction:
+                    for skill_data in skills_extraction.get("skills", []):
+                        skill_id = skill_data.get("skill_id")
+                        confidence = skill_data.get("confidence", 0.0)
+                        if skill_id and confidence >= 0.7:
+                            # Use max confidence if skill appears in both
+                            combined_skills_with_confidence[skill_id] = max(
+                                combined_skills_with_confidence.get(skill_id, 0.0),
+                                confidence
+                            )
+                
+                combined_correct_skills = list(combined_skills_with_confidence.keys())
+                
+                # Update turn_analysis with combined data
+                if turn_analysis:
+                    turn_analysis["linguistic_features"] = combined_linguistic_features
+                    turn_analysis["correct_skills"] = list(combined_correct_skills)
+                else:
+                    # If turn_analysis failed but skills_extraction succeeded, create minimal turn_analysis
+                    turn_analysis = {
+                        "errors": [],
+                        "correct_skills": list(combined_correct_skills),
+                        "linguistic_features": combined_linguistic_features,
+                        "semantic_skill_mapping": {},
+                        "summary": skills_extraction.get("summary", "Skills extracted") if skills_extraction else "Analysis incomplete"
+                    }
+                
+                logger.info(f"📊 Combined results: {len(combined_correct_skills)} total skills, "
+                          f"{len(combined_linguistic_features)} linguistic features")
+            
+            # ==========================================
+            # STEP 1.7: Update Knowledge (BEFORE composing prompt)
+            # ==========================================
+            # Update student knowledge based on analysis so prompt uses updated state
+            if turn_analysis and target_skill and "student_model" in self.clients:
+                try:
+                    # Extract analysis data (now with combined results)
+                    linguistic_features = turn_analysis.get("linguistic_features", {})
+                    semantic_skill_mapping = turn_analysis.get("semantic_skill_mapping", {})
+                    correct_skills = turn_analysis.get("correct_skills", [])
+                    errors = turn_analysis.get("errors", [])
+                    
+                    # Also add high-confidence skills from extract_skills
+                    if skills_extraction:
+                        for skill_data in skills_extraction.get("skills", []):
+                            skill_id = skill_data.get("skill_id")
+                            confidence = skill_data.get("confidence", 0.0)
+                            if skill_id and confidence >= 0.7:
+                                # Add to semantic_skill_mapping if not already present
+                                if skill_id not in semantic_skill_mapping:
+                                    semantic_skill_mapping[skill_id] = confidence
+                    
+                    # Process successes with confidence tracking
+                    # Merge skills from both sources, keeping max confidence
+                    success_skills_with_confidence = {}  # skill_id -> max_confidence
+                    
+                    # From turn_analysis correct_skills (implicit high confidence)
+                    for skill_id in correct_skills:
+                        success_skills_with_confidence[skill_id] = 1.0
+                    
+                    # From semantic_skill_mapping
+                    for skill_id, confidence in semantic_skill_mapping.items():
+                        if confidence >= 0.7:
+                            success_skills_with_confidence[skill_id] = max(
+                                success_skills_with_confidence.get(skill_id, 0.0),
+                                confidence
+                            )
+                    
+                    # From extract_skills (high confidence only)
+                    if skills_extraction:
+                        for skill_data in skills_extraction.get("skills", []):
+                            skill_id = skill_data.get("skill_id")
+                            confidence = skill_data.get("confidence", 0.0)
+                            if skill_id and confidence >= 0.7:
+                                success_skills_with_confidence[skill_id] = max(
+                                    success_skills_with_confidence.get(skill_id, 0.0),
+                                    confidence
+                                )
+                    
+                    # Process all success skills
+                    for usage_skill_id in success_skills_with_confidence.keys():
+                        skill_difficulty = None
+                        if self._get_skill_difficulty:
+                            try:
+                                skill_difficulty = self._get_skill_difficulty(usage_skill_id)
+                            except Exception:
+                                pass
+                        
+                        await self.clients["student_model"].assess(
+                            user_id=user_id,
+                            skill_id=usage_skill_id,
+                            correct=True,
+                            context={"type": "explicit_success", "source": "pre_response_analysis"},
+                            user_text=user_transcript,
+                            ai_text=None,
+                            difficulty=skill_difficulty,
+                            linguistic_features=linguistic_features
+                        )
+                    
+                    # Process errors
+                    for error in errors:
+                        error_skill_id = error.get("skill_id")
+                        if error_skill_id:
+                            skill_difficulty = None
+                            if self._get_skill_difficulty:
+                                try:
+                                    skill_difficulty = self._get_skill_difficulty(error_skill_id)
+                                except Exception:
+                                    pass
+                            
+                            error_linguistic_features = error.get("linguistic_features", linguistic_features)
+                            
+                            await self.clients["student_model"].assess(
+                                user_id=user_id,
+                                skill_id=error_skill_id,
+                                correct=False,
+                                context={
+                                    "type": "error",
+                                    "error_type": error.get("error_type"),
+                                    "explanation": error.get("explanation"),
+                                    "severity": error.get("severity")
+                                },
+                                user_text=user_transcript,
+                                ai_text=None,
+                                difficulty=skill_difficulty,
+                                linguistic_features=error_linguistic_features
+                            )
+                    
+                    logger.info(f"📊 Updated knowledge: {len(success_skills)} successes, {len(errors)} errors")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to update knowledge: {e}")
+
+            # ==========================================
+            # STEP 1.7: Compose Pedagogical Prompt (with turn analysis)
+            # ==========================================
+            if "pedagogical_policy" in self.clients and (scenario_data or student_cefr_progress or target_skill):
+                try:
+                    # Fetch updated interpretable knowledge state (after analysis)
+                    interpretable_state = None
+                    if "student_model" in self.clients:
+                        try:
+                            interpretable_state = await self.clients["student_model"].get_interpretable_knowledge_state(user_id)
+                        except Exception as e:
+                            logger.debug(f"Could not fetch interpretable knowledge state: {e}")
+                    
+                    # Build session-level analysis if we have conversation history
+                    session_analysis = None
+                    if conversation_history and len(conversation_history) >= 2 and "speech_grader" in self.clients:
+                        try:
+                            # Get recent turn analyses from conversation history
+                            # We need to reconstruct session_turns from conversation_history
+                            # For now, we'll use the current turn analysis + historical patterns
+                            # In a full implementation, we'd store turn analyses in conversation_store
+                            
+                            # Use interpretable_knowledge_state which already aggregates historical data
+                            # This includes linguistic_error_patterns which aggregates last 90 days
+                            if interpretable_state and interpretable_state.get("linguistic_error_patterns"):
+                                session_analysis = {
+                                    "historical_patterns": interpretable_state.get("linguistic_error_patterns"),
+                                    "session_context": f"Conversa com {len(conversation_history)} mensagens anteriores"
+                                }
+                        except Exception as e:
+                            logger.debug(f"Could not build session analysis: {e}")
+                    
+                    # Build prompt context with turn analysis AND session analysis
+                    prompt_context_dict = {
+                        "scenario": scenario_data,
+                        "cefr_level": student_cefr_progress.get("current_estimated_level", "A1") if student_cefr_progress else "A1",
+                        "cefr_details": student_cefr_progress.get("cefr_details", {}) if student_cefr_progress else {},
+                        "native_language": "pt", # Default or fetch if available in profile
+                        "target_skill": target_skill,
+                        "mastery_probability": target_skill.get("mastery_probability", 0.0) if target_skill else 0.0,
+                        "emotional_state": "neutral",  # TODO: Get from session or analysis
+                        "conversation_history": conversation_history,
+                        "interpretable_knowledge_state": interpretable_state,
+                        "current_turn_analysis": turn_analysis,  # Analysis of current turn
+                        "session_analysis": session_analysis  # NEW: Aggregated session-level analysis
+                    }
+                    
+                    # Compose pedagogical prompt
+                    prompt_result = await self.clients["pedagogical_policy"].compose_prompt(prompt_context_dict)
+                    
+                    if prompt_result and prompt_result.get("prompt"):
+                        system_prompt = prompt_result["prompt"]
+                        logger.info(f"📚 Composed pedagogical prompt (strategy: {prompt_result.get('strategy', 'unknown')})")
+                    else:
+                        logger.warning("⚠️ Failed to compose pedagogical prompt, using default")
+                except Exception as e:
+                    logger.warning(f"⚠️ Error composing pedagogical prompt: {e}, using default")
+                    # Continue with default prompt
+
+            # ==========================================
+            # STEP 3: Call LLM (In-Process or HTTP with Failover)
+            # ==========================================
+            # Note: If we already got transcript from STT above, we can use text-based LLM call
+            # But for simplicity, we'll still use audio-based call (Ultravox handles both)
             llm_result = None
             text_response = None
-            user_transcript = ""
             llm_used = "unknown"
 
             # Try in-process first if enabled
@@ -407,6 +835,7 @@ Listen to the audio, identify the question, and answer it directly."""
                     logger.debug(f"   6. Duration: {len(audio_array) / sample_rate:.2f}s")
 
                     # Call Ultravox Universal in-process
+                    # system_prompt now includes pedagogical adaptation based on analysis
                     result = await self.llm_instance.process_audio(
                         audio_array=audio_array,
                         sample_rate=sample_rate,
@@ -415,7 +844,9 @@ Listen to the audio, identify the question, and answer it directly."""
                     )
 
                     text_response = result.get("text", "")
-                    user_transcript = result.get("transcript", "")
+                    # Only update transcript if we didn't get it earlier from STT
+                    if not user_transcript:
+                        user_transcript = result.get("transcript", "")
                     llm_used = "in_process"
 
                     logger.info(f"✅ In-process LLM response: {text_response[:100]}...")
@@ -424,7 +855,13 @@ Listen to the audio, identify the question, and answer it directly."""
                     llm_result = {"success": True, "text": text_response, "llm_used": llm_used}
 
                 except Exception as e:
-                    logger.warning(f"⚠️ In-process LLM failed: {e}")
+                    # Wrap exception using hierarchy
+                    try:
+                        from .utils.exceptions import wrap_exception, LLMError
+                        wrapped_error = wrap_exception(e, service_name="llm", operation="process_audio")
+                        logger.warning(f"⚠️ In-process LLM failed: {wrapped_error}")
+                    except ImportError:
+                        logger.warning(f"⚠️ In-process LLM failed: {e}")
                     logger.info("   Falling back to HTTP mode...")
                     self.stats["http_fallback_count"] += 1
                     llm_result = None  # Trigger HTTP fallback
@@ -450,7 +887,9 @@ Listen to the audio, identify the question, and answer it directly."""
                     }
 
                 text_response = llm_result["text"]
-                user_transcript = llm_result.get("transcript", "")
+                # Only update transcript if we didn't get it earlier from STT
+                if not user_transcript:
+                    user_transcript = llm_result.get("transcript", "")
                 llm_used = llm_result["llm_used"]
 
                 logger.info(f"🤖 LLM ({llm_used}) response: {text_response[:100]}...")
@@ -479,7 +918,13 @@ Listen to the audio, identify the question, and answer it directly."""
                     logger.info(f"✅ In-process TTS generated: {len(audio_response)} bytes")
 
                 except Exception as e:
-                    logger.warning(f"⚠️ In-process TTS failed: {e}")
+                    # Wrap exception using hierarchy
+                    try:
+                        from .utils.exceptions import wrap_exception, TTSError
+                        wrapped_error = wrap_exception(e, service_name="tts", operation="synthesize")
+                        logger.warning(f"⚠️ In-process TTS failed: {wrapped_error}")
+                    except ImportError:
+                        logger.warning(f"⚠️ In-process TTS failed: {e}")
                     logger.info("   Falling back to HTTP TTS...")
                     audio_response = None  # Trigger HTTP fallback
 
@@ -493,7 +938,13 @@ Listen to the audio, identify the question, and answer it directly."""
                     )
                     logger.info(f"🔊 TTS (local) generated: {len(audio_response)} bytes")
                 except ServiceClientError as e:
-                    logger.warning(f"⚠️ Local TTS failed: {e}")
+                    # Wrap exception using hierarchy
+                    try:
+                        from .utils.exceptions import wrap_exception, TTSError
+                        wrapped_error = wrap_exception(e, service_name="tts", operation="synthesize")
+                        logger.warning(f"⚠️ Local TTS failed: {wrapped_error}")
+                    except ImportError:
+                        logger.warning(f"⚠️ Local TTS failed: {e}")
                     logger.info("   Trying external TTS (HuggingFace)...")
 
                     # Fallback to external TTS
@@ -505,12 +956,18 @@ Listen to the audio, identify the question, and answer it directly."""
                         )
                         logger.info(f"🔊 TTS (external) generated: {len(audio_response)} bytes")
                     except ServiceClientError as e2:
-                        logger.error(f"❌ External TTS also failed: {e2}")
+                        # Wrap exception using hierarchy
+                        try:
+                            from .utils.exceptions import wrap_exception, TTSError
+                            wrapped_error = wrap_exception(e2, service_name="tts", operation="synthesize_external")
+                            logger.error(f"❌ External TTS also failed: {wrapped_error}")
+                        except ImportError:
+                            logger.error(f"❌ External TTS also failed: {e2}")
                         # Return text-only response if all TTS fails
                         audio_response = None
 
             # ==========================================
-            # STEP 4 + 5: Save Conversation Turn + Update Session (OPTIMIZED - PARALLEL)
+            # STEP 5 + 6: Save Conversation Turn + Update Session (OPTIMIZED - PARALLEL)
             # ==========================================
             # Both operations are independent and can run in parallel (30ms → 15ms)
             save_tasks = []
@@ -551,6 +1008,13 @@ Listen to the audio, identify the question, and answer it directly."""
                         logger.warning(f"⚠️ Failed to update session: {save_results[task_idx]}")
                     else:
                         logger.debug(f"✅ Session {session_id} updated with LLM: {llm_used}")
+
+            # ==========================================
+            # STEP 6.5: Background Final Knowledge Update (Optional - for reinforcement)
+            # ==========================================
+            # Note: Main analysis and update already done BEFORE response generation
+            # This is just for final reinforcement/validation if needed
+            # (Analysis is now done in STEP 2.5, before prompt composition)
 
             # ==========================================
             # STEP 6: Return Response
@@ -606,6 +1070,164 @@ Listen to the audio, identify the question, and answer it directly."""
             if content:
                 formatted.append({"role": role, "content": content})
         return formatted
+
+    async def _analyze_and_update_knowledge(
+        self,
+        user_id: str,
+        target_skill: Dict[str, Any],
+        user_text: str,
+        ai_text: str
+    ):
+        """
+        Background task: Analyze turn and update student knowledge
+        
+        This runs asynchronously after the main response is sent,
+        so it doesn't block the conversation flow.
+        
+        Args:
+            user_id: User ID
+            target_skill: Target skill being practiced
+            user_text: User's input text
+            ai_text: AI's response text
+        """
+        try:
+            logger.info(f"🔍 Background: Analyzing turn for user {user_id}, skill {target_skill.get('skill_id')}")
+            
+            # Step 1: Get valid skills from SKILL_CEFR_MAP for SINKT semantic tagging
+            valid_skills = []
+            try:
+                from src.services.student_model.skill_registry import SKILL_CEFR_MAP
+                for level_skills in SKILL_CEFR_MAP.values():
+                    valid_skills.extend(level_skills)
+            except Exception as e:
+                logger.warning(f"Could not fetch valid skills: {e}")
+            
+            # Step 2: Analyze errors AND successes using speech_grader (with SINKT and linguistic features)
+            analysis = await self.clients["speech_grader"].analyze_turn(
+                user_text=user_text,
+                ai_text=ai_text,
+                valid_skills=valid_skills if valid_skills else None
+            )
+            
+            skill_id = target_skill.get("skill_id")
+            
+            # ==================================================================================
+            # NEW LOGIC: Process granular skill updates (Successes & Errors)
+            # ==================================================================================
+            
+            # Extract linguistic features and semantic mapping from analysis
+            linguistic_features = analysis.get("linguistic_features", {})
+            semantic_skill_mapping = analysis.get("semantic_skill_mapping", {})
+            correct_skills = analysis.get("correct_skills", [])
+            
+            # 1. Process explicit successes identified by LLM (correct_skills + semantic mapping)
+            # Combine correct_skills from analysis with high-confidence semantic mappings
+            success_skills = set(correct_skills)
+            for skill_id, confidence in semantic_skill_mapping.items():
+                if confidence >= 0.7:  # High confidence semantic match
+                    success_skills.add(skill_id)
+            
+            for usage_skill_id in success_skills:
+                # Get difficulty for this skill
+                try:
+                    from src.services.student_model.skill_registry import get_skill_difficulty
+                    skill_difficulty = get_skill_difficulty(usage_skill_id)
+                except Exception:
+                    skill_difficulty = None
+                
+                await self.clients["student_model"].assess(
+                    user_id=user_id,
+                    skill_id=usage_skill_id,
+                    correct=True,
+                    context={
+                        "type": "explicit_success",
+                        "source": "diagnostic_analysis"
+                    },
+                    user_text=user_text,
+                    ai_text=ai_text,
+                    difficulty=skill_difficulty,
+                    linguistic_features=linguistic_features
+                )
+                logger.info(f"✅ Registered SUCCESS for skill {usage_skill_id}")
+
+            # 2. Process errors identified by LLM
+            errors = analysis.get("errors", [])
+            error_skills_processed = set()
+            
+            for error in errors:
+                error_skill_id = error.get("skill_id")
+                if error_skill_id:
+                    # Get difficulty for this skill
+                    try:
+                        from src.services.student_model.skill_registry import get_skill_difficulty
+                        skill_difficulty = get_skill_difficulty(error_skill_id)
+                    except Exception:
+                        skill_difficulty = None
+                    
+                    # Extract linguistic features from error if available
+                    error_linguistic_features = error.get("linguistic_features", linguistic_features)
+                    
+                    await self.clients["student_model"].assess(
+                        user_id=user_id,
+                        skill_id=error_skill_id,
+                        correct=False,
+                        context={
+                            "type": "error",
+                            "error_type": error.get("error_type"),
+                            "explanation": error.get("explanation"),
+                            "severity": error.get("severity")
+                        },
+                        user_text=user_text,
+                        ai_text=ai_text,
+                        difficulty=skill_difficulty,
+                        linguistic_features=error_linguistic_features
+                    )
+                    error_skills_processed.add(error_skill_id)
+                    logger.info(f"❌ Registered ERROR for skill {error_skill_id}")
+
+            # 3. Handle Target Skill Logic (fallback/reinforcement)
+            # If the target skill was NOT mentioned in errors OR successes explicitly,
+            # we need to infer its status.
+            if skill_id:
+                # Was it marked as error?
+                is_error = skill_id in error_skills_processed
+                
+                # Was it marked as success?
+                is_success = skill_id in success_skills
+                
+                if not is_error and not is_success:
+                    # Inferred success: If user spoke and didn't make a mistake on the target skill,
+                    # AND the analysis didn't explicitly flag it, we can assume implicit success 
+                    # IF the analysis says "target_skill_correct" (legacy flag) or if no errors found at all.
+                    
+                    # Fallback to legacy logic
+                    target_skill_correct = analysis.get("target_skill_correct", False)
+                    if not errors: 
+                        target_skill_correct = True
+                    
+                    if target_skill_correct:
+                        # Get difficulty for target skill
+                        try:
+                            from src.services.student_model.skill_registry import get_skill_difficulty
+                            skill_difficulty = get_skill_difficulty(skill_id)
+                        except Exception:
+                            skill_difficulty = None
+                        
+                        await self.clients["student_model"].assess(
+                            user_id=user_id,
+                            skill_id=skill_id,
+                            correct=True,
+                            context={"type": "implicit_success"},
+                            user_text=user_text,
+                            ai_text=ai_text,
+                            difficulty=skill_difficulty,
+                            linguistic_features=linguistic_features
+                        )
+                        logger.info(f"✅ Registered IMPLICIT SUCCESS for target skill {skill_id}")
+
+        except Exception as e:
+            logger.error(f"❌ Error in background analysis: {e}", exc_info=True)
+            # Don't raise - this is a background task, errors shouldn't affect main flow
 
     async def get_services_health(self) -> Dict[str, bool]:
         """Get health status of all services"""
