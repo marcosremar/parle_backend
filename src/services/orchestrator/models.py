@@ -28,3 +28,5 @@ class ConversationResponse(BaseModel):
     messages_count: Optional[int] = None
     metrics: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    conversation_id: Optional[str] = Field(default=None, description="Conversation ID")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")

@@ -272,3 +272,46 @@ async def process_turn(request: ProcessRequest):
     except Exception as e:
         logger.error(f"Turn processing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Text conversation endpoint
+class TextConversationRequest(BaseModel):
+    """Text conversation request"""
+    message: str = Field(..., description="User message text")
+    session_id: str = Field(..., description="Session ID")
+    voice_id: Optional[str] = Field(None, description="Optional voice ID for audio response")
+
+
+@router.post("/conversation/text")
+async def text_conversation(request: TextConversationRequest):
+    """Process text conversation - send text message and get text response"""
+    try:
+        orchestrator = get_orchestrator_module()
+        
+        # Get orchestrator engine from module
+        if hasattr(orchestrator, 'orchestrator'):
+            orchestrator_engine = orchestrator.orchestrator
+        elif hasattr(orchestrator, 'process_text_conversation'):
+            # Module has direct method
+            result = await orchestrator.process_text_conversation(
+                message=request.message,
+                session_id=request.session_id,
+                voice_id=request.voice_id
+            )
+            return result
+        else:
+            raise HTTPException(status_code=500, detail="Orchestrator module not properly initialized")
+        
+        # Use orchestrator engine directly
+        result = await orchestrator_engine.process_text_conversation(
+            message=request.message,
+            session_id=request.session_id,
+            voice_id=request.voice_id
+        )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Text conversation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Text conversation failed: {str(e)}")

@@ -519,16 +519,45 @@ def create_router(orchestrator_service: Any) -> APIRouter:
     @router.post("/conversation")
     async def conversation_endpoint(request: ConversationRequest) -> ConversationResponse:
         """
-        Legacy conversation endpoint for backward compatibility
+        Text conversation endpoint - processes text messages and returns text responses
+        Optionally generates audio if voice_id is provided
         """
-        # This would implement the existing conversation logic
-        # For now, return a placeholder response
-        return ConversationResponse(
-            conversation_id="legacy-conversation",
-            response="Legacy conversation endpoint - use /process for speech-to-speech",
-            audio_base64=None,
-            metadata={"note": "This is a legacy endpoint"}
-        )
+        if not orchestrator_service or not orchestrator_service.orchestrator:
+            return ConversationResponse(
+                success=False,
+                response="",
+                session_id=request.session_id,
+                error="Orchestrator service not initialized"
+            )
+        
+        try:
+            # Use process_text_conversation method
+            result = await orchestrator_service.orchestrator.process_text_conversation(
+                message=request.message,
+                session_id=request.session_id,
+                voice_id=request.voice_id,
+                scenario_id_override=request.scenario_id
+            )
+            
+            return ConversationResponse(
+                success=result.get("success", False),
+                response=result.get("response", ""),
+                session_id=result.get("session_id", request.session_id),
+                audio=result.get("audio"),  # Base64 encoded if voice_id provided
+                transcription=None,
+                context_size=result.get("context_size"),
+                messages_count=result.get("messages_count"),
+                metrics=result.get("metrics"),
+                error=result.get("error")
+            )
+        except Exception as e:
+            logger.error(f"Error in conversation endpoint: {e}", exc_info=True)
+            return ConversationResponse(
+                success=False,
+                response="",
+                session_id=request.session_id,
+                error=f"Conversation processing failed: {str(e)}"
+            )
 
     # ==================== Add Standard Endpoints ====================
 
