@@ -72,18 +72,14 @@ def verify_password(password: str, password_hash: str) -> bool:
     try:
         # Use passlib's timing-safe verification
         # passlib.verify() uses constant-time comparison internally
+        # This is already timing-attack resistant, no need for extra hmac comparison
+        # (hmac.compare_digest on hashes doesn't work because each hash is unique due to salt)
         result = pwd_context.verify(password, password_hash)
-
-        # Extra safety: ensure timing-attack resistant comparison
-        # by using hmac for final validation
-        if result:
-            return hmac.compare_digest(
-                pwd_context.hash(password),
-                password_hash
-            )
-        return False
+        return result
     except Exception:
         # On any error (invalid hash format, etc.), perform timing-safe dummy operation
-        import hmac
-        hmac.compare_digest("", "")  # Constant-time dummy comparison
+        try:
+            pwd_context.verify("dummy_password_to_waste_time_safely", "$argon2$dummy")
+        except Exception:
+            pass
         return False
