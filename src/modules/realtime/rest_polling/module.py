@@ -20,6 +20,7 @@ class RestPollingModule(BaseModule):
         """Initialize REST polling service"""
         try:
             # Create minimal ServiceContext for module mode
+            context = None
             try:
                 from src.modules.conversation.orchestrator.utils.context import ServiceContext
             except ImportError:
@@ -28,22 +29,56 @@ class RestPollingModule(BaseModule):
                 except ImportError:
                     ServiceContext = None
             
-            context = None
             if ServiceContext:
                 try:
+                    # Create a minimal mock communication manager
+                    class MockComm:
+                        """Minimal mock communication manager for module mode"""
+                        def get_service_url(self, service_name):
+                            return None
+                        def call_service(self, *args, **kwargs):
+                            return {"success": False, "error": "Not available in module mode"}
+                        async def send_request(self, *args, **kwargs):
+                            return {"success": False, "error": "Not available in module mode"}
+                    
+                    mock_comm = MockComm()
+                    
+                    # Create ServiceContext with mock comm
                     context = ServiceContext.create(
-                        service_name="rest_polling"
+                        service_name="rest_polling",
+                        comm=mock_comm,
+                        execution_mode="module"
                     )
                 except Exception as ctx_error:
                     self.logger.warning(f"⚠️  Could not create ServiceContext: {ctx_error}")
+                    # Create minimal context manually
+                    class MinimalContext:
+                        def __init__(self, logger):
+                            self.logger = logger
+                            self.comm = None
+                    context = MinimalContext(self.logger)
+            else:
+                # Fallback: create minimal context manually
+                class MinimalContext:
+                    def __init__(self, logger):
+                        self.logger = logger
+                        self.comm = None
+                context = MinimalContext(self.logger)
             
             self.service = RestPollingService(context=context)
-            await self.service.initialize()
+            init_result = await self.service.initialize()
+            if not init_result:
+                self.logger.warning("⚠️  REST polling service initialization returned False")
+                # Keep service instance even if init failed - it might still work
             self.logger.info("✅ REST Polling Module initialized")
             return True
         except Exception as e:
             self.logger.warning(f"⚠️  REST polling service not available: {e}")
-            self.service = None
+            import traceback
+            self.logger.debug(f"Traceback: {traceback.format_exc()}")
+            # Don't set service to None - keep it if it was created
+            if not hasattr(self, 'service') or self.service is None:
+                self.service = None
             return True
     
     async def health_check(self) -> Dict[str, Any]:

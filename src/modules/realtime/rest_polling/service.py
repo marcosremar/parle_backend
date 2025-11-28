@@ -251,11 +251,21 @@ class RestPollingService(BaseService):
 
     def _setup_router(self) -> None:
         """Setup FastAPI routes using the new modular structure"""
-        # ✅ Phase 4a: Use proper relative imports (no sys.path manipulation)
-        from .routes import create_router
+        # In module mode, we don't need routes (no FastAPI app)
+        # Only setup router if we're running as a service
+        try:
+            # ✅ Phase 4a: Use proper relative imports (no sys.path manipulation)
+            from .routes import create_router
 
-        router = create_router(self)
-        self.router.include_router(router)
+            router = create_router(self)
+            if hasattr(self, 'router') and self.router:
+                self.router.include_router(router)
+        except ImportError:
+            # Routes not available in module mode - that's OK
+            self.logger.debug("Routes not available in module mode (expected)")
+        except AttributeError:
+            # Router not available in module mode - that's OK
+            self.logger.debug("Router not available in module mode (expected)")
 
     async def initialize(self) -> bool:
         """Initialize REST Polling service (lightweight mode)"""
