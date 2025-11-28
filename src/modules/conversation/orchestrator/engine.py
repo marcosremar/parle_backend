@@ -946,7 +946,7 @@ class ConversationOrchestrator:
                 - metrics: Processing metrics
         """
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         start_time = time.time()
         if self.stats_tracker:
@@ -1118,7 +1118,7 @@ class ConversationOrchestrator:
                             "in_scope": validation.in_scope,
                             "should_redirect": validation.should_redirect,
                             "found_topics": validation.found_topics,
-                            "validated_at": datetime.utcnow().isoformat()
+                            "validated_at": datetime.now(timezone.utc).isoformat()
                         }
                     )
                     logger.info("📊 Scenario state updated")

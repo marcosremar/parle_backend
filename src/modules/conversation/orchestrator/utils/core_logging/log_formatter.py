@@ -13,7 +13,7 @@ making them easier to parse and analyze.
 
 import json
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class LogFormatter:
@@ -35,7 +35,7 @@ class LogFormatter:
             Formatted timestamp string (ISO 8601)
         """
         if dt is None:
-            dt = datetime.utcnow()
+            dt = datetime.now(timezone.utc)
         return dt.isoformat() + 'Z'
 
     @staticmethod

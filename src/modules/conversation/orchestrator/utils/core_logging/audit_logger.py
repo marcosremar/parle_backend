@@ -27,7 +27,7 @@ Use cases:
 import json
 from enum import Enum
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from loguru import logger as base_logger
 
@@ -146,7 +146,7 @@ class AuditLogger:
             **extra_context: Additional context
         """
         audit_event = {
-            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            "timestamp": datetime.now(timezone.utc).isoformat() + 'Z',
             "service": self.service_name,
             "event_type": event_type.value,
             "message": message,

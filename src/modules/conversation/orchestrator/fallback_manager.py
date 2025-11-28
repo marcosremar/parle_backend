@@ -14,7 +14,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from .utils.pipeline.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from config.settings import get_pipeline_failover_settings
+from config.settings import get_settings
 from .clients import LLMClient, ExternalLLMClient, STTClient, ExternalUltravoxClient, ServiceClientError
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class FallbackManager:
 
         # Initialize circuit breaker with settings from config
         try:
-            settings = get_pipeline_failover_settings()
+            settings = get_settings().pipeline_failover
             self.circuit_breaker = CircuitBreaker(
                 CircuitBreakerConfig(
                     failure_threshold=settings.failure_threshold,

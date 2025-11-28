@@ -7,7 +7,7 @@ Manages session state in memory (no external dependencies)
 import logging
 import uuid
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from .models import LLMType, SessionResponse
@@ -90,7 +90,7 @@ class InMemorySessionManager:
         if not conversation_id:
             conversation_id = str(uuid.uuid4())
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         session_data = {
             "id": session_id,
@@ -158,7 +158,7 @@ class InMemorySessionManager:
             return False
 
         data = self.sessions[session_id]
-        data["last_activity"] = datetime.utcnow().isoformat()
+        data["last_activity"] = datetime.now(timezone.utc).isoformat()
 
         if metadata:
             data.setdefault("metadata", {}).update(metadata)
@@ -189,7 +189,7 @@ class InMemorySessionManager:
         """
         return await self.update_session(
             session_id=session_id,
-            metadata={"last_heartbeat": datetime.utcnow().isoformat()}
+            metadata={"last_heartbeat": datetime.now(timezone.utc).isoformat()}
         )
 
     async def delete_session(self, session_id: str) -> bool:
@@ -267,10 +267,10 @@ class InMemorySessionManager:
         """
         Cleanup expired sessions (basic implementation)
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expired = []
         for session_id, data in self.sessions.items():
-            last_activity = datetime.fromisoformat(data["last_activity"])
+            last_activity = datetime.fromisoformat(data["last_activity"]).replace(tzinfo=timezone.utc)
             age_seconds = (now - last_activity).total_seconds()
             if age_seconds > self.default_ttl:
                 expired.append(session_id)

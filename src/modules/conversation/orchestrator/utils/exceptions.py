@@ -44,7 +44,7 @@ Usage:
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Any, Dict
 
@@ -89,8 +89,8 @@ class ErrorContext:
         system_info: System state at time of error
     """
 
-    error_id: str = field(default_factory=lambda: f"err_{int(datetime.utcnow().timestamp() * 1000)}")
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    error_id: str = field(default_factory=lambda: f"err_{int(datetime.now(timezone.utc).timestamp() * 1000)}")
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     correlation_id: Optional[str] = None
     trace_id: Optional[str] = None
     span_id: Optional[str] = None
