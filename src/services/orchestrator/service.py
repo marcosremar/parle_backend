@@ -214,7 +214,7 @@ class OrchestratorService(BaseService):
             "status": "healthy" if self.initialized else "unhealthy",
             "timestamp": datetime.now().isoformat(),
             "orchestrator_ready": self.orchestrator is not None,
-            "stats": self.orchestrator.stats if self.orchestrator else {}
+            "stats": self.orchestrator.get_stats() if self.orchestrator else {}
         }
 
     async def shutdown(self) -> None:

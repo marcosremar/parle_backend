@@ -50,7 +50,8 @@ async def process_turn_with_talker(
     """
 
     start_time = time.time()
-    orchestrator.stats["total_turns"] += 1
+    if orchestrator.stats_tracker:
+        orchestrator.stats_tracker.increment_total_turns()
 
     try:
         logger.info(f"🎤 Processing turn with Talker: session={session_id}, audio={len(audio_data)} bytes")
@@ -114,7 +115,8 @@ async def process_turn_with_talker(
 
         if not talker_result.get("success"):
             logger.error(f"❌ Talker failed: {talker_result.get('error')}")
-            orchestrator.stats["failed_turns"] += 1
+            if orchestrator.stats_tracker:
+                orchestrator.stats_tracker.increment_failed_turns()
             return {
                 "success": False,
                 "error": talker_result.get("error", "Talker processing failed"),
@@ -164,14 +166,14 @@ async def process_turn_with_talker(
         # STEP 5: Return Response
         # ==========================================
         total_time = time.time() - start_time
-        orchestrator.stats["successful_turns"] += 1
-        orchestrator.stats["total_processing_time"] += total_time
-
-        # Update LLM stats based on talker type
-        if talker_name == "internal":
-            orchestrator.stats["in_process_count"] += 1
-        else:
-            orchestrator.stats["fallback_llm_count"] += 1
+        if orchestrator.stats_tracker:
+            orchestrator.stats_tracker.increment_successful_turns()
+            orchestrator.stats_tracker.add_processing_time(total_time)
+            # Update LLM stats based on talker type
+            if talker_name == "internal":
+                orchestrator.stats_tracker.increment_in_process_count()
+            else:
+                orchestrator.stats_tracker.increment_fallback_llm_count()
 
         response = {
             "success": True,
@@ -195,7 +197,8 @@ async def process_turn_with_talker(
 
     except Exception as e:
         logger.error(f"❌ Orchestrator error: {e}", exc_info=True)
-        orchestrator.stats["failed_turns"] += 1
+        if orchestrator.stats_tracker:
+            orchestrator.stats_tracker.increment_failed_turns()
         return {
             "success": False,
             "error": f"Orchestration failed: {str(e)}",
