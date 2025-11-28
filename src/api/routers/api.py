@@ -268,43 +268,86 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 # Conversation (Orchestrator, Session, Scenarios, Store)
 # ============================================================================
 
-class ProcessRequest(BaseModel):
-    session_id: str
-    audio_base64: Optional[str] = None
-    text: Optional[str] = None
+class ConversationRequest(BaseModel):
+    """Unified conversation request - accepts text or audio"""
+    message: Optional[str] = Field(None, description="Text message (for text conversation)")
+    session_id: str = Field(..., description="Session ID")
+    voice_id: Optional[str] = Field(None, description="Optional voice ID for audio response")
+    language: str = Field("pt", description="Language code")
+    max_tokens: int = Field(100, description="Max tokens for LLM")
+    temperature: float = Field(0.7, description="Temperature for LLM")
 
 
-@router.post("/conversation/process")
-async def process_speech_to_speech(
+@router.post("/conversation")
+async def conversation(
+    request: ConversationRequest = None,
     file: Optional[UploadFile] = File(None),
     audio_base64: Optional[str] = Form(None),
+    message: Optional[str] = Form(None),
     session_id: str = Form(...),
-    language: str = Form("pt"),
     voice_id: Optional[str] = Form(None),
+    language: str = Form("pt"),
     max_tokens: int = Form(100),
     temperature: float = Form(0.7)
 ):
-    """Process speech-to-speech"""
+    """
+    Unified conversation endpoint - accepts text or audio input
+    
+    Supports both:
+    - Text conversation: send 'message' field
+    - Speech-to-speech: send 'file' or 'audio_base64' field
+    """
     try:
         orchestrator = await get_module("orchestrator")
+        
+        # Get orchestrator engine
+        if hasattr(orchestrator, 'orchestrator'):
+            orchestrator_engine = orchestrator.orchestrator
+        elif hasattr(orchestrator, 'process_text_conversation'):
+            # Module has direct method
+            pass
+        else:
+            raise HTTPException(status_code=500, detail="Orchestrator module not properly initialized")
+        
+        # Handle text conversation
+        if message or (request and request.message):
+            text_message = message or (request.message if request else None)
+            if hasattr(orchestrator, 'process_text_conversation'):
+                result = await orchestrator.process_text_conversation(
+                    message=text_message,
+                    session_id=session_id,
+                    voice_id=voice_id
+                )
+            else:
+                result = await orchestrator_engine.process_text_conversation(
+                    message=text_message,
+                    session_id=session_id,
+                    voice_id=voice_id
+                )
+            return result
+        
+        # Handle audio conversation (speech-to-speech)
         if file:
             audio_data = await file.read()
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-        if not audio_base64:
-            raise HTTPException(status_code=400, detail="Audio required")
-        result = await orchestrator.process_turn(
-            session_id=session_id,
-            audio_base64=audio_base64,
-            language=language,
-            voice_id=voice_id,
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
-        return result
+        
+        if audio_base64:
+            result = await orchestrator.process_turn(
+                session_id=session_id,
+                audio_base64=audio_base64,
+                language=language,
+                voice_id=voice_id,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            return result
+        
+        raise HTTPException(status_code=400, detail="Either 'message' (text) or 'file'/'audio_base64' (audio) required")
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Processing failed: {e}")
+        logger.error(f"Conversation processing failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -365,47 +408,6 @@ async def get_context(conversation_id: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Text conversation endpoint
-class TextConversationRequest(BaseModel):
-    """Text conversation request"""
-    message: str = Field(..., description="User message text")
-    session_id: str = Field(..., description="Session ID")
-    voice_id: Optional[str] = Field(None, description="Optional voice ID for audio response")
-
-
-@router.post("/conversation/text")
-async def text_conversation(request: TextConversationRequest):
-    """Process text conversation - send text message and get text response"""
-    try:
-        orchestrator = await get_module("orchestrator")
-        
-        # Get orchestrator engine from module
-        if hasattr(orchestrator, 'orchestrator'):
-            orchestrator_engine = orchestrator.orchestrator
-        elif hasattr(orchestrator, 'process_text_conversation'):
-            # Module has direct method
-            result = await orchestrator.process_text_conversation(
-                message=request.message,
-                session_id=request.session_id,
-                voice_id=request.voice_id
-            )
-            return result
-        else:
-            raise HTTPException(status_code=500, detail="Orchestrator module not properly initialized")
-        
-        # Use orchestrator engine directly
-        result = await orchestrator_engine.process_text_conversation(
-            message=request.message,
-            session_id=request.session_id,
-            voice_id=request.voice_id
-        )
-        
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Text conversation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Text conversation failed: {str(e)}")
 
 
 # ============================================================================
@@ -423,11 +425,19 @@ async def analyze_turn(request: AnalyzeTurnRequest):
     """Analyze conversation turn"""
     try:
         diagnostic = await get_module("diagnostic_module")
+        # Check if module is disabled
+        if hasattr(diagnostic, 'disabled') and diagnostic.disabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+            )
         return await diagnostic.analyze_turn(
             user_text=request.user_text,
             ai_text=request.ai_text,
             valid_skills=request.valid_skills
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -438,7 +448,15 @@ async def compose_prompt(context: dict):
     """Compose pedagogical prompt"""
     try:
         policy = await get_module("pedagogical_policy")
+        # Check if module is disabled
+        if hasattr(policy, 'disabled') and policy.disabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+            )
         return await policy.compose_prompt(context=context)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Prompt composition failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -449,7 +467,15 @@ async def get_next_skill(user_id: str, cefr_level: Optional[str] = None):
     """Get next skill"""
     try:
         path = await get_module("learning_path")
+        # Check if module is disabled
+        if hasattr(path, 'disabled') and path.disabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+            )
         return await path.get_next_skill(user_id=user_id, cefr_level=cefr_level)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get next skill: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -460,7 +486,15 @@ async def get_student_profile(user_id: str):
     """Get student profile"""
     try:
         student = await get_module("student_model")
+        # Check if module is disabled
+        if hasattr(student, 'disabled') and student.disabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+            )
         return await student.get_profile(user_id)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get profile: {e}")
         raise HTTPException(status_code=500, detail=str(e))

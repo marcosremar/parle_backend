@@ -135,3 +135,4 @@ TIMEOUT = 120.0  # 2 minutos
 💾 Áudio de resposta salvo: tests/output/test_response_1234567890.wav
 ✅ Teste Speech-to-Speech completo passou!
 ```
+

@@ -40,38 +40,52 @@ def create(module_name: str) -> Any:
 def _create_module(module_name: str) -> Any:
     """Cria instância específica de um módulo"""
     
-    # Mapeamento de nomes de módulos para classes
+    # Tutoring modules (desativados por padrão - future flag)
+    TUTORING_MODULES = {
+        "student_model",
+        "diagnostic_module",
+        "pedagogical_policy",
+        "learning_path"
+    }
+    
+    # Verificar se tutoring está desativado
+    enable_tutoring = os.getenv("ENABLE_TUTORING_MODULES", "false").lower() == "true"
+    if module_name in TUTORING_MODULES and not enable_tutoring:
+        logger.warning(f"⚠️  Tutoring module '{module_name}' is disabled. Set ENABLE_TUTORING_MODULES=true to enable.")
+        return _create_disabled_tutoring_wrapper(module_name)
+    
+    # Mapeamento de nomes de módulos para classes (nova estrutura com subdiretórios)
     module_map = {
         # Speech modules
-        "stt": "src.modules.speech.stt_module.STTModule",
-        "tts": "src.modules.speech.tts_module.TTSModule",
-        # "neural_codec": "src.modules.speech.neural_codec_module.NeuralCodecModule",  # TODO
+        "stt": "src.modules.speech.stt.module.STTModule",
+        "tts": "src.modules.speech.tts.module.TTSModule",
+        # "neural_codec": "src.modules.speech.neural_codec.module.NeuralCodecModule",  # TODO
         
         # LLM module
         "llm": "src.modules.llm.llm_module.LLMModule",
         
         # Conversation modules
-        "orchestrator": "src.modules.conversation.orchestrator_module.OrchestratorModule",
-        "session": "src.modules.conversation.session_module.SessionModule",
-        "scenarios": "src.modules.conversation.scenarios_module.ScenariosModule",
+        "orchestrator": "src.modules.conversation.orchestrator.module.OrchestratorModule",
+        "session": "src.modules.conversation.session.module.SessionModule",
+        "scenarios": "src.modules.conversation.scenarios.module.ScenariosModule",
         
         # Storage modules
-        "conversation_store": "src.modules.storage.conversation_store_module.ConversationStoreModule",
-        "conversation_history": "src.modules.storage.conversation_history_module.ConversationHistoryModule",
-        "file_storage": "src.modules.storage.file_storage_module.FileStorageModule",
-        "database": "src.modules.storage.database_module.DatabaseModule",
+        "conversation_store": "src.modules.storage.conversation_store.module.ConversationStoreModule",
+        "conversation_history": "src.modules.storage.conversation_history.module.ConversationHistoryModule",
+        "file_storage": "src.modules.storage.file_storage.module.FileStorageModule",
+        "database": "src.modules.storage.database.module.DatabaseModule",
         
         # Auth module
-        "user": "src.modules.auth.user_module.UserModule",
+        "user": "src.modules.auth.module.UserModule",
         
-        # Tutoring modules
-        "student_model": "src.modules.tutoring.student_model_module.StudentModelModule",
-        "diagnostic_module": "src.modules.tutoring.diagnostic_module.DiagnosticModule",
-        "pedagogical_policy": "src.modules.tutoring.pedagogical_policy_module.PedagogicalPolicyModule",
-        "learning_path": "src.modules.tutoring.learning_path_module.LearningPathModule",
+        # Tutoring modules (só criados se ENABLE_TUTORING_MODULES=true)
+        "student_model": "src.modules.tutoring.student_model.module.StudentModelModule",
+        "diagnostic_module": "src.modules.tutoring.diagnostic.module.DiagnosticModule",
+        "pedagogical_policy": "src.modules.tutoring.pedagogical_policy.module.PedagogicalPolicyModule",
+        "learning_path": "src.modules.tutoring.learning_path.module.LearningPathModule",
         
         # Realtime module
-        "rest_polling": "src.modules.realtime.rest_polling_module.RestPollingModule",
+        "rest_polling": "src.modules.realtime.rest_polling.module.RestPollingModule",
     }
     
     if module_name not in module_map:
@@ -92,6 +106,38 @@ def _create_module(module_name: str) -> Any:
         # Fallback: criar wrapper básico usando o serviço existente
         logger.warning(f"Module {module_name} not found, creating basic wrapper")
         return _create_basic_wrapper(module_name)
+
+
+def _create_disabled_tutoring_wrapper(module_name: str) -> Any:
+    """Cria wrapper para módulos de tutoring desativados"""
+    from src.modules.base_module import BaseModule
+    
+    class DisabledTutoringWrapper(BaseModule):
+        """Wrapper para módulos de tutoring desativados"""
+        
+        def __init__(self):
+            super().__init__(module_name)
+            self.disabled = True
+        
+        async def _initialize(self) -> bool:
+            """Inicialização - retorna True mas módulo está desativado"""
+            self.logger.warning(f"⚠️  {module_name} is disabled (ENABLE_TUTORING_MODULES=false)")
+            return True
+        
+        def __getattr__(self, name):
+            """Retorna função que levanta erro informando que módulo está desativado"""
+            if name.startswith('_'):
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+            
+            async def disabled_method(*args, **kwargs):
+                raise RuntimeError(
+                    f"Module '{module_name}' is disabled. "
+                    f"Set ENABLE_TUTORING_MODULES=true environment variable to enable tutoring modules."
+                )
+            
+            return disabled_method
+    
+    return DisabledTutoringWrapper()
 
 
 def _create_basic_wrapper(module_name: str) -> Any:

@@ -150,11 +150,20 @@ class ConversationOrchestrator:
         self._get_skill_difficulty: Optional[Callable[[str], Optional[float]]] = None
         self._get_relevant_skills_func: Optional[Callable[[str, str, str], List[str]]] = None
         try:
-            from src.services.student_model.skill_registry import get_skill_difficulty, get_relevant_skills_for_context
-            self._get_skill_difficulty = get_skill_difficulty
-            self._get_relevant_skills_func = get_relevant_skills_for_context  # Renamed to avoid conflict
+            # Try to import from services (with fallback)
+            try:
+                from src.services.student_model.skill_registry import get_skill_difficulty, get_relevant_skills_for_context
+                self._get_skill_difficulty = get_skill_difficulty
+                self._get_relevant_skills_func = get_relevant_skills_for_context  # Renamed to avoid conflict
+            except ImportError:
+                # Fallback: skill registry not available
+                logger.warning("⚠️  Skill registry not available, using fallback functions")
+                self._get_skill_difficulty = None
+                self._get_relevant_skills_func = None
         except Exception as e:
             logger.warning(f"Could not import skill registry functions: {e}")
+            self._get_skill_difficulty = None
+            self._get_relevant_skills_func = None
 
     def _load_config_from_env(self) -> None:
         """Load service URLs from environment variables (with Nomad service discovery support)"""

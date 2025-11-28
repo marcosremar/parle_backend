@@ -24,7 +24,11 @@ from loguru import logger
 
 from .utils.base_service import BaseService
 from src.services.database.database_client import UserDatabase
-from src.services.orchestrator.orchestrator_engine import ConversationOrchestrator
+# Try to import from modules first, fallback to services
+try:
+    from src.modules.conversation.orchestrator.engine import ConversationOrchestrator
+except ImportError:
+    from src.services.orchestrator.orchestrator_engine import ConversationOrchestrator
 from src.core.shared.models.config_models import OrchestratorConfig
 
 # Context system (NEW)

@@ -1,1 +1,7 @@
-"""Auth modules - User"""
+"""
+Auth Module
+"""
+
+from .module import UserModule
+
+__all__ = ["UserModule"]
