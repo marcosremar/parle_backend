@@ -186,7 +186,7 @@ class InternalTalker(AbstractTalker):
             tts_start = time.time()
 
             # Use HTTP TTS service
-            from src.services.orchestrator.service_clients import TTSClient
+            from src.services.orchestrator.clients import TTSClient
             tts_client = TTSClient()
             audio_response = await tts_client.synthesize(
                 text=response_text,

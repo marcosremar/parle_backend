@@ -15,7 +15,7 @@ sys.path.insert(0, str(project_root))
 
 from .utils.pipeline.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from config.settings import get_pipeline_failover_settings
-from .service_clients import LLMClient, ExternalLLMClient, STTClient, ExternalUltravoxClient, ServiceClientError
+from .clients import LLMClient, ExternalLLMClient, STTClient, ExternalUltravoxClient, ServiceClientError
 
 logger = logging.getLogger(__name__)
 
