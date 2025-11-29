@@ -59,7 +59,7 @@ def _create_module(module_name: str) -> Any:
         # Speech modules
         "stt": "src.modules.speech.stt.module.STTModule",
         "tts": "src.modules.speech.tts.module.TTSModule",
-        # "neural_codec": "src.modules.speech.neural_codec.module.NeuralCodecModule",  # TODO
+        "neural_codec": "src.modules.speech.neural_codec.module.NeuralCodecModule",
         
         # LLM module
         "llm": "src.modules.llm.llm_module.LLMModule",
