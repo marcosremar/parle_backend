@@ -24,18 +24,7 @@ class SessionClient(BaseServiceClient):
     async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session data"""
         # Use direct module call (module services always use direct calls)
-        if not self.direct_module:
-            raise ServiceClientError(f"Session module not available (is_module_service={self.is_module_service})")
-        
-        # Lazy initialize module if needed
-        if not self._module_initialized:
-            if hasattr(self.direct_module, 'initialize'):
-                try:
-                    await self.direct_module.initialize()
-                    self._module_initialized = True
-                except Exception as e:
-                    logger.error(f"❌ Failed to initialize session module: {e}")
-                    raise ServiceClientError(f"Session module initialization failed: {e}")
+        await self._ensure_module_initialized()
         
         try:
             return await self.direct_module.get_session(session_id)
@@ -52,18 +41,7 @@ class SessionClient(BaseServiceClient):
     ) -> Dict[str, Any]:
         """Create a new session with optional specific session_id"""
         # Use direct module call (module services always use direct calls)
-        if not self.direct_module:
-            raise ServiceClientError(f"Session module not available (is_module_service={self.is_module_service})")
-        
-        # Lazy initialize module if needed
-        if not self._module_initialized:
-            if hasattr(self.direct_module, 'initialize'):
-                try:
-                    await self.direct_module.initialize()
-                    self._module_initialized = True
-                except Exception as e:
-                    logger.error(f"❌ Failed to initialize session module: {e}")
-                    raise ServiceClientError(f"Session module initialization failed: {e}")
+        await self._ensure_module_initialized()
         
         try:
             result = await self.direct_module.create_session(
@@ -261,9 +239,7 @@ class ConversationStoreClient(BaseServiceClient):
         """Save conversation turn"""
         # ConversationStoreClient is NOT a module service (may be external HTTP service)
         # Use HTTP call directly
-        if not self.session:
-            raise ServiceClientError("ConversationStore requires HTTP session (not a module service)")
-        
+        self._require_session()
         return await self._add_turn_http(conversation_id, user_audio, user_text, ai_text, ai_audio)
     
     async def _add_turn_http(
@@ -300,9 +276,7 @@ class ConversationStoreClient(BaseServiceClient):
         """Get conversation history for context"""
         # ConversationStoreClient is NOT a module service (may be external HTTP service)
         # Use HTTP call directly
-        if not self.session:
-            raise ServiceClientError("ConversationStore requires HTTP session (not a module service)")
-        
+        self._require_session()
         return await self._get_context_http(conversation_id, limit)
     
     async def _get_context_http(self, conversation_id: str, limit: int = 10) -> List[Dict[str, Any]]:

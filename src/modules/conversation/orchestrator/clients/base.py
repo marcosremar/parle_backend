@@ -77,6 +77,33 @@ class BaseServiceClient:
         # For module services, always use direct calls (no HTTP needed)
         self.direct_module = None
         self._module_initialized = False
+    
+    async def _ensure_module_initialized(self) -> None:
+        """
+        Helper method to ensure module is initialized (lazy initialization).
+        Reduces code duplication across clients.
+        
+        Raises:
+            ServiceClientError: If module initialization fails
+        """
+        if not self.direct_module:
+            raise ServiceClientError(
+                f"{self.service_name} module not available (is_module_service={self.is_module_service})"
+            )
+        
+        if self._module_initialized:
+            return
+        
+        if hasattr(self.direct_module, 'initialize'):
+            try:
+                await self.direct_module.initialize()
+                self._module_initialized = True
+                logger.debug(f"✅ {self.service_name} module initialized")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize {self.service_name} module: {e}")
+                raise ServiceClientError(
+                    f"{self.service_name} module initialization failed: {e}"
+                ) from e
         
         if self.is_module_service:
             try:
@@ -146,12 +173,11 @@ class BaseServiceClient:
         if self.is_module_service:
             return
         
-        if not self.is_module_service:
-            if session is None:
-                raise ValueError(f"{self.service_name} requires HTTP session (not a module service)")
-            self.session = session
-            logger.info(f"✅ {self.service_name} client initialized with HTTP (max_retries={self.max_retries})")
-        else:
+        # HTTP services require session
+        if session is None:
+            raise ValueError(f"{self.service_name} requires HTTP session (not a module service)")
+        self.session = session
+        logger.info(f"✅ {self.service_name} client initialized with HTTP (max_retries={self.max_retries})")
             # Module services don't need HTTP session
             if self.direct_module:
                 logger.info(f"✅ {self.service_name} client initialized with direct module calls")
@@ -222,10 +248,14 @@ class BaseServiceClient:
                 f"{self.service_name} {operation_name} failed after {self.max_retries + 1} attempts: {last_error}"
             ) from last_error
 
+    def _require_session(self) -> None:
+        """Helper to ensure HTTP session is available"""
+        if not self.session:
+            raise ServiceClientError(f"{self.service_name}: HTTP session not initialized")
+    
     async def _get(self, path: str, timeout: Optional[float] = None) -> Dict[str, Any]:
         """Generic GET request using direct HTTP with retry logic"""
-        if not self.session:
-            raise ServiceClientError(f"{self.service_name}: Session not initialized")
+        self._require_session()
 
         url = f"{self.base_url}{path}"
         timeout_value = timeout if timeout is not None else self.default_timeout

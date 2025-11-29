@@ -254,18 +254,7 @@ class ExternalLLMClient(BaseServiceClient):
             Generated text as string
         """
         # Use direct module call (module services always use direct calls)
-        if not self.direct_module:
-            raise ServiceClientError(f"LLM module not available (is_module_service={self.is_module_service})")
-        
-        # Lazy initialize module if needed
-        if not self._module_initialized:
-            if hasattr(self.direct_module, 'initialize'):
-                try:
-                    await self.direct_module.initialize()
-                    self._module_initialized = True
-                except Exception as e:
-                    logger.error(f"❌ Failed to initialize LLM module: {e}")
-                    raise ServiceClientError(f"LLM module initialization failed: {e}")
+        await self._ensure_module_initialized()
         
         try:
             result = await self.direct_module.generate(
@@ -389,18 +378,7 @@ class ExternalTTSClient(BaseServiceClient):
     ) -> bytes:
         """Synthesize text using TTS module (direct call)."""
         # Use direct module call (module services always use direct calls)
-        if not self.direct_module:
-            raise ServiceClientError(f"TTS module not available (is_module_service={self.is_module_service})")
-        
-        # Lazy initialize module if needed
-        if not self._module_initialized:
-            if hasattr(self.direct_module, 'initialize'):
-                try:
-                    await self.direct_module.initialize()
-                    self._module_initialized = True
-                except Exception as e:
-                    logger.error(f"❌ Failed to initialize TTS module: {e}")
-                    raise ServiceClientError(f"TTS module initialization failed: {e}")
+        await self._ensure_module_initialized()
         
         try:
             result = await self.direct_module.synthesize(text, voice_id=voice, format=format)
