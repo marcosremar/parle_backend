@@ -4,8 +4,9 @@ Centralizes all configuration loading from .env and settings.yaml
 """
 
 import os
+import yaml
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from functools import lru_cache
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,6 +14,7 @@ from loguru import logger
 
 # Project root
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+CONFIG_YAML_PATH = PROJECT_ROOT / "config" / "settings.yaml"
 
 
 class DatabaseConfig(BaseSettings):
@@ -145,6 +147,57 @@ class AppConfig(BaseSettings):
     tts_service_url: Optional[str] = Field(default=None, description="TTS service URL (legacy)")
     llm_service_url: Optional[str] = Field(default=None, description="LLM service URL (legacy)")
     orchestrator_service_url: Optional[str] = Field(default=None, description="Orchestrator service URL (legacy)")
+    
+    @model_validator(mode='before')
+    @classmethod
+    def load_yaml_config(cls, values: Any) -> Any:
+        """
+        Load configuration from settings.yaml file.
+        
+        Priority order (highest to lowest):
+        1. Environment variables (handled by Pydantic)
+        2. settings.yaml values
+        3. Field defaults
+        
+        Args:
+            values: Initial values dict from Pydantic
+            
+        Returns:
+            Updated values dict with YAML config merged
+        """
+        if not isinstance(values, dict):
+            return values
+        
+        # Load YAML config if file exists
+        if CONFIG_YAML_PATH.exists():
+            try:
+                with open(CONFIG_YAML_PATH, 'r', encoding='utf-8') as f:
+                    yaml_config = yaml.safe_load(f) or {}
+                
+                logger.debug(f"📄 Loading configuration from {CONFIG_YAML_PATH}")
+                
+                # Helper function to merge nested dicts
+                def merge_dict(base: Dict, update: Dict) -> Dict:
+                    """Recursively merge update dict into base dict"""
+                    result = base.copy()
+                    for key, value in update.items():
+                        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                            result[key] = merge_dict(result[key], value)
+                        else:
+                            result[key] = value
+                    return result
+                
+                # Merge YAML config into values
+                # YAML values are lower priority than env vars (which are already in values)
+                values = merge_dict(yaml_config, values)
+                
+                logger.info(f"✅ Configuration loaded from {CONFIG_YAML_PATH}")
+                
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to load YAML config from {CONFIG_YAML_PATH}: {e}")
+                logger.debug("   Continuing with environment variables and defaults only")
+        
+        return values
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

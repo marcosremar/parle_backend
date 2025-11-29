@@ -1,0 +1,204 @@
+# ============================================================================
+# Parle Backend - Centralized Configuration File
+# ============================================================================
+# This file contains all application configuration.
+# Environment variables override values in this file (highest priority).
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Application Settings
+# ----------------------------------------------------------------------------
+app:
+  project_name: "Parle Backend"
+  version: "1.0.0"
+  environment: "development"  # development, staging, production
+  debug: false
+
+# ----------------------------------------------------------------------------
+# Server Configuration
+# ----------------------------------------------------------------------------
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  reload: false
+  log_level: "INFO"
+  allowed_origins: []  # Empty = all origins in dev, must be set in production
+  max_upload_size_mb: 10
+
+# ----------------------------------------------------------------------------
+# Database Configuration
+# ----------------------------------------------------------------------------
+database:
+  url: "sqlite:///./data/parle.db"
+  pool_size: 10
+  max_overflow: 20
+  echo: false
+
+# ----------------------------------------------------------------------------
+# Redis Configuration
+# ----------------------------------------------------------------------------
+redis:
+  url: "redis://localhost:6379/0"
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null
+
+# ----------------------------------------------------------------------------
+# LLM Service Configuration
+# ----------------------------------------------------------------------------
+llm:
+  provider: "groq"  # groq, openai, litellm
+  model: "llama-3.1-8b-instant"
+  api_key: null  # Set via LLM_API_KEY env var
+  base_url: null
+  max_tokens: 512
+  temperature: 0.7
+  timeout: 30.0
+
+# ----------------------------------------------------------------------------
+# STT (Speech-to-Text) Service Configuration
+# ----------------------------------------------------------------------------
+stt:
+  provider: "groq"  # groq, whisper
+  model: "whisper-large-v3"
+  api_key: null  # Set via STT_API_KEY env var
+  language: "pt"
+  timeout: 15.0
+
+# ----------------------------------------------------------------------------
+# TTS (Text-to-Speech) Service Configuration
+# ----------------------------------------------------------------------------
+tts:
+  provider: "elevenlabs"  # elevenlabs, huggingface
+  voice_id: "Rachel"
+  api_key: null  # Set via TTS_API_KEY env var
+  language: "pt"
+  speed: 1.0
+  timeout: 20.0
+
+# ----------------------------------------------------------------------------
+# Authentication Configuration
+# ----------------------------------------------------------------------------
+auth:
+  jwt_secret_key: ""  # REQUIRED in production - set via AUTH_JWT_SECRET_KEY env var
+  jwt_algorithm: "HS256"
+  jwt_expiration_hours: 1
+  jwt_refresh_expiration_hours: 168
+  password_min_length: 8
+
+# ----------------------------------------------------------------------------
+# Monolith Configuration
+# ----------------------------------------------------------------------------
+monolith:
+  mode: "monolith"  # monolith, microservices
+  use_direct_calls: true
+  shared_database: true
+  shared_redis: true
+
+# ----------------------------------------------------------------------------
+# Orchestrator Configuration
+# ----------------------------------------------------------------------------
+orchestrator:
+  # Cache Configuration
+  cache:
+    valid_skills_ttl_seconds: 300.0  # 5 minutes
+
+  # Audio Configuration
+  audio:
+    default_sample_rate: 16000  # Hz
+    int16_max: 32767
+    int16_min: -32768
+    normalization_divisor: 32768.0
+    minimum_duration_ms: 40
+    minimum_samples: 640  # samples @ 16kHz
+    maximum_size_mb: 50
+
+  # Confidence Thresholds
+  confidence:
+    high_threshold: 0.7
+    default_mastery_probability: 0.0
+
+  # Default Values
+  defaults:
+    temperature: 0.7
+    max_tokens: 100
+    voice_speed: 1.0
+
+  # Service URLs (for external services only)
+  # Note: Module services use direct calls, no URLs needed
+  service_urls:
+    external_ultravox: "http://localhost:8112"
+    conversation_store: "http://localhost:8800"
+    conversation_history: "http://localhost:8501"
+
+  # Environment Variable Names (for reference)
+  env_vars:
+    external_ultravox_url: "ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL"
+    conversation_store_url: "CONVERSATION_STORE_URL"
+    conversation_history_url: "CONVERSATION_HISTORY_URL"
+    skip_health_checks: "ORCHESTRATOR_SKIP_HEALTH_CHECKS"
+
+  # Client Configuration Defaults
+  client:
+    max_retries: 3
+    base_backoff: 1.0
+    timeout: 30.0
+    health_check_timeout: 2.0
+    circuit_breaker:
+      failure_threshold: 3
+      recovery_timeout: 30.0
+
+  # Heuristic Analysis Constants
+  heuristics:
+    short_response_threshold: 50  # Characters
+    long_response_threshold: 100  # Characters
+    short_llm_output_threshold: 20  # Characters
+    confusion_detection_threshold: 50  # Characters
+    analysis_confidence: 0.85
+    fallback_confidence: 0.5
+    default_estimated_turns: 3
+    short_response_estimated_turns: 2
+    complex_question_estimated_turns: 4
+    prompt_prefix_truncate_length: 50  # Characters
+
+  # Default System Prompts
+  prompts:
+    default_system_prompt: |
+      You are a helpful AI assistant. Your task is to:
+
+      1. LISTEN CAREFULLY to the audio and identify the specific question being asked
+      2. ANSWER ONLY that specific question directly and accurately
+      3. Provide a concise, factual answer (1-2 sentences maximum)
+      4. DO NOT ask questions back to the user
+      5. DO NOT change the topic or discuss unrelated things
+      6. Focus on accuracy and relevance
+
+      Example:
+      Audio: "Qual é a capital da França?"
+      Correct response: "A capital da França é Paris."
+      Incorrect: "Qual é o teu nome?" (asking a different question)
+      Incorrect: "Paris é uma bela cidade. Você gostaria de saber mais?" (asking follow-up questions)
+
+      Listen to the audio, identify the question, and answer it directly.
+
+    default_text_system_prompt: |
+      You are a helpful AI assistant. Your task is to:
+
+      1. LISTEN CAREFULLY to the user's message and identify the specific question or topic
+      2. ANSWER directly and accurately
+      3. Provide a concise, helpful response
+      4. DO NOT ask unrelated questions
+      5. Focus on being helpful and accurate
+
+      Respond naturally in a conversational tone.
+
+# ----------------------------------------------------------------------------
+# Legacy Service URLs (deprecated - for backward compatibility only)
+# ----------------------------------------------------------------------------
+legacy:
+  stt_service_url: null
+  tts_service_url: null
+  llm_service_url: null
+  orchestrator_service_url: null
