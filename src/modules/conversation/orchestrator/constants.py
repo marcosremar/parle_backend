@@ -121,3 +121,15 @@ class StatsKey(str, Enum):
     IN_PROCESS_COUNT = "in_process_count"
     HTTP_FALLBACK_COUNT = "http_fallback_count"
     TOTAL_PROCESSING_TIME = "total_processing_time"
+
+# Heuristic Analysis Constants
+HEURISTIC_SHORT_RESPONSE_THRESHOLD: Final[int] = 50  # Characters
+HEURISTIC_LONG_RESPONSE_THRESHOLD: Final[int] = 100  # Characters
+HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD: Final[int] = 20  # Characters
+HEURISTIC_CONFUSION_DETECTION_THRESHOLD: Final[int] = 50  # Characters
+HEURISTIC_ANALYSIS_CONFIDENCE: Final[float] = 0.85
+HEURISTIC_FALLBACK_CONFIDENCE: Final[float] = 0.5
+HEURISTIC_DEFAULT_ESTIMATED_TURNS: Final[int] = 3
+HEURISTIC_SHORT_RESPONSE_ESTIMATED_TURNS: Final[int] = 2
+HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS: Final[int] = 4
+HEURISTIC_PROMPT_PREFIX_TRUNCATE_LENGTH: Final[int] = 50  # Characters

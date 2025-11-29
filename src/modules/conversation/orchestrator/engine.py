@@ -51,6 +51,16 @@ from .constants import (
     ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL,
     ENV_CONVERSATION_STORE_URL,
     ENV_CONVERSATION_HISTORY_URL,
+    HEURISTIC_SHORT_RESPONSE_THRESHOLD,
+    HEURISTIC_LONG_RESPONSE_THRESHOLD,
+    HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD,
+    HEURISTIC_CONFUSION_DETECTION_THRESHOLD,
+    HEURISTIC_ANALYSIS_CONFIDENCE,
+    HEURISTIC_FALLBACK_CONFIDENCE,
+    HEURISTIC_DEFAULT_ESTIMATED_TURNS,
+    HEURISTIC_SHORT_RESPONSE_ESTIMATED_TURNS,
+    HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS,
+    HEURISTIC_PROMPT_PREFIX_TRUNCATE_LENGTH,
 )
 from .types import (
     ServiceConfig,
@@ -60,6 +70,11 @@ from .types import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from src.core.shared.models.response_models import (
+        ConversationAnalysis,
+        AdaptiveInstructions,
+        ErrorCorrection,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -1402,7 +1417,7 @@ class ConversationOrchestrator:
             logger.error(f"❌ LLM streaming error: {e}")
             yield f"[Erro no LLM: {str(e)}]"
 
-    async def _generate_analysis(self, user_input: str, llm_output: str) -> Any:  # Returns ConversationAnalysis
+    async def _generate_analysis(self, user_input: str, llm_output: str) -> "ConversationAnalysis":
         """
         Generate ConversationAnalysis metadata from response.
 
@@ -1419,7 +1434,7 @@ class ConversationOrchestrator:
             response_type = "explanation"
             if llm_output.endswith("?"):
                 response_type = "question"
-            elif len(llm_output) < 50:
+            elif len(llm_output) < HEURISTIC_SHORT_RESPONSE_THRESHOLD:
                 response_type = "confirmation"
             elif any(word in llm_output.lower() for word in ["sugestão", "recomendo", "tente"]):
                 response_type = "suggestion"
@@ -1449,7 +1464,7 @@ class ConversationOrchestrator:
                 response_type=response_type,
                 theme=theme,
                 tone=tone,
-                confidence=0.85
+                confidence=HEURISTIC_ANALYSIS_CONFIDENCE
             )
 
         except Exception as e:
@@ -1460,15 +1475,15 @@ class ConversationOrchestrator:
                 response_type="other",
                 theme="general",
                 tone="helpful",
-                confidence=0.5
+                confidence=HEURISTIC_FALLBACK_CONFIDENCE
             )
 
     async def _generate_adaptive_instructions(
         self,
         user_input: str,
         llm_output: str,
-        analysis: Any  # ConversationAnalysis type
-    ) -> Any:  # Returns AdaptiveInstructions
+        analysis: "ConversationAnalysis"
+    ) -> "AdaptiveInstructions":
         """
         Generate AdaptiveInstructions for next LLM response.
 
@@ -1491,14 +1506,14 @@ class ConversationOrchestrator:
                 expected_topics = ["clarification", "details", "confirmation"]
 
             # Estimate turns remaining
-            estimated_turns = 3
-            if len(llm_output) > 100:
-                estimated_turns = 2  # Long response, likely nearing resolution
-            elif len(user_input) > 100:
-                estimated_turns = 4  # Complex question, might need more
+            estimated_turns = HEURISTIC_DEFAULT_ESTIMATED_TURNS
+            if len(llm_output) > HEURISTIC_LONG_RESPONSE_THRESHOLD:
+                estimated_turns = HEURISTIC_SHORT_RESPONSE_ESTIMATED_TURNS  # Long response, likely nearing resolution
+            elif len(user_input) > HEURISTIC_LONG_RESPONSE_THRESHOLD:
+                estimated_turns = HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS  # Complex question, might need more
 
             # Generate prefix for next prompt
-            next_prompt_prefix = f"""Usuário anterior perguntou: {user_input[:50]}...
+            next_prompt_prefix = f"""Usuário anterior perguntou: {user_input[:HEURISTIC_PROMPT_PREFIX_TRUNCATE_LENGTH]}...
 Você respondeu sobre: {analysis.theme}
 Tom a manter: {analysis.tone}
 Próximos tópicos esperados: {', '.join(expected_topics)}
@@ -1508,7 +1523,7 @@ Próxima resposta:"""
             return AdaptiveInstructions(
                 next_prompt_prefix=next_prompt_prefix,
                 tone_adjustment="maintain_current",
-                verbosity="medium" if len(llm_output) > 100 else "concise",
+                verbosity="medium" if len(llm_output) > HEURISTIC_LONG_RESPONSE_THRESHOLD else "concise",
                 expected_next_topics=expected_topics,
                 estimated_turns_remaining=estimated_turns
             )
@@ -1522,10 +1537,10 @@ Próxima resposta:"""
                 tone_adjustment="maintain_current",
                 verbosity="medium",
                 expected_next_topics=["clarification"],
-                estimated_turns_remaining=3
+                estimated_turns_remaining=HEURISTIC_DEFAULT_ESTIMATED_TURNS
             )
 
-    async def _detect_error_patterns(self, user_input: str, llm_output: str) -> Any:  # Returns ErrorCorrection
+    async def _detect_error_patterns(self, user_input: str, llm_output: str) -> "ErrorCorrection":
         """
         Detect common error patterns and suggest corrections.
 
@@ -1541,13 +1556,13 @@ Próxima resposta:"""
             suggested_clarification = None
 
             # Detect location format errors
-            if "location" in user_input.lower() and len(llm_output) < 20:
+            if "location" in user_input.lower() and len(llm_output) < HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD:
                 pattern_detected = "location_format_error"
                 suggested_clarification = "Pode detalhar o endereço? (rua, número, bairro)"
 
             # Detect if user seems confused
             elif any(word in user_input.lower() for word in ["?", "hã", "o que", "como"]):
-                if len(llm_output) < 50:
+                if len(llm_output) < HEURISTIC_CONFUSION_DETECTION_THRESHOLD:
                     pattern_detected = "possible_confusion"
                     suggested_clarification = "Deixe-me explicar melhor..."
 
