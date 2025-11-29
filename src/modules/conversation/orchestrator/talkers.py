@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Talker Classes - Encapsulate conversation processing logic
+Talker Class - Encapsulate conversation processing logic
 
-Two implementations:
-1. InternalTalker - GPU-based local processing (Ultravox multimodal + HTTP TTS)
-2. ExternalTalker - Cloud-based API processing (Groq Whisper + Llama 3.1-8B + HTTP TTS)
+Cloud-based API processing:
+- STT: Groq Whisper API
+- LLM: Groq Llama 3.1-8B / LiteLLM
+- TTS: HTTP TTS Service (ElevenLabs, etc)
 
 This abstraction keeps the main Orchestrator pipeline clean and simple.
 """
@@ -89,178 +90,22 @@ class AbstractTalker(ABC):
         }
 
 
-class InternalTalker(AbstractTalker):
+class Talker(AbstractTalker):
     """
-    Internal Talker - GPU-based local processing
-
-    Pipeline:
-    1. Audio → Ultravox Universal (multimodal: STT + LLM in one) → Text Response
-    2. Text Response → HTTP TTS Service → Audio Response
-
-    Requires:
-    - GPU available (checked via torch.cuda.is_available())
-    - Ultravox Universal module loaded in-process
-    - HTTP TTS service available
-
-    Performance: Ultra-low latency (0 HTTP overhead)
-    """
-
-    def __init__(self):
-        super().__init__("InternalTalker")
-        self.ultravox = None  # Ultravox Universal (multimodal)
-        self.gpu_available = False
-
-    async def initialize(self):
-        """Initialize in-process modules (Ultravox)"""
-        logger.info("🚀 Initializing InternalTalker (GPU-based)...")
-
-        try:
-            # Check GPU availability
-            import torch
-            self.gpu_available = torch.cuda.is_available()
-
-            if not self.gpu_available:
-                raise RuntimeError("GPU not available - InternalTalker requires GPU")
-
-            logger.info(f"✅ GPU detected: {torch.cuda.get_device_name(0)}")
-
-            # Load Ultravox Universal (multimodal: audio → text response)
-            # Note: Ultravox is optional, if not available will use HTTP LLM
-            try:
-                from src.services.llm.ultravox.ultravox_universal import UltravoxUniversal
-                self.ultravox = UltravoxUniversal()
-                await self.ultravox.initialize()
-                logger.info("✅ Ultravox Universal loaded (multimodal)")
-            except (ImportError, ModuleNotFoundError):
-                logger.warning("⚠️  Ultravox Universal not available, using HTTP LLM")
-                self.ultravox = None
-
-            # TTS will use HTTP service
-            logger.info("✅ TTS will use HTTP service")
-
-            logger.info("🎉 InternalTalker ready - ultra-low latency mode enabled!")
-
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize InternalTalker: {e}")
-            raise
-
-    async def process_turn(
-        self,
-        audio_data: bytes,
-        sample_rate: int,
-        system_prompt: Optional[str] = None,
-        conversation_history: Optional[List[Dict]] = None,
-        voice_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Process turn using GPU-based local models"""
-
-        start_time = time.time()
-        self.stats["total_calls"] += 1
-
-        try:
-            logger.info(f"🎤 InternalTalker processing: {len(audio_data)} bytes @ {sample_rate}Hz")
-
-            # ==========================================
-            # STEP 1: Ultravox Universal (Audio → Text Response)
-            # ==========================================
-            stt_llm_start = time.time()
-
-            # Convert bytes to numpy float32
-            audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
-
-            logger.debug(f"🔄 Audio conversion: {len(audio_data)} bytes → {len(audio_array)} samples")
-
-            # Call Ultravox (does STT + LLM in one pass)
-            ultravox_result = await self.ultravox.process_audio(
-                audio_array=audio_array,
-                sample_rate=sample_rate,
-                system_prompt=system_prompt or "You are a helpful AI assistant.",
-                conversation_history=conversation_history or []
-            )
-
-            transcript = ultravox_result.get("transcript", "")
-            response_text = ultravox_result.get("text", "")
-
-            stt_llm_time = (time.time() - stt_llm_start) * 1000
-
-            logger.info(f"🤖 Ultravox: {transcript[:50]}... → {response_text[:50]}... ({stt_llm_time:.0f}ms)")
-
-            # ==========================================
-            # STEP 2: HTTP TTS (Text → Audio)
-            # ==========================================
-            tts_start = time.time()
-
-            # Use HTTP TTS service
-            from .clients import TTSClient
-            tts_client = TTSClient()
-            audio_response = await tts_client.synthesize(
-                text=response_text,
-                voice_id=voice_id or None
-            )
-
-            tts_time = (time.time() - tts_start) * 1000
-
-            logger.info(f"🔊 HTTP TTS: {len(audio_response)} bytes ({tts_time:.0f}ms)")
-
-            # ==========================================
-            # STEP 3: Return Result
-            # ==========================================
-            total_time = (time.time() - start_time) * 1000
-
-            self.stats["successful_calls"] += 1
-            self.stats["total_time_ms"] += total_time
-
-            logger.info(f"✅ InternalTalker completed in {total_time:.0f}ms")
-
-            return {
-                "success": True,
-                "transcript": transcript,
-                "text": response_text,
-                "audio": audio_response,
-                "talker": "internal",
-                "metrics": {
-                    "stt_llm_time_ms": int(stt_llm_time),
-                    "tts_time_ms": int(tts_time),
-                    "total_time_ms": int(total_time),
-                    "gpu_used": True
-                }
-            }
-
-        except Exception as e:
-            logger.error(f"❌ InternalTalker error: {e}")
-            self.stats["failed_calls"] += 1
-
-            return {
-                "success": False,
-                "error": str(e),
-                "talker": "internal"
-            }
-
-    async def cleanup(self):
-        """Cleanup resources"""
-        logger.info("🧹 Cleaning up InternalTalker...")
-        # Models are in-process, no cleanup needed
-        logger.info("✅ InternalTalker cleanup complete")
-
-
-class ExternalTalker(AbstractTalker):
-    """
-    External Talker - Cloud API-based processing
+    Talker - Cloud API-based processing
 
     Pipeline:
     1. Audio → Groq Whisper API → Transcript
-    2. Transcript → Groq Llama 3.1-8B → Text Response
+    2. Transcript → Groq Llama 3.1-8B / LiteLLM → Text Response
     3. Text Response → HTTP TTS Service → Audio Response
 
     Requires:
-    - GROQ_API_KEY for Whisper + LLM
-    - HTTP TTS service available
-
-    Performance: Higher latency (HTTP overhead) but no GPU required
+    - API keys for STT, LLM, and TTS services
+    - All services are external (no GPU required)
     """
 
     def __init__(self, service_clients: Dict[str, Any]):
-        super().__init__("ExternalTalker")
+        super().__init__("Talker")
         self.clients = service_clients
         self.stt_client = None
         self.llm_client = None
@@ -268,7 +113,7 @@ class ExternalTalker(AbstractTalker):
 
     async def initialize(self):
         """Initialize API clients"""
-        logger.info("🌐 Initializing ExternalTalker (Cloud APIs)...")
+        logger.info("🌐 Initializing Talker (Cloud APIs)...")
 
         try:
             # Get clients from service_clients dict
@@ -283,15 +128,15 @@ class ExternalTalker(AbstractTalker):
             if not self.tts_client:
                 raise RuntimeError("tts client not found")
 
-            logger.info("✅ External API clients ready")
+            logger.info("✅ API clients ready")
             logger.info("   - STT: Groq Whisper")
-            logger.info("   - LLM: Groq Llama 3.1-8B")
+            logger.info("   - LLM: Groq Llama / LiteLLM")
             logger.info("   - TTS: HTTP TTS Service")
 
-            logger.info("🎉 ExternalTalker ready!")
+            logger.info("🎉 Talker ready!")
 
         except Exception as e:
-            logger.error(f"❌ Failed to initialize ExternalTalker: {e}")
+            logger.error(f"❌ Failed to initialize Talker: {e}")
             raise
 
     async def process_turn(
@@ -308,7 +153,7 @@ class ExternalTalker(AbstractTalker):
         self.stats["total_calls"] += 1
 
         try:
-            logger.info(f"🌐 ExternalTalker processing: {len(audio_data)} bytes @ {sample_rate}Hz")
+            logger.info(f"🌐 Talker processing: {len(audio_data)} bytes @ {sample_rate}Hz")
 
             # ==========================================
             # STEP 1: Groq Whisper (Audio → Transcript)
@@ -364,7 +209,7 @@ class ExternalTalker(AbstractTalker):
             self.stats["successful_calls"] += 1
             self.stats["total_time_ms"] += total_time
 
-            logger.info(f"✅ ExternalTalker completed in {total_time:.0f}ms")
+            logger.info(f"✅ Talker completed in {total_time:.0f}ms")
 
             return {
                 "success": True,
@@ -382,7 +227,7 @@ class ExternalTalker(AbstractTalker):
             }
 
         except Exception as e:
-            logger.error(f"❌ ExternalTalker error: {e}")
+            logger.error(f"❌ Talker error: {e}")
             self.stats["failed_calls"] += 1
 
             return {
@@ -393,49 +238,37 @@ class ExternalTalker(AbstractTalker):
 
     async def cleanup(self):
         """Cleanup resources"""
-        logger.info("🧹 Cleaning up ExternalTalker...")
+        logger.info("🧹 Cleaning up Talker...")
         # HTTP clients are managed by orchestrator's session
-        logger.info("✅ ExternalTalker cleanup complete")
+        logger.info("✅ Talker cleanup complete")
 
 
 class TalkerFactory:
     """
-    Factory to create the appropriate Talker based on GPU profile
+    Factory to create Talker instance
 
-    Decision logic:
-    - If GPU available + gpu_machine profile: InternalTalker
-    - Otherwise: ExternalTalker
+    Always creates Talker (all services are external, no GPU needed)
     """
 
     @staticmethod
     async def create_talker(
-        gpu_available: bool,
         service_clients: Dict[str, Any],
-        force_external: bool = False
+        **kwargs  # Accept but ignore legacy parameters (gpu_available, force_external)
     ) -> AbstractTalker:
         """
-        Create appropriate Talker instance
+        Create Talker instance
 
         Args:
-            gpu_available: Whether GPU is available
-            service_clients: Dict of service clients for ExternalTalker
-            force_external: Force ExternalTalker (for testing)
+            service_clients: Dict of service clients (stt, llm, tts)
+            **kwargs: Ignored (for backward compatibility)
 
         Returns:
             Initialized Talker instance
         """
 
         try:
-            if gpu_available and not force_external:
-                logger.info("🎯 Creating InternalTalker (GPU available)")
-                talker = InternalTalker()
-            else:
-                if force_external:
-                    logger.info("🎯 Creating ExternalTalker (forced by flag)")
-                else:
-                    logger.info("🎯 Creating ExternalTalker (GPU not available)")
-                talker = ExternalTalker(service_clients)
-
+            logger.info("🎯 Creating Talker (cloud APIs)")
+            talker = Talker(service_clients)
             await talker.initialize()
             return talker
         except Exception as e:

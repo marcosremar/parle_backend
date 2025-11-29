@@ -169,11 +169,8 @@ async def process_turn_with_talker(
         if orchestrator.stats_tracker:
             orchestrator.stats_tracker.increment_successful_turns()
             orchestrator.stats_tracker.add_processing_time(total_time)
-            # Update LLM stats based on talker type
-            if talker_name == "internal":
-                orchestrator.stats_tracker.increment_in_process_count()
-            else:
-                orchestrator.stats_tracker.increment_fallback_llm_count()
+            # All services are external
+            orchestrator.stats_tracker.increment_fallback_llm_count()
 
         response = {
             "success": True,

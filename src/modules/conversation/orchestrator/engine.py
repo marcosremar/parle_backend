@@ -30,7 +30,7 @@ from .clients import (
     ServiceClientError
 )
 from .fallback_manager import FallbackManager
-from .talkers import TalkerFactory, AbstractTalker
+from .talkers import TalkerFactory, AbstractTalker, Talker
 from .process_turn_with_talker import process_turn_with_talker
 from .engines import StatsTracker, HealthChecker, KnowledgeAnalyzer, ContextLoader, TurnProcessor
 from .constants import (
@@ -96,26 +96,16 @@ class ConversationOrchestrator:
     _valid_skills_cache_timestamp: Optional[float] = None
     _valid_skills_cache_ttl: float = VALID_SKILLS_CACHE_TTL_SECONDS
 
-    def __init__(self, config: Optional[ServiceConfig] = None, in_process_mode: bool = False) -> None:
+    def __init__(self, config: Optional[ServiceConfig] = None) -> None:
         """
         Initialize orchestrator with service clients
 
         Args:
             config: Optional service URL overrides
-            in_process_mode: If True, load LLM/TTS modules in-process (0 HTTP overhead)
-                           If False, use HTTP clients (default, with fallback)
         """
         # Get service URLs from environment or use defaults
         self.config = config or {}
         self._load_config_from_env()
-
-        # In-process mode flag (for ultra-low latency)
-        self.in_process_mode = in_process_mode
-
-        # In-process module instances (only loaded if in_process_mode=True)
-        self.llm_instance = None
-        self.tts_instance = None
-        self.gpu_available = False
 
         # Service clients (will be initialized later)
         self.clients: Dict[str, Any] = {}
@@ -135,8 +125,7 @@ class ConversationOrchestrator:
         self.turn_processor: Optional[TurnProcessor] = None
 
 
-        mode_str = "IN-PROCESS (ultra-low latency)" if in_process_mode else "HTTP (with fallback)"
-        logger.info(f"🏗️ ConversationOrchestrator created - Mode: {mode_str}")
+        logger.info("🏗️ ConversationOrchestrator created - Mode: HTTP (cloud APIs)")
         
         # Import get_skill_difficulty once (for use in loops)
         self._get_skill_difficulty: Optional[Callable[[str], Optional[float]]] = None
@@ -229,44 +218,6 @@ class ConversationOrchestrator:
         logger.info("🚀 Initializing ConversationOrchestrator...")
 
         # ==========================================
-        # IN-PROCESS MODE: Load modules directly
-        # ==========================================
-        if self.in_process_mode:
-            logger.info("⚡ IN-PROCESS MODE: Loading modules directly (0 HTTP overhead)...")
-            try:
-                # Check GPU availability
-                import torch
-                self.gpu_available = torch.cuda.is_available()
-
-                if self.gpu_available:
-                    logger.info(f"✅ GPU detected: {torch.cuda.get_device_name(0)}")
-
-                    # Load Ultravox Universal (auto-detects GPU profile)
-                    # Note: Ultravox is optional, if not available will use HTTP LLM
-                    try:
-                        from src.services.llm.ultravox.ultravox_universal import UltravoxUniversal
-                        self.llm_instance = UltravoxUniversal()
-                        await self.llm_instance.initialize()
-                        logger.info("✅ Ultravox Universal loaded in-process")
-                    except (ImportError, ModuleNotFoundError):
-                        logger.warning("⚠️  Ultravox Universal not available, using HTTP LLM")
-                        self.llm_instance = None
-
-                    # TTS will use HTTP service
-                    self.tts_instance = None
-                    logger.info("✅ In-process TTS disabled - using HTTP TTS service")
-
-                    logger.info("🚀 In-process modules ready - ultra-low latency enabled!")
-                else:
-                    logger.warning("⚠️ No GPU available - in-process mode disabled, will use HTTP fallback")
-                    self.in_process_mode = False  # Disable in-process mode
-
-            except Exception as e:
-                logger.error(f"❌ Failed to load in-process modules: {e}")
-                logger.info("   Falling back to HTTP mode...")
-                self.in_process_mode = False  # Disable in-process mode on error
-
-        # ==========================================
         # Initialize service clients (direct calls for modules, HTTP for external services)
         # ==========================================
         logger.info("🔌 Initializing service clients...")
@@ -309,17 +260,14 @@ class ConversationOrchestrator:
             context_loader=self.context_loader,
             knowledge_analyzer=self.knowledge_analyzer,
             stats_tracker=self.stats_tracker,
-            in_process_mode=self.in_process_mode,
-            llm_instance=self.llm_instance,
-            tts_instance=self.tts_instance,
             get_relevant_skills_func=self._get_relevant_skills_func
         )
 
         # Health check all services (skip if ORCHESTRATOR_SKIP_HEALTH_CHECKS is set)
         skip_health_checks = os.getenv(ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS, "false").lower() == "true"
-        if not self.in_process_mode and not skip_health_checks:
+        if not skip_health_checks:
             await self._health_check_services()
-        elif skip_health_checks:
+        else:
             logger.info("🏁 Skipping health checks (startup mode - will run in background)")
 
         # Run profile-aware warmup
@@ -330,20 +278,9 @@ class ConversationOrchestrator:
         # ==========================================
         logger.info("🎯 Creating Talker (conversation pipeline abstraction)...")
         try:
-            # Check GPU availability for Talker decision (gracefully handle torch missing)
-            gpu_available = False
-            try:
-                import torch
-                gpu_available = torch.cuda.is_available()
-            except ImportError:
-                logger.debug("   torch not available - GPU not available")
-                gpu_available = False
-
-            # Create Talker (InternalTalker if GPU, ExternalTalker otherwise)
+            # Create Talker (all services are external, no GPU needed)
             self.talker = await TalkerFactory.create_talker(
-                gpu_available=gpu_available,
-                service_clients=self.clients,
-                force_external=not self.in_process_mode  # Force external if not in-process mode
+                service_clients=self.clients
             )
 
             logger.info(f"✅ Talker ready: {self.talker.name}")
@@ -353,8 +290,7 @@ class ConversationOrchestrator:
             logger.info("   Orchestrator will use TurnProcessor engine")
             self.talker = None
 
-        mode_summary = "IN-PROCESS (with HTTP fallback)" if self.in_process_mode else "HTTP (with fallback)"
-        logger.info(f"✅ ConversationOrchestrator initialized and ready - Mode: {mode_summary}")
+        logger.info("✅ ConversationOrchestrator initialized and ready - Mode: HTTP (cloud APIs)")
 
     async def _health_check_services(self) -> HealthStatus:
         """
@@ -567,10 +503,8 @@ class ConversationOrchestrator:
 
             # Backend Mode Info
             "backend_mode": {
-                "mode": "IN-PROCESS (with HTTP fallback)" if self.in_process_mode else "HTTP (with fallback)",
-                "in_process_enabled": self.in_process_mode,
-                "gpu_available": self.gpu_available,
-                "in_process_calls": stats.get(StatsKey.IN_PROCESS_COUNT, 0),
+                "mode": "HTTP (cloud APIs)",
+                "in_process_enabled": False,
                 "http_fallback_calls": stats.get(StatsKey.HTTP_FALLBACK_COUNT, 0)
             }
         }
@@ -1178,7 +1112,7 @@ class ConversationOrchestrator:
         Process conversation turn using Talker abstraction (SIMPLIFIED VERSION)
 
         This method delegates the audio→text→audio pipeline to the appropriate
-        Talker (InternalTalker or ExternalTalker), making the orchestration
+        Talker (cloud-based APIs), making the orchestration
         much simpler and cleaner.
 
         Args:

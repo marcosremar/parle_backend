@@ -12,10 +12,11 @@ from .ai_clients import (
     LLMClient,
     TTSClient,
     STTClient,
-    ExternalUltravoxClient,
+    SecondaryLLMClient,
     ExternalLLMClient,
     ExternalSTTClient,
     ExternalTTSClient,
+    ExternalUltravoxClient,  # Backward compatibility alias
 )
 from .data_clients import (
     SessionClient,
@@ -51,7 +52,8 @@ __all__ = [
     "LLMClient",
     "TTSClient",
     "STTClient",
-    "ExternalUltravoxClient",
+    "SecondaryLLMClient",
+    "ExternalUltravoxClient",  # Backward compatibility alias
     "ExternalLLMClient",
     "ExternalSTTClient",
     "ExternalTTSClient",

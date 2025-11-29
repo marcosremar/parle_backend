@@ -20,8 +20,8 @@ class OrchestratorModule(BaseModule):
             # Import orchestrator engine (now in modules)
             from .engine import ConversationOrchestrator
             
-            # Create orchestrator (always uses direct module calls)
-            self.orchestrator = ConversationOrchestrator(in_process_mode=False)
+            # Create orchestrator (all services are external)
+            self.orchestrator = ConversationOrchestrator()
             await self.orchestrator.initialize()
             
             self.logger.info("✅ Orchestrator Module initialized")

@@ -1,7 +1,7 @@
 """
 TTS Strategy Pattern
 
-Eliminates if/else chains for in-process vs HTTP TTS processing.
+HTTP-based TTS processing.
 """
 
 from __future__ import annotations
@@ -33,38 +33,6 @@ class TTSStrategy(ABC):
             Audio bytes or None if synthesis fails
         """
         pass
-
-
-class InProcessTTSStrategy(TTSStrategy):
-    """In-process TTS strategy using direct module calls."""
-
-    def __init__(self, tts_instance: Any) -> None:
-        """
-        Initialize in-process TTS strategy.
-        
-        Args:
-            tts_instance: In-process TTS instance
-        """
-        self.tts_instance = tts_instance
-
-    async def synthesize(
-        self,
-        text: str,
-        voice_id: Optional[str]
-    ) -> Optional[bytes]:
-        """Synthesize audio using in-process TTS."""
-        try:
-            logger.info("⚡ Using in-process TTS (ultra-low latency)...")
-            audio_response = await self.tts_instance.synthesize(
-                text=text,
-                voice_id=voice_id
-            )
-            logger.info(f"✅ In-process TTS generated: {len(audio_response)} bytes")
-            return audio_response
-        except Exception as e:
-            logger.warning(f"⚠️ In-process TTS failed: {e}")
-            logger.info("   Falling back to HTTP TTS...")
-            return None  # Trigger fallback
 
 
 class HTTPTTSStrategy(TTSStrategy):
@@ -112,26 +80,21 @@ class HTTPTTSStrategy(TTSStrategy):
 
 
 class TTSStrategyFactory:
-    """Factory for creating appropriate TTS strategy."""
+    """Factory for creating TTS strategy (always HTTP-based)."""
 
     @staticmethod
     def create_strategy(
-        in_process_mode: bool,
-        tts_instance: Optional[Any],
-        tts_client: Any
+        tts_client: Any,
+        **kwargs  # Accept but ignore legacy parameters (in_process_mode, tts_instance)
     ) -> TTSStrategy:
         """
-        Create appropriate TTS strategy based on configuration.
+        Create TTS strategy (always HTTP-based).
         
         Args:
-            in_process_mode: Whether in-process mode is enabled
-            tts_instance: Optional in-process TTS instance
             tts_client: TTS service client
+            **kwargs: Ignored (for backward compatibility)
             
         Returns:
-            TTSStrategy instance
+            HTTPTTSStrategy instance
         """
-        if in_process_mode and tts_instance:
-            return InProcessTTSStrategy(tts_instance)
-        else:
-            return HTTPTTSStrategy(tts_client)
+        return HTTPTTSStrategy(tts_client)

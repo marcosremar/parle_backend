@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Fallback Manager - Manages LLM failover using circuit breaker pattern
-Coordinates failover between Primary LLM (Ultravox) and Fallback LLM (Groq)
+Coordinates failover between Primary LLM and Fallback LLM (both external APIs)
 """
 
 import logging
@@ -18,7 +18,7 @@ sys.path.insert(0, str(project_root))
 from .utils.pipeline.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from .utils.exceptions import ServiceUnavailableError
 # Note: get_settings() was deprecated, using environment variables directly
-from .clients import LLMClient, ExternalUltravoxClient
+from .clients import LLMClient, SecondaryLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class FallbackManager:
 
     Features:
     - 2-tier circuit breaker pattern for automatic failover
-    - Ultravox (primary) → External Ultravox (secondary)
+    - Primary LLM (external API) → Secondary LLM (external API)
     - Preserves conversation context across failover
     - Tracks which LLM is active
     - Automatic recovery when primary comes back
@@ -37,13 +37,13 @@ class FallbackManager:
 
     def __init__(self,
                  primary_llm: LLMClient,
-                 secondary_llm: ExternalUltravoxClient):
+                 secondary_llm: SecondaryLLMClient):
         """
         Initialize failover manager with 2-tier fallback
 
         Args:
-            primary_llm: Ultravox LLM client (integrated STT + LLM) - GPU-based
-            secondary_llm: External Ultravox client (Groq STT + LLM) - Cloud-based, Ultravox-compatible
+            primary_llm: Primary LLM client (external API)
+            secondary_llm: Secondary LLM client (external API, fallback)
         """
         self.primary_llm = primary_llm
         self.secondary_llm = secondary_llm
@@ -98,8 +98,8 @@ class FallbackManager:
         Preserves conversation context during failover for seamless experience
 
         Failover chain:
-        1. Primary: Ultravox (GPU-based, integrated STT + LLM)
-        2. Secondary: External Ultravox (Groq STT + LLM, same interface)
+        1. Primary: Primary LLM (external API)
+        2. Secondary: Secondary LLM (external API, fallback)
 
         Args:
             audio_data: Audio bytes to process
@@ -120,9 +120,9 @@ class FallbackManager:
 
         async def primary_fn(context: Dict[str, Any]) -> Dict[str, Any]:
             """
-            Primary LLM function (GPU Ultravox with integrated STT)
+            Primary LLM function (external API)
             """
-            logger.info("🎯 Trying primary LLM (GPU Ultravox)...")
+            logger.info("🎯 Trying primary LLM (external API)...")
 
             result = await self.primary_llm.process_audio(
                 audio_data=context["audio_data"],
@@ -139,10 +139,10 @@ class FallbackManager:
 
         async def secondary_fn(context: Dict[str, Any]) -> Dict[str, Any]:
             """
-            Secondary LLM function (External Ultravox - Groq STT + LLM)
-            Same interface as primary, just cloud-based
+            Secondary LLM function (external API, fallback)
+            Same interface as primary
             """
-            logger.info("🔄 Primary failed, trying secondary LLM (External Ultravox)...")
+            logger.info("🔄 Primary failed, trying secondary LLM (external API)...")
 
             result = await self.secondary_llm.process_audio(
                 audio_data=context["audio_data"],

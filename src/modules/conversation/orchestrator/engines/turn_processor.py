@@ -39,9 +39,6 @@ class TurnProcessor:
         context_loader: Any,
         knowledge_analyzer: Any,
         stats_tracker: Any,
-        in_process_mode: bool = False,
-        llm_instance: Optional[Any] = None,
-        tts_instance: Optional[Any] = None,
         get_relevant_skills_func: Optional[Any] = None,
     ) -> None:
         """
@@ -53,9 +50,6 @@ class TurnProcessor:
             context_loader: Context loader engine
             knowledge_analyzer: Knowledge analyzer engine
             stats_tracker: Stats tracker engine
-            in_process_mode: Whether in-process mode is enabled
-            llm_instance: Optional in-process LLM instance
-            tts_instance: Optional in-process TTS instance
             get_relevant_skills_func: Function to get relevant skills
         """
         self.clients = clients
@@ -63,21 +57,14 @@ class TurnProcessor:
         self.context_loader = context_loader
         self.knowledge_analyzer = knowledge_analyzer
         self.stats_tracker = stats_tracker
-        self.in_process_mode = in_process_mode
-        self.llm_instance = llm_instance
-        self.tts_instance = tts_instance
         self._get_relevant_skills_func = get_relevant_skills_func
 
-        # Initialize strategies
+        # Initialize strategies (all services are external)
         self.llm_strategy = LLMStrategyFactory.create_strategy(
-            in_process_mode=in_process_mode,
-            llm_instance=llm_instance,
             fallback_manager=fallback_manager,
             stats_tracker=stats_tracker
         )
         self.tts_strategy = TTSStrategyFactory.create_strategy(
-            in_process_mode=in_process_mode,
-            tts_instance=tts_instance,
             tts_client=clients.get("tts")
         )
 
@@ -223,22 +210,7 @@ class TurnProcessor:
         """Transcribe audio to text."""
         user_transcript = ""
 
-        # Try in-process STT first if enabled
-        if self.in_process_mode and self.llm_instance and not force_external_llm:
-            try:
-                audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / AUDIO_NORMALIZATION_DIVISOR
-                result = await self.llm_instance.process_audio(
-                    audio_array=audio_array,
-                    sample_rate=sample_rate,
-                    system_prompt="Transcribe the audio.",
-                    conversation_history=[]
-                )
-                user_transcript = result.get("transcript", "")
-                logger.info(f"📝 Got transcript from in-process: {user_transcript[:50]}...")
-            except Exception as e:
-                logger.debug(f"Could not get transcript from in-process: {e}")
-
-        # Fallback to HTTP STT
+        # Use HTTP STT (all services are external)
         if not user_transcript and "stt" in self.clients:
             try:
                 stt_result = await self.clients["stt"].transcribe(audio_data, sample_rate)
@@ -499,23 +471,7 @@ class TurnProcessor:
         force_external_llm: bool
     ) -> tuple[str, str, Dict[str, Any]]:
         """Generate LLM response using strategy pattern."""
-        # Try in-process strategy first if enabled
-        if self.in_process_mode and self.llm_instance and not force_external_llm:
-            try:
-                text_response, llm_used, llm_result = await self.llm_strategy.process_audio(
-                    audio_data=audio_data,
-                    sample_rate=sample_rate,
-                    system_prompt=system_prompt,
-                    conversation_history=conversation_history,
-                    conversation_id=conversation_id,
-                    force_external_llm=force_external_llm
-                )
-                return text_response, llm_used, llm_result
-            except Exception:
-                # Fall through to HTTP strategy
-                pass
-
-        # Use HTTP strategy (either as primary or fallback)
+        # Use HTTP strategy (all services are external)
         http_strategy = HTTPLLMStrategy(self.fallback_manager, self.stats_tracker)
         return await http_strategy.process_audio(
             audio_data=audio_data,
@@ -532,14 +488,7 @@ class TurnProcessor:
         voice_id: Optional[str]
     ) -> Optional[bytes]:
         """Synthesize audio from text using strategy pattern."""
-        # Try in-process strategy first if enabled
-        if self.in_process_mode and self.tts_instance:
-            audio_response = await self.tts_strategy.synthesize(text_response, voice_id)
-            if audio_response is not None:
-                return audio_response
-            # If in-process failed, fall through to HTTP
-
-        # Use HTTP strategy (either as primary or fallback)
+        # Use HTTP strategy (all services are external)
         if "tts" in self.clients:
             http_tts_strategy = HTTPTTSStrategy(self.clients["tts"])
             return await http_tts_strategy.synthesize(text_response, voice_id)

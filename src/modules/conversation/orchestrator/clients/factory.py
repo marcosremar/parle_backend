@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 from .base import BaseServiceClient
 from .ai_clients import (
-    ExternalUltravoxClient,
+    SecondaryLLMClient,
     ExternalLLMClient,
     ExternalSTTClient,
     ExternalTTSClient,
@@ -61,7 +61,7 @@ def create_service_clients(config: Optional[Dict[str, str]] = None) -> Dict[str,
     """
     clients: Dict[str, BaseServiceClient] = {
         # AI Services (External/Remote) - MODULE services (in-process, lightweight API wrappers)
-        "external_ultravox": ExternalUltravoxClient(),
+        "external_ultravox": SecondaryLLMClient(),  # Service name kept for backward compatibility
         "llm": ExternalLLMClient(),  # Renamed from external_llm
         "stt": ExternalSTTClient(),  # Renamed from external_stt
         "tts": ExternalTTSClient(),  # Renamed from external_tts

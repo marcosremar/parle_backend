@@ -162,11 +162,11 @@ class STTClient(BaseServiceClient):
             raise ServiceClientError(f"STT transcription failed: {e}")
 
 
-class ExternalUltravoxClient(BaseServiceClient):
-    """External Ultravox service client (Groq STT + LLM)"""
+class SecondaryLLMClient(BaseServiceClient):
+    """Secondary LLM service client (fallback LLM via external API)"""
 
     def __init__(self) -> None:
-        super().__init__("external_ultravox")
+        super().__init__("external_ultravox")  # Keep service name for backward compatibility
 
     async def process_audio(
         self,
@@ -190,7 +190,7 @@ class ExternalUltravoxClient(BaseServiceClient):
                 request_data["system_prompt"] = system_prompt
 
             result = await self._post("/process_audio", json_data=request_data, timeout=60.0)
-            logger.info(f"🤖 External LLM responded: {result.get('text', '')[:100]}...")
+            logger.info(f"🤖 Secondary LLM responded: {result.get('text', '')[:100]}...")
 
             return {
                 "text": result.get('text', ''),
@@ -199,8 +199,12 @@ class ExternalUltravoxClient(BaseServiceClient):
                 "latency_ms": result.get('latency_ms', 0)
             }
         except Exception as e:
-            logger.error(f"❌ External LLM error: {e}")
-            raise ServiceClientError(f"External LLM processing failed: {e}")
+            logger.error(f"❌ Secondary LLM error: {e}")
+            raise ServiceClientError(f"Secondary LLM processing failed: {e}")
+
+
+# Backward compatibility alias
+ExternalUltravoxClient = SecondaryLLMClient
 
 
 class ExternalLLMClient(BaseServiceClient):
