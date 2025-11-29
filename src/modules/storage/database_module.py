@@ -18,23 +18,13 @@ class DatabaseModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize database client"""
         try:
-            # Import database client
-            from src.services.database.app_complete import UserDatabase
-            from src.services.database.app_complete import get_config
+            # Database client - using in-memory for now
+            # TODO: Migrate UserDatabase to modules if needed
             
-            config = get_config()
-            db_config = config.get("database", {})
-            
-            # Determine storage path
-            storage_path = db_config.get("storage_path")
-            if not storage_path:
-                storage_path = db_config.get("runpod_volume_path", "/tmp")
-            
-            db_path = f"{storage_path}/database.db"
-            
-            self.db_client = UserDatabase(db_path=db_path)
-            
-            self.logger.info(f"✅ Database Module initialized at {db_path}")
+            # Using in-memory storage for now
+            self.logger.info("✅ Database Module initialized (in-memory storage)")
+            self.db_client = None
+            self._data = {}
             return True
         except Exception as e:
             self.logger.error(f"❌ Failed to initialize Database Module: {e}")

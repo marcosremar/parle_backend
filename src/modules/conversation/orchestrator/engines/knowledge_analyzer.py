@@ -55,7 +55,7 @@ class KnowledgeAnalyzer:
             # Step 1: Get valid skills from SKILL_CEFR_MAP for SINKT semantic tagging
             valid_skills: List[str] = []
             try:
-                from src.services.student_model.skill_registry import SKILL_CEFR_MAP
+                from src.modules.tutoring.student_model.skill_registry import SKILL_CEFR_MAP
                 for level_skills in SKILL_CEFR_MAP.values():
                     valid_skills.extend(level_skills)
             except Exception as e:

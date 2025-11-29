@@ -6,13 +6,8 @@ from typing import Dict, Optional, Any, List
 from loguru import logger
 
 from src.modules.base_module import BaseModule
-try:
-    from .storage import users_db
-    from .auth import hash_password, verify_password
-except ImportError:
-    # Fallback to services if local files not available
-    from src.services.user.storage import users_db
-    from src.services.user.core.auth import hash_password, verify_password
+from .storage import users_db
+from .auth import hash_password, verify_password
 
 
 class UserModule(BaseModule):

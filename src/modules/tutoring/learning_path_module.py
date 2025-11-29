@@ -19,8 +19,8 @@ class LearningPathModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize learning path navigator"""
         try:
-            # Import navigator
-            from src.services.learning_path.app_complete import LearningPathNavigator
+            # Import navigator from local module
+            from .learning_path.navigator import LearningPathNavigator
             
             self.navigator = LearningPathNavigator()
             

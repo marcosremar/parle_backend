@@ -38,15 +38,24 @@ class ConversationHistoryModule(BaseModule):
         if conversation_id not in self.history_db:
             self.history_db[conversation_id] = []
         
+        import secrets
+        from datetime import datetime
+        
+        turn_id = f"turn_{secrets.token_hex(8)}"
         turn = {
+            "turn_id": turn_id,
             "user_input": user_input,
             "ai_response": ai_response,
             "metadata": metadata or {},
-            "timestamp": None
+            "timestamp": datetime.now().isoformat()
         }
         
         self.history_db[conversation_id].append(turn)
-        return {"success": True}
+        return {
+            "turn_id": turn_id,
+            "success": True,
+            "conversation_id": conversation_id
+        }
     
     async def get_history(
         self,

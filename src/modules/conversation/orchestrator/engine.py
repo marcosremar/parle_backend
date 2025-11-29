@@ -150,16 +150,14 @@ class ConversationOrchestrator:
         self._get_skill_difficulty: Optional[Callable[[str], Optional[float]]] = None
         self._get_relevant_skills_func: Optional[Callable[[str, str, str], List[str]]] = None
         try:
-            # Try to import from services (with fallback)
-            try:
-                from src.services.student_model.skill_registry import get_skill_difficulty, get_relevant_skills_for_context
-                self._get_skill_difficulty = get_skill_difficulty
-                self._get_relevant_skills_func = get_relevant_skills_for_context  # Renamed to avoid conflict
-            except ImportError:
-                # Fallback: skill registry not available
-                logger.warning("⚠️  Skill registry not available, using fallback functions")
-                self._get_skill_difficulty = None
-                self._get_relevant_skills_func = None
+            from src.modules.tutoring.student_model.skill_registry import get_skill_difficulty, get_relevant_skills_for_context
+            self._get_skill_difficulty = get_skill_difficulty
+            self._get_relevant_skills_func = get_relevant_skills_for_context  # Renamed to avoid conflict
+        except ImportError:
+            # Fallback: skill registry not available
+            logger.warning("⚠️  Skill registry not available, using fallback functions")
+            self._get_skill_difficulty = None
+            self._get_relevant_skills_func = None
         except Exception as e:
             logger.warning(f"Could not import skill registry functions: {e}")
             self._get_skill_difficulty = None
@@ -222,7 +220,7 @@ class ConversationOrchestrator:
         
         # Recalcular cache
         try:
-            from src.services.student_model.skill_registry import SKILL_CEFR_MAP
+            from src.modules.tutoring.student_model.skill_registry import SKILL_CEFR_MAP
             valid_skills = []
             for level_skills in SKILL_CEFR_MAP.values():
                 valid_skills.extend(level_skills)
@@ -259,10 +257,15 @@ class ConversationOrchestrator:
                     logger.info(f"✅ GPU detected: {torch.cuda.get_device_name(0)}")
 
                     # Load Ultravox Universal (auto-detects GPU profile)
-                    from src.services.llm.ultravox.ultravox_universal import UltravoxUniversal
-                    self.llm_instance = UltravoxUniversal()
-                    await self.llm_instance.initialize()
-                    logger.info("✅ Ultravox Universal loaded in-process")
+                    # Note: Ultravox is optional, if not available will use HTTP LLM
+                    try:
+                        from src.services.llm.ultravox.ultravox_universal import UltravoxUniversal
+                        self.llm_instance = UltravoxUniversal()
+                        await self.llm_instance.initialize()
+                        logger.info("✅ Ultravox Universal loaded in-process")
+                    except (ImportError, ModuleNotFoundError):
+                        logger.warning("⚠️  Ultravox Universal not available, using HTTP LLM")
+                        self.llm_instance = None
 
                     # TTS will use HTTP service
                     self.tts_instance = None

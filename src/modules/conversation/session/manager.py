@@ -10,22 +10,7 @@ import httpx
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 
-try:
-    from .models import LLMType, SessionResponse
-except ImportError:
-    try:
-        from src.services.session.models import LLMType, SessionResponse
-    except ImportError:
-        # Fallback: define minimal models
-        from enum import Enum
-        class LLMType(Enum):
-            PRIMARY = "primary"
-            FALLBACK = "fallback"
-        class SessionResponse:
-            def __init__(self, **kwargs):
-                self.__dict__.update(kwargs)
-            def dict(self):
-                return self.__dict__
+from .models import LLMType, SessionResponse
 
 logger = logging.getLogger(__name__)
 

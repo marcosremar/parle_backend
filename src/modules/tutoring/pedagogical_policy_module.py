@@ -19,14 +19,14 @@ class PedagogicalPolicyModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize pedagogical policy engine"""
         try:
-            # Import policy engine and prompt composer
-            from src.services.pedagogical_policy.app_complete import (
-                policy_engine,
-                prompt_composer
-            )
+            # Import from local module
+            from .pedagogical_policy.module import PedagogicalPolicyModule
             
-            self.policy_engine = policy_engine
-            self.prompt_composer = prompt_composer
+            # Get policy engine from module
+            policy_module = PedagogicalPolicyModule()
+            await policy_module.initialize()
+            self.policy_engine = policy_module.engine if hasattr(policy_module, 'engine') else None
+            self.prompt_composer = None  # Not yet implemented in module
             
             self.logger.info("✅ Pedagogical Policy Module initialized")
             return True
@@ -44,7 +44,7 @@ class PedagogicalPolicyModule(BaseModule):
         
         try:
             # Convert dict to PromptContext if needed
-            from src.services.pedagogical_policy.models import (
+            from .pedagogical_policy.models import (
                 PromptContext,
                 CEFRLevel,
                 EmotionalState
@@ -85,7 +85,7 @@ class PedagogicalPolicyModule(BaseModule):
             await self.initialize()
         
         try:
-            from src.services.pedagogical_policy.models import StrategyInfo, Strategy
+            from .pedagogical_policy.models import StrategyInfo, Strategy
             
             strategies = [
                 StrategyInfo(

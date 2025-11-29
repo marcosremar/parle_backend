@@ -21,14 +21,14 @@ class UserModule(BaseModule):
         """Initialize user storage"""
         try:
             # Import user storage
-            from src.services.user.storage import users_db
+            from .storage import users_db
             
             self.storage = users_db
             
             # Create default admin if needed
             if not any(u.get("username") == "admin" for u in self.storage.values()):
                 admin_id = "admin_" + secrets.token_hex(8)
-                from src.services.user.core.auth import hash_password
+                from .auth import hash_password
                 
                 self.storage[admin_id] = {
                     "user_id": admin_id,
@@ -64,7 +64,7 @@ class UserModule(BaseModule):
             await self.initialize()
         
         try:
-            from src.services.user.core.auth import verify_password
+            from .auth import verify_password
             
             # Find user by email
             user = None
@@ -123,7 +123,7 @@ class UserModule(BaseModule):
             await self.initialize()
         
         try:
-            from src.services.user.core.auth import hash_password
+            from .auth import hash_password
             
             # Check if user exists
             for user_data in self.storage.values():

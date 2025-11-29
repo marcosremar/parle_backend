@@ -4,38 +4,7 @@ Baseado no mastery probability do estudante
 """
 
 from typing import Dict, Any, Optional
-try:
-    from .models import Strategy, ScaffoldingType, EmotionalState, PromptContext
-except ImportError:
-    # Fallback: import from services
-    try:
-        from src.services.pedagogical_policy.models import Strategy, ScaffoldingType, EmotionalState, PromptContext
-    except ImportError:
-        # Last resort: define minimal stubs
-        from enum import Enum
-        class Strategy(str, Enum):
-            TEACH = "teach"
-            REINFORCE = "reinforce"
-            CHALLENGE = "challenge"
-        class ScaffoldingType(str, Enum):
-            IMPLICIT = "implicit"
-            EXPLICIT = "explicit"
-        class EmotionalState(str, Enum):
-            MOTIVATED = "motivated"
-            FRUSTRATED = "frustrated"
-            CONFUSED = "confused"
-            CONFIDENT = "confident"
-            NEUTRAL = "neutral"
-        from pydantic import BaseModel
-        from typing import Optional, Dict, Any
-        class PromptContext(BaseModel):
-            scenario: Optional[Dict[str, Any]] = None
-            cefr_level: str = "A1"
-            native_language: str = "en"
-            target_skill: Optional[Dict[str, Any]] = None
-            mastery_probability: float = 0.0
-            cefr_details: Dict[str, Any] = {}
-            strategy: Optional[Strategy] = None
+from .models import Strategy, ScaffoldingType, EmotionalState, PromptContext
 
 
 class PolicyEngine:

@@ -18,8 +18,8 @@ class RestPollingModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize rest polling service"""
         try:
-            # Try to import rest polling service
-            from src.services.rest_polling.service import RestpollingService
+            # Import from local module
+            from .rest_polling.service import RestPollingService
             from src.core.unified_context import ServiceContext
             from src.core.communication.facade import ServiceCommunicationManager
             

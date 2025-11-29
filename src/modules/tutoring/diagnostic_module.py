@@ -27,41 +27,20 @@ class DiagnosticModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize diagnostic analyzers"""
         try:
-            # Import diagnostic analyzers
-            from src.services.diagnostic_module.app_complete import (
-                llm_client,
-                grammar_analyzer,
-                vocabulary_analyzer,
-                complexity_analyzer,
-                progress_analyzer,
-                session_analyzer,
-                error_rate_analyzer,
-                feedback_generator,
-                task_relevance_analyzer,
-                asr_metadata_analyzer
-            )
-            
-            # Initialize LLM client
-            import aiohttp
-            session = aiohttp.ClientSession()
-            await llm_client.initialize(session)
-            
-            self.llm_client = llm_client
-            self.grammar_analyzer = grammar_analyzer
-            self.vocabulary_analyzer = vocabulary_analyzer
-            self.complexity_analyzer = complexity_analyzer
-            self.progress_analyzer = progress_analyzer
-            self.session_analyzer = session_analyzer
-            self.error_rate_analyzer = error_rate_analyzer
-            self.feedback_generator = feedback_generator
-            self.task_relevance_analyzer = task_relevance_analyzer
-            self.asr_metadata_analyzer = asr_metadata_analyzer
-            
-            self.logger.info("✅ Diagnostic Module initialized")
+            # Diagnostic analyzers not yet fully migrated - using fallback
+            # TODO: Migrate analyzers to modules/tutoring/diagnostic/analyzers/
+            self.logger.warning("⚠️  Diagnostic analyzers not fully implemented, using fallback")
+            self.llm_client = None
+            self.grammar_analyzer = None
+            self.vocabulary_analyzer = None
+            self.complexity_analyzer = None
+            self.progress_analyzer = None
+            self.session_analyzer = None
+            self.error_rate_analyzer = None
+            self.feedback_generator = None
+            self.task_relevance_analyzer = None
+            self.asr_metadata_analyzer = None
             return True
-        except Exception as e:
-            self.logger.error(f"❌ Failed to initialize Diagnostic Module: {e}")
-            return False
     
     async def analyze_turn(
         self,
@@ -119,6 +98,14 @@ class DiagnosticModule(BaseModule):
             await self.initialize()
         
         try:
+            # Fallback: analyzer not available
+            if not self.complexity_analyzer:
+                return {
+                    "estimated_level": "A1",
+                    "confidence": 0.5,
+                    "features": {}
+                }
+            
             # Use complexity analyzer to estimate level
             result = await self.complexity_analyzer.analyze(user_text)
             estimated_level = result.get("estimated_cefr_level", "A1")
@@ -143,6 +130,14 @@ class DiagnosticModule(BaseModule):
             await self.initialize()
         
         try:
+            # Fallback: analyzer not available
+            if not self.grammar_analyzer:
+                return {
+                    "skills": [],
+                    "errors": [],
+                    "linguistic_features": {}
+                }
+            
             # Use grammar analyzer to extract skills
             result = await self.grammar_analyzer.analyze(
                 user_text=user_text,
@@ -168,6 +163,10 @@ class DiagnosticModule(BaseModule):
             await self.initialize()
         
         try:
+            # Fallback: analyzer not available
+            if not self.session_analyzer:
+                return {}
+            
             result = await self.session_analyzer.analyze(turns)
             return result
         except Exception as e:

@@ -13,14 +13,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Logging and Metrics (after adding to path)
-try:
-    from src.services.rest_polling.utils.metrics import increment_metric, set_gauge
-except ImportError:
-    def increment_metric(name, value=1, labels=None):
-        pass
-    def set_gauge(name, value, labels=None):
-        pass
+# Logging and Metrics (simplified for module mode)
+def increment_metric(name, value=1, labels=None):
+    """Increment metric (no-op in module mode)"""
+    pass
+
+def set_gauge(name, value, labels=None):
+    """Set gauge (no-op in module mode)"""
+    pass
 
 from loguru import logger
 
@@ -32,15 +32,8 @@ from datetime import datetime
 
 from fastapi import HTTPException
 
-# Import BaseService from services (shared utility)
-try:
-    from src.services.rest_polling.utils.base_service import BaseService
-except ImportError:
-    # Fallback: try to find BaseService in other locations
-    try:
-        from src.services.api_gateway.utils.base_service import BaseService
-    except ImportError:
-        raise ImportError("BaseService not found. Please ensure services are properly installed.")
+# Import BaseService from local utils
+from .utils.base_service import BaseService
 
 # ConversationController is not used in module mode (optional import)
 try:
@@ -48,12 +41,8 @@ try:
 except ImportError:
     ConversationController = None  # Not needed for module mode
 
-# Context system (NEW)
-try:
-    from src.modules.conversation.orchestrator.utils.context import ServiceContext
-except ImportError:
-    # Fallback to services if not yet moved
-    from src.services.orchestrator.utils.context import ServiceContext
+# Context system
+from src.modules.conversation.orchestrator.utils.context import ServiceContext
 from typing import Optional
 
 # Centralized config models (optional - only needed if settings available)

@@ -125,13 +125,14 @@ class InternalTalker(AbstractTalker):
             logger.info(f"✅ GPU detected: {torch.cuda.get_device_name(0)}")
 
             # Load Ultravox Universal (multimodal: audio → text response)
+            # Note: Ultravox is optional, if not available will use HTTP LLM
             try:
                 from src.services.llm.ultravox.ultravox_universal import UltravoxUniversal
                 self.ultravox = UltravoxUniversal()
                 await self.ultravox.initialize()
                 logger.info("✅ Ultravox Universal loaded (multimodal)")
-            except ImportError:
-                logger.warning("⚠️  Ultravox Universal not available")
+            except (ImportError, ModuleNotFoundError):
+                logger.warning("⚠️  Ultravox Universal not available, using HTTP LLM")
                 self.ultravox = None
 
             # TTS will use HTTP service

@@ -18,47 +18,11 @@ class DiagnosticModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize diagnostic analyzers"""
         try:
-            # Import diagnostic analyzers from service (with fallback)
+            # Diagnostic analyzers not yet fully migrated - using fallback
             # TODO: Migrate analyzers to modules/tutoring/diagnostic/analyzers/
-            try:
-                from src.services.diagnostic_module.app_complete import (
-                llm_client,
-                grammar_analyzer,
-                vocabulary_analyzer,
-                complexity_analyzer,
-                progress_analyzer,
-                session_analyzer,
-                error_rate_analyzer,
-                feedback_generator,
-                task_relevance_analyzer,
-                asr_metadata_analyzer
-                )
-                
-                # Initialize LLM client
-                import aiohttp
-                session = aiohttp.ClientSession()
-                await llm_client.initialize(session)
-                
-                self.analyzers = {
-                    "llm_client": llm_client,
-                    "grammar": grammar_analyzer,
-                    "vocabulary": vocabulary_analyzer,
-                    "complexity": complexity_analyzer,
-                    "progress": progress_analyzer,
-                    "session": session_analyzer,
-                    "error_rate": error_rate_analyzer,
-                    "feedback": feedback_generator,
-                    "task_relevance": task_relevance_analyzer,
-                    "asr_metadata": asr_metadata_analyzer
-                }
-                
-                self.logger.info("✅ Diagnostic Module initialized")
-                return True
-            except ImportError:
-                # Fallback: analyzers not available
-                self.logger.warning("⚠️  Diagnostic analyzers not available, using fallback")
-                self.analyzers = {}
-                return True
+            self.logger.warning("⚠️  Diagnostic analyzers not fully implemented, using fallback")
+            self.analyzers = {}
+            return True
         except Exception as e:
             self.logger.warning(f"⚠️  Diagnostic module not fully available: {e}")
             self.analyzers = {}

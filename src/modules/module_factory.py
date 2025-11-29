@@ -102,10 +102,10 @@ def _create_module(module_name: str) -> Any:
         module_class = getattr(module, class_name)
         instance = module_class()
         return instance
-    except ImportError:
-        # Fallback: criar wrapper básico usando o serviço existente
-        logger.warning(f"Module {module_name} not found, creating basic wrapper")
-        return _create_basic_wrapper(module_name)
+    except ImportError as e:
+        # All modules should be available - raise error if not found
+        logger.error(f"❌ Module {module_name} not found at {module_path}: {e}")
+        raise ValueError(f"Module '{module_name}' not found. Please ensure all modules are properly installed.")
 
 
 def _create_disabled_tutoring_wrapper(module_name: str) -> Any:
@@ -140,52 +140,8 @@ def _create_disabled_tutoring_wrapper(module_name: str) -> Any:
     return DisabledTutoringWrapper()
 
 
-def _create_basic_wrapper(module_name: str) -> Any:
-    """Cria wrapper básico que usa o serviço existente diretamente"""
-    from src.modules.base_module import BaseModule
-    
-    class BasicWrapper(BaseModule):
-        def __init__(self):
-            super().__init__(module_name)
-            # Importar serviço correspondente
-            self._import_service()
-        
-        async def _initialize(self) -> bool:
-            """Inicialização básica - retorna True sempre"""
-            return True
-        
-        def _import_service(self):
-            """Importa o serviço correspondente"""
-            service_map = {
-                "stt": ("src.services.stt", "STTService"),
-                "tts": ("src.services.tts", "TTSService"),
-                "llm": ("src.services.llm", "LLMService"),
-                "user": ("src.services.user", "UserService"),
-                "orchestrator": ("src.services.orchestrator", "OrchestratorService"),
-                "session": ("src.services.session", "SessionService"),
-                "scenarios": ("src.services.scenarios", "ScenariosService"),
-                "conversation_store": ("src.services.conversation_store", "ConversationStoreService"),
-                "conversation_history": ("src.services.conversation_history", "ConversationHistoryService"),
-                "file_storage": ("src.services.file_storage", "FileStorageService"),
-                "database": ("src.services.database", "DatabaseService"),
-                "student_model": ("src.services.student_model", "StudentModelService"),
-                "diagnostic_module": ("src.services.diagnostic_module", "DiagnosticModuleService"),
-                "pedagogical_policy": ("src.services.pedagogical_policy", "PedagogicalPolicyService"),
-                "learning_path": ("src.services.learning_path", "LearningPathService"),
-                "rest_polling": ("src.services.rest_polling", "RestPollingService"),
-            }
-            
-            if module_name in service_map:
-                module_path, class_name = service_map[module_name]
-                try:
-                    module = __import__(module_path, fromlist=[class_name])
-                    self.service_class = getattr(module, class_name, None)
-                    self.service_instance = None
-                except ImportError:
-                    self.service_class = None
-                    self.service_instance = None
-    
-    return BasicWrapper()
+# BasicWrapper removed - all modules are now real implementations
+# If a module is not found, we raise an error instead of creating a wrapper
 
 
 def get_all_modules() -> Dict[str, Any]:

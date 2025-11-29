@@ -247,22 +247,35 @@ class FastConversationStorage:
         self.enable_long_term_memory = enable_long_term_memory
 
         # Initialize conversational context (shared memory store)
-        self.memory_store = ConversationMemoryStorage(
-            max_sessions=1000,
-            max_messages_per_session=500,
-            session_ttl_minutes=120
-        )
+        try:
+            # Try with parameters first
+            self.memory_store = ConversationMemoryStorage(
+                max_sessions=1000,
+                max_messages_per_session=500,
+                session_ttl_minutes=120
+            )
+        except TypeError:
+            # If ConversationMemoryStorage doesn't accept arguments, use default
+            self.memory_store = ConversationMemoryStorage()
 
         # Initialize conversational context manager
         if enable_semantic_search or enable_long_term_memory:
-            self.context_manager = ConversationalContext(
-                max_context_messages=50,
-                context_window_size=10,
-                enable_long_term_memory=enable_long_term_memory,
-                enable_embeddings_search=enable_semantic_search,
-                memory_store=self.memory_store
-            )
-            logger.info("🧠 Semantic search and context management enabled")
+            try:
+                # Try with parameters first
+                self.context_manager = ConversationalContext(
+                    max_context_messages=50,
+                    context_window_size=10,
+                    enable_long_term_memory=enable_long_term_memory,
+                    enable_embeddings_search=enable_semantic_search,
+                    memory_store=self.memory_store
+                )
+                logger.info("🧠 Semantic search and context management enabled")
+            except TypeError:
+                # If ConversationalContext doesn't accept arguments, disable semantic search
+                logger.warning("⚠️  ConversationalContext doesn't accept arguments, disabling semantic search")
+                self.context_manager = None
+                self.enable_semantic_search = False
+                self.enable_long_term_memory = False
         else:
             self.context_manager = None
 
@@ -423,6 +436,28 @@ class FastConversationStorage:
         logger.debug(f"Added message {message_id} in {latency_ms:.2f}ms")
 
         return message
+
+    async def save_message(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Save a message to conversation (convenience method that generates message_id)
+        
+        This is a wrapper around add_message that automatically generates a message_id.
+        """
+        import secrets
+        message_id = f"msg_{secrets.token_hex(8)}"
+        return await self.add_message(
+            conversation_id=conversation_id,
+            message_id=message_id,
+            role=role,
+            content=content,
+            metadata=metadata
+        )
 
     async def get_conversation(self, conversation_id: str) -> Optional[Dict]:
         """

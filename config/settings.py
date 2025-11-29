@@ -39,7 +39,7 @@ from pydantic import ValidationError, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 # Import exceptions from orchestrator (shared by all services)
 try:
-    from src.services.orchestrator.utils.exceptions import UltravoxError, wrap_exception
+    from src.modules.conversation.orchestrator.utils.exceptions import UltravoxError, wrap_exception
 except ImportError:
     # Fallback if orchestrator not available
     class UltravoxError(Exception):

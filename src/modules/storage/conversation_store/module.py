@@ -23,34 +23,63 @@ class ConversationStoreModule(BaseModule):
             self.storage = FastConversationStorage()
             # FastConversationStorage pode ter initialize
             if hasattr(self.storage, 'initialize'):
-                await self.storage.initialize()
+                try:
+                    await self.storage.initialize()
+                except TypeError:
+                    # Se initialize não aceita argumentos, não chamar
+                    pass
             self.logger.info("✅ Conversation Store Module initialized")
             return True
         except Exception as e:
             self.logger.warning(f"⚠️  Conversation store not available: {e}")
+            import traceback
+            self.logger.debug(f"Traceback: {traceback.format_exc()}")
             # Fallback to in-memory
-            self.storage = {}
+            self.storage = None
             return True
     
     async def save_message(
         self,
         conversation_id: str,
         role: str,
-        content: str
+        content: str,
+        metadata: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """Save a message to conversation"""
-        if not self.storage:
+        if not self.storage or self.storage == {}:
             return {"success": False, "error": "Storage not initialized"}
         
         try:
-            await self.storage.save_message(
+            # FastConversationStorage.save_message returns the message dict with message_id
+            message = await self.storage.save_message(
                 conversation_id=conversation_id,
                 role=role,
-                content=content
+                content=content,
+                metadata=metadata
             )
-            return {"success": True}
+            
+            # Return message with message_id (should already be a dict)
+            if isinstance(message, dict):
+                return message
+            else:
+                # If it's a Pydantic model, convert to dict
+                if hasattr(message, 'dict'):
+                    return message.dict()
+                elif hasattr(message, 'model_dump'):
+                    return message.model_dump()
+                else:
+                    # Fallback: create dict with message_id if available
+                    return {
+                        "message_id": getattr(message, 'message_id', f"msg_{id(message)}"),
+                        "conversation_id": conversation_id,
+                        "role": role,
+                        "content": content,
+                        "success": True
+                    }
         except Exception as e:
             self.logger.error(f"Failed to save message: {e}")
+            import traceback
+            self.logger.debug(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
     
     async def get_context(

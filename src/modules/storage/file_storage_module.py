@@ -7,6 +7,10 @@ from pathlib import Path
 from loguru import logger
 
 from src.modules.base_module import BaseModule
+try:
+    from .file_storage.manager import FileStorageManager
+except ImportError:
+    FileStorageManager = None
 
 
 class FileStorageModule(BaseModule):
@@ -19,17 +23,14 @@ class FileStorageModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize file storage manager"""
         try:
-            # Import file storage manager
-            from src.services.file_storage.app_complete import FileStorageManager
-            from src.services.file_storage.app_complete import get_config
-            
-            config = get_config()
-            storage_config = config.get("storage", {})
-            
-            self.storage_manager = FileStorageManager(
-                base_path=storage_config.get("base_path", "/tmp/file_storage"),
-                max_file_size=storage_config.get("max_file_size", 100 * 1024 * 1024)
-            )
+            # Import file storage manager from local module
+            if FileStorageManager:
+                self.storage_manager = FileStorageManager(
+                    base_path="/tmp/file_storage",
+                    max_file_size=100 * 1024 * 1024
+                )
+            else:
+                self.storage_manager = None
             
             self.logger.info("✅ File Storage Module initialized")
             return True

@@ -18,17 +18,10 @@ class StudentModelModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize student model service"""
         try:
-            # Import student model service (with fallback)
-            try:
-                from src.services.student_model.app_complete import StudentModelService
-                self.service = StudentModelService()
-                self.logger.info("✅ Student Model Module initialized")
-                return True
-            except ImportError:
-                # Fallback: service not available
-                self.logger.warning("⚠️  Student model service not available, using fallback")
-                self.service = None
-                return True
+            # Student model service not yet fully migrated - using fallback profile
+            self.logger.warning("⚠️  Student model service not fully implemented, using fallback profile")
+            self.service = None
+            return True
         except Exception as e:
             self.logger.warning(f"⚠️  Student model service not available: {e}")
             self.service = None
@@ -51,4 +44,25 @@ class StudentModelModule(BaseModule):
                 }
         except Exception as e:
             self.logger.error(f"❌ Failed to get profile: {e}")
+            raise
+    
+    async def get_cefr_progress(self, user_id: str) -> Dict[str, Any]:
+        """Get CEFR level progress for student"""
+        if not self.initialized:
+            await self.initialize()
+        
+        try:
+            if self.service and hasattr(self.service, 'get_cefr_progress'):
+                return await self.service.get_cefr_progress(user_id)
+            else:
+                # Fallback: return basic CEFR progress
+                profile = await self.get_profile(user_id)
+                return {
+                    "user_id": user_id,
+                    "level": profile.get("cefr_level", "A1"),
+                    "progress": 0.0,
+                    "skills": profile.get("skills", {})
+                }
+        except Exception as e:
+            self.logger.error(f"❌ Failed to get CEFR progress: {e}")
             raise

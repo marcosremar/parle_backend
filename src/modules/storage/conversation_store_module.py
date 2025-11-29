@@ -19,8 +19,8 @@ class ConversationStoreModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize conversation store"""
         try:
-            # Import conversation store
-            from src.services.conversation_store.storage import FastConversationStorage
+            # Import conversation store from local module
+            from .conversation_store.storage import FastConversationStorage
             
             # Initialize fast storage
             self.fast_storage = FastConversationStorage()

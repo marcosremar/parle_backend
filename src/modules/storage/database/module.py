@@ -18,26 +18,12 @@ class DatabaseModule(BaseModule):
     async def _initialize(self) -> bool:
         """Initialize database"""
         try:
-            # Try to import DatabaseStorage from services (with fallback)
-            try:
-                from src.services.database.app_complete import DatabaseStorage
-                import os
-                from pathlib import Path
-                
-                # Create storage path
-                storage_path = os.getenv("STORAGE_DIR", str(Path.home() / ".cache" / "parle_backend" / "database"))
-                os.makedirs(storage_path, exist_ok=True)
-                db_path = os.path.join(storage_path, "database.db")
-                
-                self.db = DatabaseStorage(db_path)
-                self.logger.info("✅ Database Module initialized")
-                return True
-            except ImportError:
-                # Fallback: DatabaseStorage not available, use in-memory
-                self.logger.warning("⚠️  DatabaseStorage not available, using in-memory storage")
-                self.db = None
-                self._data = {}
-                return True
+            # Database storage - using in-memory for now
+            # TODO: Migrate DatabaseStorage to modules if needed
+            self.logger.info("✅ Database Module initialized (in-memory storage)")
+            self.db = None
+            self._data = {}
+            return True
         except Exception as e:
             self.logger.warning(f"⚠️  Database not available: {e}")
             self.db = None

@@ -24,10 +24,7 @@ class RestPollingModule(BaseModule):
             try:
                 from src.modules.conversation.orchestrator.utils.context import ServiceContext
             except ImportError:
-                try:
-                    from src.services.orchestrator.utils.context import ServiceContext
-                except ImportError:
-                    ServiceContext = None
+                ServiceContext = None
             
             if ServiceContext:
                 try:
