@@ -142,6 +142,10 @@ class BaseServiceClient:
 
     async def initialize(self, session: Optional[aiohttp.ClientSession] = None) -> None:
         """Initialize with shared aiohttp session (only needed for HTTP services)"""
+        # Module services use direct calls, no HTTP session needed
+        if self.is_module_service:
+            return
+        
         if not self.is_module_service:
             if session is None:
                 raise ValueError(f"{self.service_name} requires HTTP session (not a module service)")
