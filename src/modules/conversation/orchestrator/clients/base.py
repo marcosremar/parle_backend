@@ -77,6 +77,61 @@ class BaseServiceClient:
         # For module services, always use direct calls (no HTTP needed)
         self.direct_module = None
         self._module_initialized = False
+        
+        if self.is_module_service:
+            try:
+                from src.modules import module_factory
+                self.direct_module = module_factory.create(service_name)
+                logger.debug(f"✅ {service_name} client will use direct module calls (no HTTP)")
+            except Exception as e:
+                logger.warning(f"⚠️  Could not create direct module for {service_name}: {e}, will use HTTP fallback")
+                self.direct_module = None
+        
+        # Import constants once at the top of initialization
+        from ..constants import (
+            DEFAULT_MAX_RETRIES,
+            DEFAULT_BASE_BACKOFF,
+            DEFAULT_TIMEOUT,
+            DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+            DEFAULT_CIRCUIT_BREAKER_RECOVERY_TIMEOUT,
+            DEFAULT_HEALTH_CHECK_TIMEOUT
+        )
+        
+        # Retry configuration
+        self.max_retries = max_retries or int(os.getenv(f"{service_name.upper()}_MAX_RETRIES", str(DEFAULT_MAX_RETRIES)))
+        self.base_backoff = base_backoff or float(os.getenv(f"{service_name.upper()}_BASE_BACKOFF", str(DEFAULT_BASE_BACKOFF)))
+        
+        # Timeout configuration
+        if timeout is not None:
+            self.default_timeout = timeout
+        else:
+            try:
+                from src.core.config import get_config
+                config = get_config()
+                # Use default timeout from config or environment
+                env_timeout = os.getenv(f"{service_name.upper()}_TIMEOUT")
+                self.default_timeout = float(env_timeout) if env_timeout else DEFAULT_TIMEOUT
+            except Exception:
+                env_timeout = os.getenv(f"{service_name.upper()}_TIMEOUT")
+                self.default_timeout = float(env_timeout) if env_timeout else DEFAULT_TIMEOUT
+        
+        # Circuit breaker configuration
+        self.use_circuit_breaker = use_circuit_breaker
+        self.circuit_breaker = None
+        if self.use_circuit_breaker:
+            try:
+                from src.core.circuit_breaker import get_circuit_breaker, CircuitBreakerConfig
+                # Use default circuit breaker config
+                cb_config = CircuitBreakerConfig(
+                    failure_threshold=DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+                    recovery_timeout=DEFAULT_CIRCUIT_BREAKER_RECOVERY_TIMEOUT,
+                    timeout=int(self.default_timeout)
+                )
+                
+                self.circuit_breaker = get_circuit_breaker(service_name, cb_config)
+            except ImportError:
+                logger.warning(f"Circuit breaker not available for {service_name}")
+                self.use_circuit_breaker = False
     
     async def _ensure_module_initialized(self) -> None:
         """
@@ -104,51 +159,6 @@ class BaseServiceClient:
                 raise ServiceClientError(
                     f"{self.service_name} module initialization failed: {e}"
                 ) from e
-        
-        if self.is_module_service:
-            try:
-                from src.modules import module_factory
-                self.direct_module = module_factory.create(service_name)
-                logger.debug(f"✅ {service_name} client will use direct module calls (no HTTP)")
-            except Exception as e:
-                logger.warning(f"⚠️  Could not create direct module for {service_name}: {e}, will use HTTP fallback")
-                self.direct_module = None
-        
-        # Retry configuration
-        self.max_retries = max_retries or int(os.getenv(f"{service_name.upper()}_MAX_RETRIES", "3"))
-        self.base_backoff = base_backoff or float(os.getenv(f"{service_name.upper()}_BASE_BACKOFF", "1.0"))
-        
-        # Timeout configuration
-        if timeout is not None:
-            self.default_timeout = timeout
-        else:
-            try:
-                from src.core.config import get_config
-                config = get_config()
-                # Use default timeout from config or environment
-                env_timeout = os.getenv(f"{service_name.upper()}_TIMEOUT")
-                self.default_timeout = float(env_timeout) if env_timeout else 30.0
-            except Exception:
-                env_timeout = os.getenv(f"{service_name.upper()}_TIMEOUT")
-                self.default_timeout = float(env_timeout) if env_timeout else 30.0
-        
-        # Circuit breaker configuration
-        self.use_circuit_breaker = use_circuit_breaker
-        self.circuit_breaker = None
-        if self.use_circuit_breaker:
-            try:
-                from src.core.circuit_breaker import get_circuit_breaker, CircuitBreakerConfig
-                # Use default circuit breaker config
-                cb_config = CircuitBreakerConfig(
-                    failure_threshold=3,
-                    recovery_timeout=30.0,  # Default recovery timeout
-                    timeout=int(self.default_timeout)
-                )
-                
-                self.circuit_breaker = get_circuit_breaker(service_name, cb_config)
-            except ImportError:
-                logger.warning(f"Circuit breaker not available for {service_name}")
-                self.use_circuit_breaker = False
 
     def _get_service_url(self, service_name: str) -> Optional[str]:
         """Get service URL from environment (only for external services)"""
@@ -244,6 +254,23 @@ class BaseServiceClient:
         """Helper to ensure HTTP session is available"""
         if not self.session:
             raise ServiceClientError(f"{self.service_name}: HTTP session not initialized")
+    
+    def _handle_module_error(self, operation: str, error: Exception) -> None:
+        """
+        Helper to handle module errors consistently.
+        Logs error and raises ServiceClientError with context.
+        
+        Args:
+            operation: Name of the operation that failed
+            error: The exception that occurred
+            
+        Raises:
+            ServiceClientError: Always raises with descriptive message
+        """
+        logger.error(f"❌ {self.service_name} {operation} failed: {error}")
+        raise ServiceClientError(
+            f"{self.service_name} {operation} failed: {error}"
+        ) from error
     
     async def _get(self, path: str, timeout: Optional[float] = None) -> Dict[str, Any]:
         """Generic GET request using direct HTTP with retry logic"""
@@ -348,7 +375,8 @@ class BaseServiceClient:
         """
         try:
             # Use default health check timeout
-            health_timeout = float(os.getenv(f"{self.service_name.upper()}_HEALTH_TIMEOUT", "2.0"))
+            from ..constants import DEFAULT_HEALTH_CHECK_TIMEOUT
+            health_timeout = float(os.getenv(f"{self.service_name.upper()}_HEALTH_TIMEOUT", str(DEFAULT_HEALTH_CHECK_TIMEOUT)))
             
             result = await self._get("/health", timeout=health_timeout)
             return result.get("status") in ["healthy", "ok", "running"]

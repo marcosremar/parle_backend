@@ -42,6 +42,14 @@ ENV_CONVERSATION_STORE_URL: Final[str] = "CONVERSATION_STORE_URL"  # May be exte
 ENV_CONVERSATION_HISTORY_URL: Final[str] = "CONVERSATION_HISTORY_URL"  # May be external
 ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS: Final[str] = "ORCHESTRATOR_SKIP_HEALTH_CHECKS"
 
+# Client Configuration Defaults
+DEFAULT_MAX_RETRIES: Final[int] = 3
+DEFAULT_BASE_BACKOFF: Final[float] = 1.0
+DEFAULT_TIMEOUT: Final[float] = 30.0
+DEFAULT_HEALTH_CHECK_TIMEOUT: Final[float] = 2.0
+DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD: Final[int] = 3
+DEFAULT_CIRCUIT_BREAKER_RECOVERY_TIMEOUT: Final[float] = 30.0
+
 # Context Types
 class ContextType(str, Enum):
     """Context types for skill filtering"""

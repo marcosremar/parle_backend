@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import logging
 from typing import Dict, Any, Optional
+from warnings import warn
 
 from .base import BaseServiceClient, ServiceClientError, Priority
 
@@ -253,6 +254,14 @@ class ExternalLLMClient(BaseServiceClient):
         Returns:
             Generated text as string
         """
+        # Validate input
+        if not text or not isinstance(text, str) or not text.strip():
+            raise ServiceClientError("text must be a non-empty string")
+        if not isinstance(max_tokens, int) or max_tokens < 1:
+            raise ServiceClientError("max_tokens must be a positive integer")
+        if not isinstance(temperature, (int, float)) or temperature < 0 or temperature > 2:
+            raise ServiceClientError("temperature must be between 0 and 2")
+        
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
         
@@ -271,8 +280,7 @@ class ExternalLLMClient(BaseServiceClient):
             else:
                 return str(result)
         except Exception as e:
-            logger.error(f"❌ Direct module call failed: {e}")
-            raise ServiceClientError(f"LLM module call failed: {e}")
+            self._handle_module_error("generate", e)
     
     async def _generate_http(
         self,
@@ -316,6 +324,12 @@ class ExternalSTTClient(BaseServiceClient):
 
     async def transcribe(self, audio_data: bytes, sample_rate: int = 16000, language: Optional[str] = None) -> Dict[str, Any]:
         """Transcribe audio using STT module (direct call)."""
+        # Validate input
+        if not audio_data or not isinstance(audio_data, bytes) or len(audio_data) == 0:
+            raise ServiceClientError("audio_data must be non-empty bytes")
+        if not isinstance(sample_rate, int) or sample_rate < 1:
+            raise ServiceClientError("sample_rate must be a positive integer")
+        
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
         
@@ -323,11 +337,15 @@ class ExternalSTTClient(BaseServiceClient):
             result = await self.direct_module.transcribe(audio_data, sample_rate, language)
             return result if isinstance(result, dict) else {"text": str(result)}
         except Exception as e:
-            logger.error(f"❌ Direct module call failed: {e}")
-            raise ServiceClientError(f"STT module call failed: {e}")
+            self._handle_module_error("transcribe", e)
     
     async def _transcribe_http(self, audio_data: bytes, sample_rate: int, language: Optional[str]) -> Dict[str, Any]:
-        """HTTP fallback for transcribe"""
+        """
+        HTTP fallback for transcribe
+        
+        ⚠️ DEPRECATED: Not used for module services (which use direct calls).
+        Kept for reference/debugging only.
+        """
         try:
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
             result = await self._post(
@@ -358,6 +376,12 @@ class ExternalTTSClient(BaseServiceClient):
         format: str = "wav"
     ) -> bytes:
         """Synthesize text using TTS module (direct call)."""
+        # Validate input
+        if not text or not isinstance(text, str) or not text.strip():
+            raise ServiceClientError("text must be a non-empty string")
+        if format not in ["wav", "mp3", "pcm"]:
+            raise ServiceClientError(f"format must be one of: wav, mp3, pcm (got: {format})")
+        
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
         
@@ -365,11 +389,15 @@ class ExternalTTSClient(BaseServiceClient):
             result = await self.direct_module.synthesize(text, voice_id=voice, format=format)
             return result if isinstance(result, bytes) else bytes(result)
         except Exception as e:
-            logger.error(f"❌ Direct module call failed: {e}")
-            raise ServiceClientError(f"TTS module call failed: {e}")
+            self._handle_module_error("synthesize", e)
     
     async def _synthesize_http(self, text: str, voice: Optional[str], format: str) -> bytes:
-        """HTTP fallback for synthesize"""
+        """
+        HTTP fallback for synthesize
+        
+        ⚠️ DEPRECATED: Not used for module services (which use direct calls).
+        Kept for reference/debugging only.
+        """
         try:
             result = await self._post(
                 "/api/synthesize",

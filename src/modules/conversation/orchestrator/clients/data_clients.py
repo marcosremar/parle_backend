@@ -23,14 +23,17 @@ class SessionClient(BaseServiceClient):
 
     async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session data"""
+        # Validate input
+        if not session_id or not isinstance(session_id, str) or not session_id.strip():
+            raise ServiceClientError("session_id must be a non-empty string")
+        
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
         
         try:
             return await self.direct_module.get_session(session_id)
         except Exception as e:
-            logger.error(f"❌ Direct module call failed: {e}")
-            raise ServiceClientError(f"Session module call failed: {e}")
+            self._handle_module_error("get_session", e)
 
     async def create_session(
         self,
@@ -52,8 +55,7 @@ class SessionClient(BaseServiceClient):
             logger.debug(f"✅ Created session via module: {result.get('session_id')}")
             return result
         except Exception as e:
-            logger.error(f"❌ Direct module call failed: {e}")
-            raise ServiceClientError(f"Session module call failed: {e}")
+            self._handle_module_error("create_session", e)
     
     async def _create_session_http(
         self,
@@ -100,14 +102,17 @@ class ScenariosClient(BaseServiceClient):
 
     async def get_scenario(self, scenario_id: str) -> Optional[Dict[str, Any]]:
         """Get scenario configuration"""
+        # Validate input
+        if not scenario_id or not isinstance(scenario_id, str) or not scenario_id.strip():
+            raise ServiceClientError("scenario_id must be a non-empty string")
+        
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
         
         try:
             return await self.direct_module.get_scenario(scenario_id)
         except Exception as e:
-            logger.error(f"❌ Direct module call failed: {e}")
-            raise ServiceClientError(f"Scenarios module call failed: {e}")
+            self._handle_module_error("get_scenario", e)
 
     async def validate_turn(
         self,
@@ -207,6 +212,10 @@ class ConversationStoreClient(BaseServiceClient):
         ai_audio: Optional[bytes] = None
     ) -> bool:
         """Save conversation turn"""
+        # Validate input
+        if not conversation_id or not isinstance(conversation_id, str) or not conversation_id.strip():
+            raise ServiceClientError("conversation_id must be a non-empty string")
+        
         # ConversationStoreClient is NOT a module service (may be external HTTP service)
         # Use HTTP call directly
         self._require_session()
@@ -220,7 +229,11 @@ class ConversationStoreClient(BaseServiceClient):
         ai_text: str = "",
         ai_audio: Optional[bytes] = None
     ) -> bool:
-        """HTTP fallback for add_turn"""
+        """
+        HTTP method for add_turn
+        
+        Note: Used by ConversationStoreClient (not a module service).
+        """
         try:
             turn_data: Dict[str, Any] = {
                 "user_text": user_text,
@@ -244,13 +257,23 @@ class ConversationStoreClient(BaseServiceClient):
 
     async def get_context(self, conversation_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get conversation history for context"""
+        # Validate input
+        if not conversation_id or not isinstance(conversation_id, str) or not conversation_id.strip():
+            raise ServiceClientError("conversation_id must be a non-empty string")
+        if not isinstance(limit, int) or limit < 1:
+            raise ServiceClientError("limit must be a positive integer")
+        
         # ConversationStoreClient is NOT a module service (may be external HTTP service)
         # Use HTTP call directly
         self._require_session()
         return await self._get_context_http(conversation_id, limit)
     
     async def _get_context_http(self, conversation_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """HTTP fallback for get_context"""
+        """
+        HTTP method for get_context
+        
+        Note: Used by ConversationStoreClient (not a module service).
+        """
         try:
             result = await self._get(f"/api/conversations/{conversation_id}/messages?limit={limit}")
             return result.get("messages", [])
