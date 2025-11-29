@@ -3,7 +3,6 @@ Base Module - Classe base para todos os módulos internos
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 from loguru import logger
 
 
@@ -35,11 +34,33 @@ class BaseModule(ABC):
         """Implementação específica de inicialização"""
         pass
     
-    async def cleanup(self):
-        """Limpa recursos do módulo"""
+    async def ensure_initialized(self) -> None:
+        """
+        Ensure module is initialized before use
+        
+        This method should be called at the start of public methods
+        to guarantee the module is ready. Replaces the common pattern:
+        if not self.initialized:
+            await self.initialize()
+        """
+        if not self.initialized:
+            await self.initialize()
+    
+    async def cleanup(self) -> None:
+        """
+        Limpa recursos do módulo
+        
+        Chama _cleanup() se existir e marca módulo como não inicializado.
+        """
         if hasattr(self, '_cleanup'):
             await self._cleanup()
         self.initialized = False
     
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        String representation of the module
+        
+        Returns:
+            String representation
+        """
         return f"<{self.__class__.__name__}({self.module_name})>"

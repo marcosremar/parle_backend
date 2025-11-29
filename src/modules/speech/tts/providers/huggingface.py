@@ -74,7 +74,8 @@ class HuggingFaceTTSProvider:
                 n_frames = wav_info.getnframes()
                 duration = n_frames / sample_rate if sample_rate > 0 else None
                 wav_info.close()
-            except:
+            except (wave.Error, IOError, ValueError) as e:
+                logger.debug(f"Failed to read audio info: {e}, using defaults")
                 sample_rate = 24000
                 duration = None
 

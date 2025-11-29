@@ -5,9 +5,9 @@ Centralizes all configuration loading from .env and settings.yaml
 
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Optional, List
 from functools import lru_cache
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from loguru import logger
 
@@ -76,10 +76,18 @@ class AuthConfig(BaseSettings):
     """Authentication configuration"""
     model_config = SettingsConfigDict(env_prefix="AUTH_", extra="ignore")
     
-    jwt_secret_key: str = Field(default="your-secret-key-change-in-production", description="JWT secret key")
+    jwt_secret_key: str = Field(default="", description="JWT secret key (REQUIRED in production)")
     jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
-    jwt_expiration_hours: int = Field(default=24, ge=1, le=168)
+    jwt_expiration_hours: int = Field(default=1, ge=1, le=24, description="JWT expiration in hours (max 24h)")
+    jwt_refresh_expiration_hours: int = Field(default=168, ge=24, le=720, description="Refresh token expiration in hours")
     password_min_length: int = Field(default=8, ge=6, le=128)
+    
+    @model_validator(mode='after')
+    def validate_jwt_secret(self):
+        """Validate JWT secret key in production"""
+        # Only validate in production, allow empty/default in development
+        # This will be checked at AppConfig level
+        return self
 
 
 class ServerConfig(BaseSettings):
@@ -91,6 +99,8 @@ class ServerConfig(BaseSettings):
     workers: int = Field(default=1, ge=1, le=32, description="Number of workers")
     reload: bool = Field(default=False, description="Auto-reload on code changes")
     log_level: str = Field(default="INFO", description="Log level")
+    allowed_origins: List[str] = Field(default_factory=lambda: [], description="Allowed CORS origins (empty = all in dev)")
+    max_upload_size_mb: int = Field(default=10, ge=1, le=100, description="Maximum upload size in MB")
 
 
 class MonolithConfig(BaseSettings):
@@ -138,10 +148,45 @@ class AppConfig(BaseSettings):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Set monolith mode from environment
-        if os.getenv("MONOLITH_MODE", "false").lower() == "true":
-            self.monolith.mode = "monolith"
-            self.monolith.use_direct_calls = True
+        # System always uses direct module calls (monolithic modular architecture)
+        self.monolith.mode = "monolith"
+        self.monolith.use_direct_calls = True
+    
+    @model_validator(mode='after')
+    def validate_production_config(self):
+        """Validate production configuration requirements"""
+        if self.environment == "production":
+            # Validate JWT secret key
+            if not self.auth.jwt_secret_key or self.auth.jwt_secret_key == "your-secret-key-change-in-production":
+                raise ValueError(
+                    "AUTH_JWT_SECRET_KEY must be set in production. "
+                    "Please set a strong secret key in your environment variables."
+                )
+            
+            # Validate CORS origins
+            if not self.server.allowed_origins:
+                logger.warning(
+                    "⚠️  SERVER_ALLOWED_ORIGINS not set in production. "
+                    "This allows requests from any origin. Consider setting allowed origins."
+                )
+            
+            # Validate API keys for production services
+            if not self.llm.api_key:
+                logger.warning("⚠️  LLM_API_KEY not set - LLM service may not work")
+            if not self.stt.api_key:
+                logger.warning("⚠️  STT_API_KEY not set - STT service may not work")
+            if not self.tts.api_key:
+                logger.warning("⚠️  TTS_API_KEY not set - TTS service may not work")
+            
+            # Validate server configuration
+            if self.server.max_upload_size_mb > 100:
+                logger.warning(f"⚠️  SERVER_MAX_UPLOAD_SIZE_MB ({self.server.max_upload_size_mb}MB) is very large. Consider reducing for security.")
+            
+            # Validate database URL format
+            if self.database.url and not self.database.url.startswith(("sqlite:///", "postgresql://", "mysql://")):
+                logger.warning(f"⚠️  DB_URL format may be invalid: {self.database.url}")
+        
+        return self
 
 
 @lru_cache()

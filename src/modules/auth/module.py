@@ -2,8 +2,7 @@
 User/Auth Module - Direct Python calls for user management and authentication
 """
 
-from typing import Dict, Optional, Any, List
-from loguru import logger
+from typing import Dict, Optional, Any
 
 from src.modules.base_module import BaseModule
 from .storage import users_db

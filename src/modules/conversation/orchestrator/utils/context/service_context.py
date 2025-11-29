@@ -16,7 +16,18 @@ from pathlib import Path
 import yaml
 
 # Import SettingsService for dependency injection
-from config.settings_service import SettingsService
+# SettingsService deprecated - use src.core.config instead
+try:
+    from src.core.config import get_config
+    config = get_config()
+    # Create minimal SettingsService-like interface for backward compatibility
+    class SettingsService:
+        @staticmethod
+        def get_instance():
+            return config
+    SettingsService = SettingsService
+except ImportError:
+    SettingsService = None
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +132,21 @@ class ServiceContext:
         # Service-specific resources
         self.logger = logger_instance or LoggerFactory.create(service_name)
         self.config = config or self._load_hierarchical_config()
-        self.settings = settings_service or SettingsService.get_instance()
+        # SettingsService deprecated - use src.core.config
+        if settings_service:
+            self.settings = settings_service
+        else:
+            try:
+                from src.core.config import get_config
+                config = get_config()
+                # Create minimal SettingsService-like interface
+                class SettingsServiceCompat:
+                    @staticmethod
+                    def get_instance():
+                        return config
+                self.settings = SettingsServiceCompat.get_instance()
+            except Exception:
+                self.settings = None
 
         self.logger.info(
             f"📦 ServiceContext created: {service_name}\n"

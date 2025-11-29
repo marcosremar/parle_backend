@@ -19,12 +19,29 @@ import logging
 import time
 import os
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import deque
 import threading
-import json
+try:
+    import orjson as json
+    def json_dumps(obj):
+        return json.dumps(obj).decode('utf-8')
+    def json_loads(s):
+        return json.loads(s)
+except ImportError:
+    import json
+    json_dumps = json.dumps
+    json_loads = json.loads
 from pathlib import Path
 import sys
+from src.core.constants import (
+    DEFAULT_WRITE_BUFFER_SIZE,
+    DEFAULT_FLUSH_INTERVAL_MS,
+    MAX_MESSAGES_PER_SESSION,
+    MAX_SESSIONS,
+    SESSION_TTL_MINUTES,
+    REDIS_CACHE_TTL
+)
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
@@ -152,7 +169,7 @@ class WriteAheadLog:
                 "operation": operation,
                 "data": data
             }
-            self.log_file.write(json.dumps(log_entry) + "\n")
+            self.log_file.write(json_dumps(log_entry) + "\n")
             self.log_file.flush()  # Force write to disk
 
     def close(self):
@@ -362,8 +379,8 @@ class FastConversationStorage:
             try:
                 await self.redis_client.set(
                     f"conv:{conversation_id}",
-                    json.dumps(conversation),
-                    ex=3600  # 1 hour TTL
+                    json_dumps(conversation),
+                    ex=REDIS_CACHE_TTL
                 )
             except Exception as e:
                 logger.warning(f"Redis write failed: {e}")
@@ -480,7 +497,7 @@ class FastConversationStorage:
             try:
                 data = await self.redis_client.get(f"conv:{conversation_id}")
                 if data:
-                    conversation = json.loads(data)
+                    conversation = json_loads(data)
                     # Cache in memory
                     with self.lock:
                         self.conversations[conversation_id] = conversation

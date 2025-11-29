@@ -3,7 +3,7 @@ Module Factory - Cria instâncias de módulos para chamadas diretas
 """
 
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from loguru import logger
 
 # Cache de instâncias (singletons)

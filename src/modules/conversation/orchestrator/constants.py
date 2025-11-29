@@ -28,26 +28,18 @@ DEFAULT_TEMPERATURE: Final[float] = 0.7
 DEFAULT_MAX_TOKENS: Final[int] = 100
 DEFAULT_VOICE_SPEED: Final[float] = 1.0
 
-# Service URLs (defaults)
-DEFAULT_LLM_URL: Final[str] = "http://localhost:8110"
-DEFAULT_TTS_URL: Final[str] = "http://localhost:8103"
-DEFAULT_STT_URL: Final[str] = "http://localhost:8099"
-DEFAULT_EXTERNAL_ULTRAVOX_URL: Final[str] = "http://localhost:8112"
-DEFAULT_SESSION_URL: Final[str] = "http://localhost:8600"
-DEFAULT_SCENARIOS_URL: Final[str] = "http://localhost:8700"
-DEFAULT_CONVERSATION_STORE_URL: Final[str] = "http://localhost:8800"
-DEFAULT_CONVERSATION_HISTORY_URL: Final[str] = "http://localhost:8501"
+# Service URLs (defaults) - Only for external services
+# Note: Module services (stt, tts, llm, session, scenarios) use direct calls, no URLs needed
+DEFAULT_EXTERNAL_ULTRAVOX_URL: Final[str] = "http://localhost:8112"  # External service
+DEFAULT_CONVERSATION_STORE_URL: Final[str] = "http://localhost:8800"  # May be external
+DEFAULT_CONVERSATION_HISTORY_URL: Final[str] = "http://localhost:8501"  # May be external
 
 # Environment Variable Names
-ENV_LLM_SERVICE_URL: Final[str] = "LLM_SERVICE_URL"
-ENV_TTS_SERVICE_URL: Final[str] = "TTS_SERVICE_URL"
-ENV_STT_SERVICE_URL: Final[str] = "STT_SERVICE_URL"
+# Note: Module services (llm, tts, stt, session, scenarios) use direct calls, no env vars needed
+# Only external services need environment variables
 ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL: Final[str] = "ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL"
-ENV_SESSION_SERVICE_URL: Final[str] = "SESSION_SERVICE_URL"
-ENV_SCENARIOS_SERVICE_URL: Final[str] = "SCENARIOS_SERVICE_URL"
-ENV_CONVERSATION_STORE_URL: Final[str] = "CONVERSATION_STORE_URL"
-ENV_CONVERSATION_HISTORY_URL: Final[str] = "CONVERSATION_HISTORY_URL"
-ENV_MONOLITH_MODE: Final[str] = "MONOLITH_MODE"
+ENV_CONVERSATION_STORE_URL: Final[str] = "CONVERSATION_STORE_URL"  # May be external
+ENV_CONVERSATION_HISTORY_URL: Final[str] = "CONVERSATION_HISTORY_URL"  # May be external
 ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS: Final[str] = "ORCHESTRATOR_SKIP_HEALTH_CHECKS"
 
 # Context Types

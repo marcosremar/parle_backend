@@ -3,7 +3,6 @@ Learning Path Module - Direct Python calls for learning path navigation
 """
 
 from typing import Dict, Optional, Any
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 

@@ -210,10 +210,11 @@ class HealthChecker:
 async def check_http_service(url: str, timeout: float = 2.0) -> bool:
     """Check if HTTP service is available"""
     try:
+        from src.core.http_client import HTTPClient
         import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{url}/health", timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
-                return resp.status == 200
+        session = await HTTPClient.get_session()
+        async with session.get(f"{url}/health", timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+            return resp.status == 200
     except Exception:
         return False
 

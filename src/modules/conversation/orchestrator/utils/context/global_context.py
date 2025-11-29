@@ -11,9 +11,7 @@ Manages resources shared across ALL processes:
 
 import threading
 import logging
-import asyncio
 from typing import Optional
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

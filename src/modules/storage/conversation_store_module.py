@@ -3,7 +3,6 @@ Conversation Store Module - Direct Python calls for Conversation storage
 """
 
 from typing import Dict, Optional, Any, List
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 

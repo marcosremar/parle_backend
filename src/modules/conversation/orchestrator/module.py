@@ -3,7 +3,6 @@ Orchestrator Module - Direct Python calls for conversation orchestration
 """
 
 from typing import Dict, Optional, Any
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 
@@ -21,10 +20,7 @@ class OrchestratorModule(BaseModule):
             # Import orchestrator engine (now in modules)
             from .engine import ConversationOrchestrator
             
-            # Create orchestrator in monolith mode
-            import os
-            os.environ["MONOLITH_MODE"] = "true"
-            
+            # Create orchestrator (always uses direct module calls)
             self.orchestrator = ConversationOrchestrator(in_process_mode=False)
             await self.orchestrator.initialize()
             

@@ -2,11 +2,9 @@
 Pedagogical Policy Module - Direct Python calls for prompt composition
 """
 
-from typing import Dict, Optional, Any
-from loguru import logger
+from typing import Dict, Any
 
 from src.modules.base_module import BaseModule
-from .engine import PolicyEngine
 
 
 class PedagogicalPolicyModule(BaseModule):

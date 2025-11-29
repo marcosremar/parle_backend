@@ -23,30 +23,25 @@ class SessionClient(BaseServiceClient):
 
     async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session data"""
-        # Use direct module call in monolith mode
-        if self.monolith_mode and self.direct_module:
-            # Lazy initialize module if needed
-            if not getattr(self, '_module_initialized', False):
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize session module: {e}")
-                        # Fall back to HTTP
-                        return await self._get(f"/api/sessions/{session_id}")
-            
-            try:
-                return await self.direct_module.get_session(session_id)
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                return await self._get(f"/api/sessions/{session_id}")
+        # Use direct module call (module services always use direct calls)
+        if not self.direct_module:
+            raise ServiceClientError(f"Session module not available (is_module_service={self.is_module_service})")
+        
+        # Lazy initialize module if needed
+        if not self._module_initialized:
+            if hasattr(self.direct_module, 'initialize'):
+                try:
+                    await self.direct_module.initialize()
+                    self._module_initialized = True
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize session module: {e}")
+                    raise ServiceClientError(f"Session module initialization failed: {e}")
         
         try:
-            return await self._get(f"/api/sessions/{session_id}")
-        except ServiceClientError:
-            logger.warning(f"⚠️ Session {session_id} not found")
-            return None
+            return await self.direct_module.get_session(session_id)
+        except Exception as e:
+            logger.error(f"❌ Direct module call failed: {e}")
+            raise ServiceClientError(f"Session module call failed: {e}")
 
     async def create_session(
         self,
@@ -56,32 +51,31 @@ class SessionClient(BaseServiceClient):
         user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create a new session with optional specific session_id"""
-        # Use direct module call in monolith mode
-        if self.monolith_mode and self.direct_module:
-            # Lazy initialize module if needed
-            if not getattr(self, '_module_initialized', False):
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize session module: {e}")
-                        # Fall back to HTTP
-                        return await self._create_session_http(conversation_id, scenario_id, session_id)
-            
-            try:
-                result = await self.direct_module.create_session(
-                    user_id=user_id or "",
-                    scenario_id=scenario_id or "default",
-                    conversation_id=conversation_id
-                )
-                logger.debug(f"✅ Created session via module: {result.get('session_id')}")
-                return result
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                return await self._create_session_http(conversation_id, scenario_id, session_id)
+        # Use direct module call (module services always use direct calls)
+        if not self.direct_module:
+            raise ServiceClientError(f"Session module not available (is_module_service={self.is_module_service})")
         
-        return await self._create_session_http(conversation_id, scenario_id, session_id)
+        # Lazy initialize module if needed
+        if not self._module_initialized:
+            if hasattr(self.direct_module, 'initialize'):
+                try:
+                    await self.direct_module.initialize()
+                    self._module_initialized = True
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize session module: {e}")
+                    raise ServiceClientError(f"Session module initialization failed: {e}")
+        
+        try:
+            result = await self.direct_module.create_session(
+                user_id=user_id or "",
+                scenario_id=scenario_id or "default",
+                conversation_id=conversation_id
+            )
+            logger.debug(f"✅ Created session via module: {result.get('session_id')}")
+            return result
+        except Exception as e:
+            logger.error(f"❌ Direct module call failed: {e}")
+            raise ServiceClientError(f"Session module call failed: {e}")
     
     async def _create_session_http(
         self,
@@ -128,30 +122,44 @@ class ScenariosClient(BaseServiceClient):
 
     async def get_scenario(self, scenario_id: str) -> Optional[Dict[str, Any]]:
         """Get scenario configuration"""
-        # Use direct module call in monolith mode
-        if self.monolith_mode and self.direct_module:
+        # Use direct module call (module services always use direct calls)
+        if self.direct_module:
             # Lazy initialize module if needed
-            if not getattr(self, '_module_initialized', False):
+            if not self._module_initialized:
                 if hasattr(self.direct_module, 'initialize'):
                     try:
                         await self.direct_module.initialize()
                         self._module_initialized = True
                     except Exception as e:
                         logger.warning(f"⚠️  Failed to initialize scenarios module: {e}")
-                        # Fall back to HTTP
-                        return await self._get(f"/api/scenarios/{scenario_id}")
+                        # Fall back to HTTP if available
+                        if self.session:
+                            try:
+                                return await self._get(f"/api/scenarios/{scenario_id}")
+                            except ServiceClientError:
+                                return None
+                        raise
             
             try:
                 return await self.direct_module.get_scenario(scenario_id)
             except Exception as e:
                 logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                return await self._get(f"/api/scenarios/{scenario_id}")
+                if self.session:
+                    try:
+                        return await self._get(f"/api/scenarios/{scenario_id}")
+                    except ServiceClientError:
+                        return None
+                raise
         
-        try:
-            return await self._get(f"/api/scenarios/{scenario_id}")
-        except ServiceClientError:
-            logger.warning(f"⚠️ Scenario {scenario_id} not found")
-            return None
+        # HTTP fallback (only if module not available)
+        if self.session:
+            try:
+                return await self._get(f"/api/scenarios/{scenario_id}")
+            except ServiceClientError:
+                logger.warning(f"⚠️ Scenario {scenario_id} not found")
+                return None
+        
+        raise ServiceClientError("Scenarios module not available and no HTTP session")
 
     async def validate_turn(
         self,
@@ -251,39 +259,10 @@ class ConversationStoreClient(BaseServiceClient):
         ai_audio: Optional[bytes] = None
     ) -> bool:
         """Save conversation turn"""
-        # Use direct module call in monolith mode
-        if self.monolith_mode and self.direct_module:
-            # Lazy initialize module if needed
-            if not getattr(self, '_module_initialized', False):
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize conversation_store module: {e}")
-                        # Fall back to HTTP
-                        return await self._add_turn_http(conversation_id, user_audio, user_text, ai_text, ai_audio)
-            
-            try:
-                # Save user message
-                if user_text:
-                    await self.direct_module.save_message(
-                        conversation_id=conversation_id,
-                        role="user",
-                        content=user_text
-                    )
-                # Save AI message
-                if ai_text:
-                    await self.direct_module.save_message(
-                        conversation_id=conversation_id,
-                        role="assistant",
-                        content=ai_text
-                    )
-                logger.debug(f"💾 Saved turn to conversation {conversation_id} via module")
-                return True
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                return await self._add_turn_http(conversation_id, user_audio, user_text, ai_text, ai_audio)
+        # ConversationStoreClient is NOT a module service (may be external HTTP service)
+        # Use HTTP call directly
+        if not self.session:
+            raise ServiceClientError("ConversationStore requires HTTP session (not a module service)")
         
         return await self._add_turn_http(conversation_id, user_audio, user_text, ai_text, ai_audio)
     
@@ -319,24 +298,10 @@ class ConversationStoreClient(BaseServiceClient):
 
     async def get_context(self, conversation_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get conversation history for context"""
-        # Use direct module call in monolith mode
-        if self.monolith_mode and self.direct_module:
-            # Lazy initialize module if needed
-            if not getattr(self, '_module_initialized', False):
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize conversation_store module: {e}")
-                        # Fall back to HTTP
-                        return await self._get_context_http(conversation_id, limit)
-            
-            try:
-                return await self.direct_module.get_context(conversation_id=conversation_id, limit=limit)
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                return await self._get_context_http(conversation_id, limit)
+        # ConversationStoreClient is NOT a module service (may be external HTTP service)
+        # Use HTTP call directly
+        if not self.session:
+            raise ServiceClientError("ConversationStore requires HTTP session (not a module service)")
         
         return await self._get_context_http(conversation_id, limit)
     

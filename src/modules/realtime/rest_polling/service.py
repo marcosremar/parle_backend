@@ -30,7 +30,6 @@ from loguru import logger
 from typing import Dict, List, Optional
 from datetime import datetime
 
-from fastapi import HTTPException
 
 # Import BaseService from local utils
 from .utils.base_service import BaseService

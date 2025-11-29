@@ -3,7 +3,6 @@ Student Model Module - Direct Python calls for Student model
 """
 
 from typing import Dict, Optional, Any
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 

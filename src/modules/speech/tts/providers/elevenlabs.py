@@ -63,7 +63,8 @@ class ElevenLabsTTSProvider:
             except AttributeError:
                 try:
                     voices_list = self.client.voices.get_all()
-                except:
+                except (AttributeError, KeyError, ValueError) as e:
+                    logger.debug(f"Failed to get voices from ElevenLabs: {e}")
                     voices_list = []
             
             valid_voices = {}

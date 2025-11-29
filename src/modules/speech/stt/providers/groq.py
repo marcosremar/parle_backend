@@ -36,21 +36,27 @@ class GroqTranscriptionProvider:
 
             # Prepare multipart form data
             form_data = aiohttp.FormData()
-            with open(temp_file_path, 'rb') as audio_file:
-                audio_content = audio_file.read()
-                form_data.add_field('file', audio_content, filename='audio.wav')
+            # Read file asynchronously
+            import asyncio
+            audio_content = await asyncio.to_thread(lambda: open(temp_file_path, 'rb').read())
+            form_data.add_field('file', audio_content, filename='audio.wav')
             form_data.add_field('model', model)
             form_data.add_field('language', language)
             form_data.add_field('response_format', 'json')
 
             # Make API request
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                for attempt in range(self.max_retries):
+            from src.core.http_client import HTTPClient
+            import aiohttp
+            session = await HTTPClient.get_session()
+            # Use custom timeout for this request
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
+            for attempt in range(self.max_retries):
                     try:
                         async with session.post(
                             f"{self.base_url}/audio/transcriptions",
                             data=form_data,
-                            headers=self.headers
+                            headers=self.headers,
+                            timeout=timeout
                         ) as response:
                             if response.status == 200:
                                 result = await response.json()

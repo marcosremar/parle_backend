@@ -5,16 +5,12 @@ Neural Codec Module - Neural audio compression using EnCodec
 import time
 import base64
 import pickle
-from typing import Dict, Optional, Any
+from typing import Dict, Any
 import numpy as np
 import torch
 from loguru import logger
 
 from src.modules.base_module import BaseModule
-from .models import (
-    EncodeRequest, EncodeResponse, DecodeRequest, DecodeResponse,
-    HealthResponse, CodecInfoResponse
-)
 
 
 class NeuralCodecModule(BaseModule):

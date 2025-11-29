@@ -17,25 +17,21 @@ def test_audio_path():
 
 @pytest.fixture(scope="session")
 def services_config():
-    """Configuration for service URLs"""
+    """Configuration for service URLs (only external services need URLs)"""
+    # Note: Module services (stt, llm, tts, session, scenarios, etc.) use direct calls
+    # Only external services that run in separate processes need URLs
     return {
-        "stt_url": os.getenv("STT_SERVICE_URL", "http://localhost:8099"),
-        "llm_url": os.getenv("LLM_SERVICE_URL", "http://localhost:8110"),
-        "tts_url": os.getenv("TTS_SERVICE_URL", "http://localhost:8103"),
-        "orchestrator_url": os.getenv("ORCHESTRATOR_URL", "http://localhost:8500"),
+        # External services (may run in separate processes)
         "websocket_url": os.getenv("WEBSOCKET_URL", "http://localhost:8022"),
         "conversation_store_url": os.getenv("CONVERSATION_STORE_URL", "http://localhost:8800"),
         "conversation_history_url": os.getenv("CONVERSATION_HISTORY_URL", "http://localhost:8501"),
-        "session_url": os.getenv("SESSION_SERVICE_URL", "http://localhost:8200"),
-        "scenarios_url": os.getenv("SCENARIOS_SERVICE_URL", "http://localhost:8700"),
-        "user_url": os.getenv("USER_SERVICE_URL", "http://localhost:8201"),
-        "database_url": os.getenv("DATABASE_SERVICE_URL", "http://localhost:8400"),
-        "file_storage_url": os.getenv("FILE_STORAGE_SERVICE_URL", "http://localhost:8300"),
         "rest_polling_url": os.getenv("REST_POLLING_SERVICE_URL", "http://localhost:8701"),
         "api_gateway_url": os.getenv("API_GATEWAY_URL", "http://localhost:8000"),
-        "student_model_url": os.getenv("STUDENT_MODEL_URL", "http://localhost:8900"),
-        "pedagogical_policy_url": os.getenv("PEDAGOGICAL_POLICY_URL", "http://localhost:8950"),
-        "diagnostic_module_url": os.getenv("DIAGNOSTIC_MODULE_URL", "http://localhost:8960"),
-        "learning_path_url": os.getenv("LEARNING_PATH_URL", "http://localhost:8970"),
+        # Legacy URLs (kept for backward compatibility, but modules use direct calls)
+        "stt_url": os.getenv("STT_SERVICE_URL", ""),  # Module service - uses direct calls
+        "llm_url": os.getenv("LLM_SERVICE_URL", ""),  # Module service - uses direct calls
+        "tts_url": os.getenv("TTS_SERVICE_URL", ""),  # Module service - uses direct calls
+        "session_url": os.getenv("SESSION_SERVICE_URL", ""),  # Module service - uses direct calls
+        "scenarios_url": os.getenv("SCENARIOS_SERVICE_URL", ""),  # Module service - uses direct calls
     }
 

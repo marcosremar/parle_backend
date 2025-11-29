@@ -2,8 +2,7 @@
 Pedagogical Policy Module - Direct Python calls for Pedagogical policy
 """
 
-from typing import Dict, Optional, Any
-from loguru import logger
+from typing import Dict, Any
 
 from src.modules.base_module import BaseModule
 

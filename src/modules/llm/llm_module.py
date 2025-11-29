@@ -4,7 +4,6 @@ LLM Module - Direct Python calls for Language Model
 
 import os
 from typing import Dict, Optional, Any, List
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 

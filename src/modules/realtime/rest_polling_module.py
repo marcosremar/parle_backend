@@ -2,8 +2,7 @@
 Rest Polling Module - Direct Python calls for Rest polling
 """
 
-from typing import Dict, Optional, Any
-from loguru import logger
+from typing import Dict, Any
 
 from src.modules.base_module import BaseModule
 
@@ -26,8 +25,9 @@ class RestPollingModule(BaseModule):
             # Create minimal ServiceContext
             try:
                 comm = ServiceCommunicationManager()
-            except:
+            except (ImportError, AttributeError, ValueError) as e:
                 # Fallback mock communication manager
+                self.logger.warning(f"ServiceCommunicationManager not available: {e}, using mock")
                 class MockComm:
                     def get_service_url(self, service_name): return None
                     def send_request(self, *args, **kwargs): return None
@@ -42,7 +42,7 @@ class RestPollingModule(BaseModule):
                 execution_mode="external"
             )
             
-            self.service = RestpollingService(config=config, context=context)
+            self.service = RestPollingService(config=config, context=context)
             success = await self.service.initialize()
             
             if success:

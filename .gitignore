@@ -358,3 +358,4 @@ temp/
 .cache/
 tests/e2e/reports/*.md
 tests/e2e/reports/*.md
+tmp/

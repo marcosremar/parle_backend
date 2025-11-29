@@ -553,8 +553,7 @@ parle_backend/
 │       ├── llm/            # Language Model
 │       ├── tts/            # Text-to-Speech
 │       └── ...             # Outros serviços
-├── deploy/                 # Configurações de deploy
-│   └── nomad/              # Arquivos Nomad para deploy
+├── deploy/                 # Configurações de deploy (se necessário)
 ├── docs/                   # Documentação do projeto
 ├── scripts/                # Scripts de automação e utilitários
 ├── tests/                  # Testes end-to-end e fixtures
@@ -671,7 +670,7 @@ Este script verifica:
 - ✅ Dependências instaladas
 - ✅ Estrutura de diretórios
 - ✅ Imports Python funcionando
-- ✅ Nomad instalado (opcional)
+- ✅ Estrutura de módulos verificada
 
 ### Testes End-to-End
 
@@ -730,30 +729,24 @@ O projeto utiliza uma abordagem nativa e eficiente para logs, sem necessidade de
    - Os logs são enviados para `stdout` (saída padrão) e `stderr` (erro padrão).
    - Não há necessidade de configurar arquivos de log manualmente na aplicação.
 
-2. **Infraestrutura (Nomad)**:
-   - O Nomad captura automaticamente os streams `stdout` e `stderr`.
-   - Os logs são rotacionados automaticamente conforme configuração nos arquivos `.nomad`:
-     ```hcl
-     logs {
-       max_files     = 10  # Mantém os últimos 10 arquivos
-       max_file_size = 10  # Tamanho máximo de 10MB por arquivo
-     }
-     ```
+2. **Visualização de Logs**:
+   - Os logs são capturados automaticamente pelo sistema de logging.
+   - Use `./main.sh logs <servico>` para ver logs em tempo real.
 
 ### Visualizando Logs
 
 Você pode visualizar os logs de qualquer serviço em tempo real:
 
 ```bash
-# Ver logs de uma alocação específica
-nomad alloc logs -f <alloc-id>
+# Ver logs da API Principal
+./main.sh logs api
 
-# Ver logs pelo nome do job (mais fácil)
-nomad alloc logs -job api-gateway
-nomad alloc logs -job user-service
+# Ver logs do WebSocket
+./main.sh logs websocket
 
-# Ver logs de erro (stderr)
-nomad alloc logs -stderr -job api-gateway
+# Ou diretamente via arquivo
+tail -f /tmp/parle_api.log
+tail -f /tmp/parle_websocket.log
 ```
 
 ### Monitoramento
@@ -777,7 +770,7 @@ O arquivo `.gitignore` está configurado para ignorar:
 - Ambientes conda (`miniconda3/`, `envs/`)
 - Ambientes virtuais (`venv/`, `.env`)
 - Logs e arquivos temporários (`*.log`, `tmp/`)
-- Executável do Nomad (`vendor/nomad`)
+- Arquivos temporários de teste
 - Arquivos de banco de dados locais (`*.db`, `*.sqlite`)
 - Arquivos de configuração com segredos
 - Modelos de ML (`models/`, `*.safetensors`)
@@ -796,7 +789,7 @@ Ver arquivo LICENSE.txt
 
 ## 🔗 Links Úteis
 
-- **Documentação Nomad**: `docs/NOMAD_GUIDELINES.md`
+- **Simplificação HTTP**: `docs/SIMPLIFICACAO_HTTP.md`
 - **Service Discovery**: `SERVICE_DISCOVERY_IMPLEMENTATION.md`
 - **Scripts**: `scripts/README.md`
 - **Testes**: `tests/README.md`

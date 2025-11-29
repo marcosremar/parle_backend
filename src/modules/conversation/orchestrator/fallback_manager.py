@@ -5,7 +5,9 @@ Coordinates failover between Primary LLM (Ultravox) and Fallback LLM (Groq)
 """
 
 import logging
-from typing import Dict, Any, Optional, Tuple, Callable
+import asyncio
+import os
+from typing import Dict, Any, Optional
 import sys
 from pathlib import Path
 
@@ -14,8 +16,9 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from .utils.pipeline.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from config.settings import get_settings
-from .clients import LLMClient, ExternalLLMClient, STTClient, ExternalUltravoxClient, ServiceClientError
+from .utils.exceptions import ServiceUnavailableError
+# Note: get_settings() was deprecated, using environment variables directly
+from .clients import LLMClient, ExternalUltravoxClient
 
 logger = logging.getLogger(__name__)
 
@@ -45,21 +48,31 @@ class FallbackManager:
         self.primary_llm = primary_llm
         self.secondary_llm = secondary_llm
 
-        # Initialize circuit breaker with settings from config
+        # Initialize circuit breaker with default config
+        # Note: Config deprecated, using environment variables or defaults
         try:
-            settings = get_settings().pipeline_failover
+            from src.core.config import get_config
+            config = get_config()
+            # Try to get failover config from new config system
+            # If not available, use defaults
+            failure_threshold = int(os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "3"))
+            recovery_timeout = float(os.getenv("CIRCUIT_BREAKER_RECOVERY_TIMEOUT", "30.0"))
+            half_open_max_calls = int(os.getenv("CIRCUIT_BREAKER_HALF_OPEN_MAX_CALLS", "1"))
+            primary_timeout = float(os.getenv("CIRCUIT_BREAKER_PRIMARY_TIMEOUT", "10.0"))
+            fallback_timeout = float(os.getenv("CIRCUIT_BREAKER_FALLBACK_TIMEOUT", "10.0"))
+            
             self.circuit_breaker = CircuitBreaker(
                 CircuitBreakerConfig(
-                    failure_threshold=settings.failure_threshold,
-                    recovery_timeout=settings.recovery_timeout,
-                    half_open_max_calls=settings.half_open_max_calls,
-                    primary_timeout=settings.primary_timeout,
-                    fallback_timeout=settings.fallback_timeout
+                    failure_threshold=failure_threshold,
+                    recovery_timeout=recovery_timeout,
+                    half_open_max_calls=half_open_max_calls,
+                    primary_timeout=primary_timeout,
+                    fallback_timeout=fallback_timeout
                 )
             )
             logger.info("🔌 Circuit breaker initialized for automatic LLM failover")
-            logger.info(f"   Failure threshold: {settings.failure_threshold}")
-            logger.info(f"   Recovery timeout: {settings.recovery_timeout}s")
+            logger.info(f"   Failure threshold: {failure_threshold}")
+            logger.info(f"   Recovery timeout: {recovery_timeout}s")
         except Exception as e:
             logger.error(f"❌ Failed to initialize circuit breaker: {e}")
             # Create default circuit breaker
@@ -209,12 +222,8 @@ class FallbackManager:
 
         except Exception as e:
             logger.error(f"❌ Complete LLM failover chain failed: {e}")
-            return {
-                "success": False,
-                "error": f"All LLMs failed: {str(e)}",
-                "llm_used": "failed",
-                "circuit_state": self.get_circuit_state()
-            }
+            # Raise exception instead of returning dict for consistency
+            raise ServiceUnavailableError("LLM", f"All LLM tiers failed: {e}") from e
 
     def get_circuit_state(self) -> Dict[str, Any]:
         """

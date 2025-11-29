@@ -3,7 +3,6 @@ TTS Module - Direct Python calls for Text-to-Speech
 """
 
 from typing import Dict, Optional, Any
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 from .providers.manager import TTSProviderManager
@@ -30,7 +29,8 @@ class TTSModule(BaseModule):
                     provider = self.manager.get_provider(provider_name)
                     if provider and provider.available:
                         self.providers[provider_name] = provider
-                except:
+                except (ImportError, AttributeError, ValueError, KeyError) as e:
+                    self.logger.debug(f"Provider {provider_name} not available: {e}")
                     pass
             
             # Default is gtts if available
@@ -63,8 +63,7 @@ class TTSModule(BaseModule):
         Returns:
             Dict with audio_base64, format, provider, voice_id
         """
-        if not self.initialized:
-            await self.initialize()
+        await self.ensure_initialized()
         
         try:
             # Get provider name
@@ -93,8 +92,7 @@ class TTSModule(BaseModule):
     
     async def get_voices(self, provider: Optional[str] = None) -> Dict[str, Any]:
         """Get available voices"""
-        if not self.initialized:
-            await self.initialize()
+        await self.ensure_initialized()
         
         provider_name = provider or "gtts"
         
@@ -106,7 +104,8 @@ class TTSModule(BaseModule):
                     "voices": voices,
                     "provider": provider_name
                 }
-        except:
+        except (ImportError, AttributeError, ValueError, KeyError) as e:
+            self.logger.debug(f"Failed to get voices from {provider_name}: {e}")
             pass
         
         return {"voices": [], "provider": provider_name}

@@ -3,7 +3,6 @@ User Module - Direct Python calls for User management
 """
 
 from typing import Dict, Optional, Any
-from loguru import logger
 import secrets
 from datetime import datetime
 

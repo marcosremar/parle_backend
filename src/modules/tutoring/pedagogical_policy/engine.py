@@ -3,7 +3,7 @@ Policy Engine - Decisão de estratégias pedagógicas
 Baseado no mastery probability do estudante
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from .models import Strategy, ScaffoldingType, EmotionalState, PromptContext
 
 

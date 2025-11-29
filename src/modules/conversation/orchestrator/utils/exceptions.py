@@ -42,7 +42,14 @@ Usage:
         raise RequestValidationError("Invalid audio data") from e
 """
 
-import json
+try:
+    import orjson as json
+    def json_dumps(obj, default=str):
+        return json.dumps(obj, default=default).decode('utf-8')
+except ImportError:
+    import json
+    def json_dumps(obj, default=str):
+        return json.dumps(obj, default=default)
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -213,7 +220,7 @@ class UltravoxError(Exception):
             error = ServiceUnavailableError("llm")
             json_str = error.to_json()
         """
-        return json.dumps(self.to_dict(), default=str)
+        return json_dumps(self.to_dict(), default=str)
 
 
 # ============================================================================

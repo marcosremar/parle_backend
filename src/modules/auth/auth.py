@@ -5,7 +5,6 @@ Password hashing and verification using Argon2
 ⚠️  SECURITY FIX: Migrated from SHA256 (unsalted) to Argon2 with timing-attack resistant verification
 """
 import os
-import hmac
 from passlib.context import CryptContext
 
 # Argon2 context with secure parameters
@@ -75,6 +74,8 @@ def verify_password(password: str, password_hash: str) -> bool:
         # This is already timing-attack resistant, no need for extra hmac comparison
         # (hmac.compare_digest on hashes doesn't work because each hash is unique due to salt)
         result = pwd_context.verify(password, password_hash)
+        # Clear password from memory after verification
+        password = None
         return result
     except Exception:
         # On any error (invalid hash format, etc.), perform timing-safe dummy operation
@@ -82,4 +83,11 @@ def verify_password(password: str, password_hash: str) -> bool:
             pwd_context.verify("dummy_password_to_waste_time_safely", "$argon2$dummy")
         except Exception:
             pass
+        password = None  # Clear password even on error
         return False
+    finally:
+        # Ensure password is cleared
+        try:
+            del password
+        except NameError:
+            pass

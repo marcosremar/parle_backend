@@ -591,11 +591,11 @@ cmd_restart() {
     echo ""
     
     # Parar primeiro
-    "$PROJECT_DIR/scripts/nomad.sh" stop "$service" 2>/dev/null || true
+    ./main.sh stop "$service" 2>/dev/null || true
     sleep 2
     
     # Iniciar novamente
-    "$PROJECT_DIR/scripts/nomad.sh" start "$service"
+    ./main.sh start "$service"
 }
 
 # List services
@@ -651,11 +651,38 @@ cmd_logs() {
         echo -e "${RED}❌ Nome do serviço não fornecido${NC}"
         echo ""
         echo "Uso: main.sh logs <servico>"
+        echo ""
+        echo "Serviços disponíveis:"
+        echo "  • api - API Principal (monolito modular)"
+        echo "  • websocket - WebSocket Service"
         exit 1
     fi
     
     show_banner
-    "$PROJECT_DIR/scripts/nomad.sh" logs "$service"
+    
+    # Logs são gerenciados diretamente (sem Nomad)
+    case "$service" in
+        api)
+            if [ -f "/tmp/parle_api.log" ]; then
+                tail -f /tmp/parle_api.log
+            else
+                echo -e "${YELLOW}⚠️  Arquivo de log não encontrado: /tmp/parle_api.log${NC}"
+                echo "Inicie o serviço primeiro: ./main.sh start api"
+            fi
+            ;;
+        websocket)
+            if [ -f "/tmp/parle_websocket.log" ]; then
+                tail -f /tmp/parle_websocket.log
+            else
+                echo -e "${YELLOW}⚠️  Arquivo de log não encontrado: /tmp/parle_websocket.log${NC}"
+                echo "Inicie o serviço primeiro: ./main.sh start websocket"
+            fi
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  Serviço '$service' não reconhecido${NC}"
+            echo "Use: ./main.sh logs api ou ./main.sh logs websocket"
+            ;;
+    esac
 }
 
 # Shell

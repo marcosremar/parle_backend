@@ -10,7 +10,7 @@ Manages resources specific to a process:
 
 import logging
 import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 

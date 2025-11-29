@@ -49,7 +49,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # NEW: Use unified logging system instead of direct loguru import
-from .core_logging import get_logger, setup_logging
+from .core_logging import setup_logging
 
 # For backward compatibility and non-service logging
 from loguru import logger as base_logger
@@ -155,12 +155,18 @@ class ServiceContext:
             level=os.getenv("LOG_LEVEL", "INFO")
         )
 
-        # Get SettingsService singleton
+        # Get SettingsService singleton (deprecated - using src.core.config)
         try:
-            from config.settings_service import SettingsService
+            from src.core.config import get_config
+            config = get_config()
+            # Create minimal SettingsService-like interface for backward compatibility
+            class SettingsService:
+                @staticmethod
+                def get_instance():
+                    return config
             settings_service = SettingsService.get_instance()
         except Exception as e:
-            scoped_logger.debug(f"Could not load SettingsService: {e}")
+            scoped_logger.debug(f"Could not load config: {e}")
             settings_service = None
 
         # Load configuration (hierarchical: settings.yaml + service config)
@@ -228,16 +234,19 @@ class ServiceContext:
         """
         merged = {}
 
-        # 1. Load from global settings (lowest priority)
+        # 1. Load from global config (lowest priority)
         try:
-            from config.settings import get_settings
-            settings = get_settings()
+            from src.core.config import get_config
+            config = get_config()
             # Check if there's a service-specific section
-            service_settings = getattr(settings, service_name, None)
-            if service_settings:
-                merged.update(service_settings.model_dump())
+            service_config = getattr(config, service_name, None)
+            if service_config:
+                if hasattr(service_config, 'model_dump'):
+                    merged.update(service_config.model_dump())
+                elif isinstance(service_config, dict):
+                    merged.update(service_config)
         except Exception as e:
-            base_logger.debug(f"Could not load global settings: {e}")
+            base_logger.debug(f"Could not load global config: {e}")
 
         # 2. Load service-specific config file (medium priority)
         service_config = ServiceContext._load_service_config_file(service_name)

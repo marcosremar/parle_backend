@@ -13,151 +13,99 @@ Testa se a instalação está correta e todas as dependências estão configurad
 ```
 
 **O que verifica:**
-- ✅ Python 3.12 instalado
-- ✅ Ambiente virtual criado e ativo
+- ✅ Python 3.11+ instalado
+- ✅ Ambiente conda criado e ativo
 - ✅ Dependências Python instaladas (FastAPI, Uvicorn, etc.)
-- ✅ Estrutura de diretórios (`src/core`, `src/services`, `deploy/nomad`)
+- ✅ Estrutura de diretórios (`src/core`, `src/modules`, `src/api`)
 - ✅ Arquivos importantes existem
 - ✅ Imports Python funcionando
-- ✅ Nomad instalado (opcional)
-
-### `nomad.sh`
-
-Script principal para gerenciar serviços no Nomad.
-
-#### Comandos Disponíveis
-
-**Listar serviços:**
-```bash
-./scripts/nomad.sh list
-```
-
-**Iniciar um serviço:**
-```bash
-./scripts/nomad.sh start api-gateway
-./scripts/nomad.sh start user-service
-```
-
-**Iniciar TODOS os serviços:**
-```bash
-./scripts/nomad.sh start-all
-```
-
-**Ver status:**
-```bash
-./scripts/nomad.sh status
-```
-
-**Ver logs (seguir):**
-```bash
-./scripts/nomad.sh logs api-gateway
-```
-
-**Parar um serviço:**
-```bash
-./scripts/nomad.sh stop api-gateway
-```
-
-**Parar todos os serviços:**
-```bash
-./scripts/nomad.sh stop-all
-```
-
-**Ajuda:**
-```bash
-./scripts/nomad.sh help
-```
+- ✅ Módulos principais disponíveis
 
 ## Exemplos de Uso
 
-### Iniciar o API Gateway
+### Iniciar a API Principal
 
 ```bash
 # 1. Verificar instalação
 ./scripts/test_installation.sh
 
-# 2. Iniciar Nomad (em outro terminal)
-nomad agent -dev -bind=0.0.0.0
+# 2. Iniciar API Principal (monolito modular)
+./main.sh start api
 
-# 3. Iniciar API Gateway
-./scripts/nomad.sh start api-gateway
+# 3. Verificar status
+./main.sh status
 
-# 4. Verificar status
-./scripts/nomad.sh status
-
-# 5. Ver logs
-./scripts/nomad.sh logs api-gateway
+# 4. Ver logs
+./main.sh logs api
 ```
 
 ### Iniciar Todos os Serviços
 
 ```bash
-# Iniciar todos de uma vez
-./scripts/nomad.sh start-all
+# 1. Iniciar todos os serviços
+./main.sh start --all
 
-# Ver status de todos
-./scripts/nomad.sh status
+# 2. Verificar status
+./main.sh status
+
+# 3. Ver logs
+./main.sh logs api
+./main.sh logs websocket
+
+# 4. Parar todos
+./main.sh stop --all
 ```
 
 ### Workflow Completo
 
 ```bash
 # 1. Setup inicial (primeira vez)
-./setup.sh
-source venv/bin/activate
+./main.sh setup
 
-# 2. Testar instalação
+# 2. Ativar ambiente conda
+./main.sh conda-activate
+
+# 3. Testar instalação
 ./scripts/test_installation.sh
 
-# 3. Iniciar Nomad (terminal separado)
-nomad agent -dev -bind=0.0.0.0
+# 4. Iniciar API Principal
+./main.sh start api
 
-# 4. Iniciar serviços
-./scripts/nomad.sh start-all
+# 5. Iniciar WebSocket (opcional)
+./main.sh start websocket
 
-# 5. Monitorar
-./scripts/nomad.sh status
-./scripts/nomad.sh logs api-gateway
+# 6. Monitorar
+./main.sh status
+./main.sh logs api
 
-# 6. Parar tudo quando terminar
-./scripts/nomad.sh stop-all
+# 7. Parar quando terminar
+./main.sh stop api
+./main.sh stop websocket
 ```
 
 ## Requisitos
 
-- Python 3.12
-- Ambiente virtual criado (`./setup.sh`)
-- Nomad instalado (para comandos de deploy)
+- Python 3.11+
+- Conda instalado (recomendado) ou ambiente virtual
+- Dependências instaladas (`requirements.txt`)
 
 ## Troubleshooting
-
-### Nomad não encontrado
-
-```bash
-# macOS
-brew install nomad
-
-# Ou baixar de:
-# https://developer.hashicorp.com/nomad/downloads
-```
-
-### Nomad não está rodando
-
-O script `nomad.sh` detecta automaticamente se o Nomad não está rodando e oferece iniciar.
-
-Ou inicie manualmente:
-```bash
-nomad agent -dev -bind=0.0.0.0
-```
-
-### Serviço não encontrado
-
-Use `./scripts/nomad.sh list` para ver todos os serviços disponíveis.
 
 ### Erros de import
 
 Certifique-se de que:
-1. O ambiente virtual está ativo: `source venv/bin/activate`
+1. O ambiente conda está ativo: `./main.sh conda-activate`
 2. As dependências estão instaladas: `pip install -r requirements.txt`
 3. O PYTHONPATH está configurado: `export PYTHONPATH=src`
 
+### Serviço não inicia
+
+1. Verifique se a porta está disponível: `lsof -i :8000`
+2. Verifique os logs: `./main.sh logs api`
+3. Verifique se o ambiente está ativo: `conda info --envs`
+
+### Módulos não encontrados
+
+1. Verifique se `src/modules/` existe
+2. Verifique se `module_factory.py` está presente
+3. Execute: `python -c "from src.modules import module_factory; print(module_factory)"`

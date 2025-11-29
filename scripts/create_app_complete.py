@@ -59,7 +59,7 @@ def create_app_complete(service_name: str, info: dict):
     port = info["port"]
     
     template = f'''"""
-{service_name.replace("_", " ").title()} Service Standalone - Consolidated for Nomad deployment
+{service_name.replace("_", " ").title()} Service Standalone - Consolidated for deployment
 """
 import uvicorn
 import os

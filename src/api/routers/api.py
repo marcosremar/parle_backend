@@ -3,14 +3,62 @@ API Router Consolidado - Todos os endpoints em um único router
 Usa módulos internos para chamadas diretas Python
 """
 
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Depends
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Depends, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from typing import Optional, List
 from loguru import logger
 import base64
 import jwt
 import os
+from src.core.security import (
+    validate_upload_size,
+    validate_content_type,
+    safe_log_error
+)
+from src.core.config import get_config
+from src.core.constants import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    CONVERSATION_RATE_LIMIT,
+    AUTH_LOGIN_RATE_LIMIT,
+    AUTH_REGISTER_RATE_LIMIT,
+    TUTORING_RATE_LIMIT
+)
+
+config = get_config()
+
+# Limiter will be set from main app
+app_limiter = None
+
+def apply_rate_limit(limit: str):
+    """Apply rate limit using app limiter"""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # Find Request in args/kwargs
+            request = None
+            for arg in args:
+                if isinstance(arg, Request):
+                    request = arg
+                    break
+            if not request:
+                request = kwargs.get('request') or kwargs.get('http_request')
+            
+            if request and app_limiter:
+                try:
+                    limited_func = app_limiter.limit(limit)(func)
+                    return await limited_func(*args, **kwargs)
+                except Exception as e:
+                    from slowapi.errors import RateLimitExceeded
+                    if isinstance(e, RateLimitExceeded):
+                        raise HTTPException(
+                            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=f"Rate limit exceeded: {limit}"
+                        )
+                    raise
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
@@ -71,7 +119,29 @@ class SynthesizeRequest(BaseModel):
 
 @router.post("/speech/stt/transcribe")
 async def transcribe(request: TranscribeRequest):
-    """STT transcription"""
+    """
+    STT transcription endpoint
+    
+    Transcribes audio to text using the configured STT provider.
+    
+    Args:
+        request: TranscribeRequest with audio_base64 or audio_url
+        
+    Returns:
+        Dict with:
+        - text: Transcribed text
+        - language: Detected language
+        - duration: Audio duration (if available)
+        - model: Model used
+        - provider: Provider used
+        
+    Example:
+        {
+            "audio_base64": "base64_encoded_audio...",
+            "language": "pt",
+            "model": "whisper-large-v3"
+        }
+    """
     try:
         stt = await get_module("stt")
         result = await stt.transcribe(
@@ -111,7 +181,31 @@ async def transcribe_file(
 
 @router.post("/speech/tts/synthesize")
 async def synthesize(request: SynthesizeRequest):
-    """TTS synthesis"""
+    """
+    TTS synthesis endpoint
+    
+    Converts text to speech audio using the configured TTS provider.
+    
+    Args:
+        request: SynthesizeRequest with text and optional voice settings
+        
+    Returns:
+        Dict with:
+        - audio_base64: Base64 encoded audio data
+        - format: Audio format (wav, mp3, etc.)
+        - provider: Provider used
+        - voice_id: Voice ID used
+        - duration: Audio duration (if available)
+        - sample_rate: Sample rate (if available)
+        
+    Example:
+        {
+            "text": "Hello, world!",
+            "voice_id": "Rachel",
+            "language": "pt",
+            "speed": 1.0
+        }
+    """
     try:
         tts = await get_module("tts")
         result = await tts.synthesize(
@@ -226,6 +320,7 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
 
 
 @router.post("/auth/login")
+@apply_rate_limit(AUTH_LOGIN_RATE_LIMIT)
 async def login(request: LoginRequest):
     """User login"""
     try:
@@ -240,6 +335,7 @@ async def login(request: LoginRequest):
 
 
 @router.post("/auth/register")
+@apply_rate_limit(AUTH_REGISTER_RATE_LIMIT)
 async def register(request: CreateUserRequest):
     """User registration"""
     try:
@@ -274,12 +370,14 @@ class ConversationRequest(BaseModel):
     session_id: str = Field(..., description="Session ID")
     voice_id: Optional[str] = Field(None, description="Optional voice ID for audio response")
     language: str = Field("pt", description="Language code")
-    max_tokens: int = Field(100, description="Max tokens for LLM")
+    max_tokens: int = Field(512, description="Max tokens for LLM")
     temperature: float = Field(0.7, description="Temperature for LLM")
 
 
 @router.post("/conversation")
+@apply_rate_limit(CONVERSATION_RATE_LIMIT)
 async def conversation(
+    http_request: Request,
     request: ConversationRequest = None,
     file: Optional[UploadFile] = File(None),
     audio_base64: Optional[str] = Form(None),
@@ -328,7 +426,22 @@ async def conversation(
         
         # Handle audio conversation (speech-to-speech)
         if file:
+            # Validate file size
+            validate_upload_size(file.size, config.server.max_upload_size_mb)
+            
+            # Validate content type
+            if file.content_type:
+                validate_content_type(file.content_type, ['audio/', 'application/octet-stream'])
+            
             audio_data = await file.read()
+            
+            # Additional size check after reading
+            if len(audio_data) > config.server.max_upload_size_mb * 1024 * 1024:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File size exceeds maximum allowed size ({config.server.max_upload_size_mb}MB)"
+                )
+            
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
         
         if audio_base64:
@@ -347,8 +460,8 @@ async def conversation(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Conversation processing failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        safe_log_error("Conversation processing failed", e, request=http_request)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/conversation/session/create")
@@ -397,12 +510,64 @@ async def save_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/conversation/store/{conversation_id}/context")
-async def get_context(conversation_id: str, limit: int = 10):
-    """Get conversation context"""
+@router.get("/conversation/store/{conversation_id}/messages")
+async def get_messages(
+    conversation_id: str,
+    limit: int = DEFAULT_PAGE_SIZE,
+    skip: int = 0,
+    max_limit: int = MAX_PAGE_SIZE
+):
+    """Get conversation messages with pagination"""
     try:
+        limit = min(limit, max_limit)
         store = await get_module("conversation_store")
-        return await store.get_context(conversation_id=conversation_id, limit=limit)
+        if hasattr(store, 'get_messages'):
+            return await store.get_messages(conversation_id=conversation_id, limit=limit, offset=skip)
+        else:
+            raise HTTPException(status_code=501, detail="Messages endpoint not implemented")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversation/store/user/{user_id}/conversations")
+async def list_user_conversations(
+    user_id: str,
+    limit: int = DEFAULT_PAGE_SIZE,
+    skip: int = 0,
+    max_limit: int = MAX_PAGE_SIZE
+):
+    """List user conversations with pagination"""
+    try:
+        limit = min(limit, max_limit)
+        store = await get_module("conversation_store")
+        if hasattr(store, 'list_user_conversations'):
+            return await store.list_user_conversations(user_id=user_id, limit=limit, offset=skip)
+        else:
+            raise HTTPException(status_code=501, detail="List conversations endpoint not implemented")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to list conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversation/store/{conversation_id}/context")
+async def get_context(
+    conversation_id: str,
+    limit: int = DEFAULT_PAGE_SIZE,
+    skip: int = 0,
+    max_limit: int = MAX_PAGE_SIZE
+):
+    """Get conversation context with pagination"""
+    try:
+        # Enforce max limit
+        limit = min(limit, max_limit)
+        
+        store = await get_module("conversation_store")
+        return await store.get_context(conversation_id=conversation_id, limit=limit, offset=skip)
     except Exception as e:
         logger.error(f"Failed to get context: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -421,6 +586,7 @@ class AnalyzeTurnRequest(BaseModel):
 
 
 @router.post("/tutoring/diagnostic/analyze")
+@apply_rate_limit(TUTORING_RATE_LIMIT)
 async def analyze_turn(request: AnalyzeTurnRequest):
     """Analyze conversation turn"""
     try:
@@ -444,6 +610,7 @@ async def analyze_turn(request: AnalyzeTurnRequest):
 
 
 @router.post("/tutoring/policy/compose")
+@apply_rate_limit(TUTORING_RATE_LIMIT)
 async def compose_prompt(context: dict):
     """Compose pedagogical prompt"""
     try:
@@ -463,6 +630,7 @@ async def compose_prompt(context: dict):
 
 
 @router.get("/tutoring/path/{user_id}/next")
+@apply_rate_limit(TUTORING_RATE_LIMIT)
 async def get_next_skill(user_id: str, cefr_level: Optional[str] = None):
     """Get next skill"""
     try:
@@ -482,6 +650,7 @@ async def get_next_skill(user_id: str, cefr_level: Optional[str] = None):
 
 
 @router.get("/tutoring/student/{user_id}/profile")
+@apply_rate_limit(TUTORING_RATE_LIMIT)
 async def get_student_profile(user_id: str):
     """Get student profile"""
     try:

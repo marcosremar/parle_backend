@@ -3,7 +3,7 @@ Skill Registry - Catálogo de habilidades linguísticas
 Define habilidades padrão e seus parâmetros AKT (padrão) e BKT (fallback)
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 # Try to import knowledge tracers (optional - only if available)
 try:

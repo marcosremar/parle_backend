@@ -174,7 +174,13 @@ class AuditLogger:
             audit_event["extra"] = extra_context
 
         # Log with audit marker
-        base_logger.bind(audit=True).info(json.dumps(audit_event))
+        try:
+            import orjson as json
+            json_str = json.dumps(audit_event).decode('utf-8')
+        except ImportError:
+            import json
+            json_str = json.dumps(audit_event)
+        base_logger.bind(audit=True).info(json_str)
 
     def log_security_event(
         self,

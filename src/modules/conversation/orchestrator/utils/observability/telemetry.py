@@ -23,9 +23,8 @@ Usage:
 """
 
 import logging
-from typing import Optional, Dict, Any, ContextManager
+from typing import Optional, Dict, Any
 from contextlib import contextmanager
-import os
 
 # OpenTelemetry imports (core SDK)
 try:
@@ -33,9 +32,8 @@ try:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
     from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
     from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
-    from opentelemetry.trace import Status, StatusCode, Span
+    from opentelemetry.trace import Status, StatusCode
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False

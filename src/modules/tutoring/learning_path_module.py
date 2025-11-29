@@ -2,8 +2,7 @@
 Learning Path Module - Direct Python calls for Learning path navigation
 """
 
-from typing import Dict, Optional, Any, List
-from loguru import logger
+from typing import Dict, Optional, Any
 
 from src.modules.base_module import BaseModule
 
@@ -28,7 +27,8 @@ class LearningPathModule(BaseModule):
             try:
                 from src.modules import create
                 self.student_model_module = create("student_model")
-            except:
+            except (ImportError, AttributeError, ValueError, KeyError) as e:
+                self.logger.debug(f"Student model module not available: {e}")
                 self.student_model_module = None
             
             self.logger.info("✅ Learning Path Module initialized")

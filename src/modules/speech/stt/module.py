@@ -4,9 +4,7 @@ STT Module - Direct Python calls for Speech-to-Text
 
 import base64
 import tempfile
-import asyncio
 from typing import Dict, Optional, Any
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 from .providers.groq import GroqTranscriptionProvider
@@ -52,8 +50,7 @@ class STTModule(BaseModule):
         Returns:
             Dict with text, language, duration, model, provider
         """
-        if not self.initialized:
-            await self.initialize()
+        await self.ensure_initialized()
         
         try:
             # Decode base64 audio if provided
@@ -62,10 +59,10 @@ class STTModule(BaseModule):
                 audio_data = base64.b64decode(audio_base64)
             elif audio_url:
                 # Download from URL
-                import aiohttp
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(audio_url) as resp:
-                        audio_data = await resp.read()
+                from src.core.http_client import HTTPClient
+                session = await HTTPClient.get_session()
+                async with session.get(audio_url) as resp:
+                    audio_data = await resp.read()
             
             if not audio_data:
                 raise ValueError("Either audio_base64 or audio_url must be provided")
@@ -76,9 +73,9 @@ class STTModule(BaseModule):
                 tmp_path = tmp_file.name
             
             try:
-                # Read audio data from temp file
-                with open(tmp_path, 'rb') as f:
-                    audio_bytes = f.read()
+                # Read audio data from temp file (async)
+                import asyncio
+                audio_bytes = await asyncio.to_thread(lambda: open(tmp_path, 'rb').read())
                 
                 # Transcribe using provider
                 result = await self.provider.transcribe_audio(
@@ -98,8 +95,10 @@ class STTModule(BaseModule):
                 # Cleanup temp file
                 import os
                 try:
-                    os.unlink(tmp_path)
-                except:
+                    if tmp_path and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                except OSError as e:
+                    self.logger.warning(f"Failed to delete temp file {tmp_path}: {e}")
                     pass
                     
         except Exception as e:

@@ -3,8 +3,6 @@ File Storage Module - Direct Python calls for File storage
 """
 
 from typing import Dict, Optional, Any, List
-from pathlib import Path
-from loguru import logger
 
 from src.modules.base_module import BaseModule
 try:

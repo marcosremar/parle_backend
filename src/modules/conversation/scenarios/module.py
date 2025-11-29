@@ -3,10 +3,8 @@ Scenarios Module - Direct Python calls for scenario management
 """
 
 from typing import Dict, Optional, Any, List
-from loguru import logger
 
 from src.modules.base_module import BaseModule
-from .service import ScenariosService
 
 
 class ScenariosModule(BaseModule):

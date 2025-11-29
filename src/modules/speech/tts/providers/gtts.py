@@ -4,7 +4,6 @@ Google Text-to-Speech (gTTS) Provider
 
 import os
 import time
-import io
 import base64
 import subprocess
 import tempfile

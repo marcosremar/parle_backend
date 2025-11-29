@@ -136,3 +136,6 @@ TIMEOUT = 120.0  # 2 minutos
 ✅ Teste Speech-to-Speech completo passou!
 ```
 
+
+
+

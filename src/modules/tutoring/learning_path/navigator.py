@@ -7,7 +7,6 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from .spaced_repetition import SpacedRepetitionSystem
 from .zpd_calculator import ZPDCalculator
-from loguru import logger
 
 
 class LearningPathNavigator:

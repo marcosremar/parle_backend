@@ -9,7 +9,6 @@ from __future__ import annotations
 import base64
 import logging
 from typing import Dict, Any, Optional
-import numpy as np
 
 from .base import BaseServiceClient, ServiceClientError, Priority
 
@@ -254,38 +253,37 @@ class ExternalLLMClient(BaseServiceClient):
         Returns:
             Generated text as string
         """
-        # Use direct module call in monolith mode
-        if self.monolith_mode and self.direct_module:
-            # Lazy initialize module if needed
-            if not getattr(self, '_module_initialized', False):
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize LLM module: {e}")
-                        # Fall back to HTTP
-                        return await self._generate_http(text, system_prompt, conversation_history, max_tokens, temperature, **kwargs)
-            
-            try:
-                result = await self.direct_module.generate(
-                    prompt=text,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    system_prompt=system_prompt
-                )
-                # Normalizar resposta para string
-                if isinstance(result, dict):
-                    return result.get('text', result.get('response', result.get('content', str(result))))
-                elif isinstance(result, str):
-                    return result
-                else:
-                    return str(result)
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                return await self._generate_http(text, system_prompt, conversation_history, max_tokens, temperature, **kwargs)
+        # Use direct module call (module services always use direct calls)
+        if not self.direct_module:
+            raise ServiceClientError(f"LLM module not available (is_module_service={self.is_module_service})")
         
-        return await self._generate_http(text, system_prompt, conversation_history, max_tokens, temperature, **kwargs)
+        # Lazy initialize module if needed
+        if not self._module_initialized:
+            if hasattr(self.direct_module, 'initialize'):
+                try:
+                    await self.direct_module.initialize()
+                    self._module_initialized = True
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize LLM module: {e}")
+                    raise ServiceClientError(f"LLM module initialization failed: {e}")
+        
+        try:
+            result = await self.direct_module.generate(
+                prompt=text,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system_prompt=system_prompt
+            )
+            # Normalizar resposta para string
+            if isinstance(result, dict):
+                return result.get('text', result.get('response', result.get('content', str(result))))
+            elif isinstance(result, str):
+                return result
+            else:
+                return str(result)
+        except Exception as e:
+            logger.error(f"❌ Direct module call failed: {e}")
+            raise ServiceClientError(f"LLM module call failed: {e}")
     
     async def _generate_http(
         self,
@@ -328,7 +326,38 @@ class ExternalSTTClient(BaseServiceClient):
         super().__init__("stt", is_module_service=True)
 
     async def transcribe(self, audio_data: bytes, sample_rate: int = 16000, language: Optional[str] = None) -> Dict[str, Any]:
-        """Transcribe audio using external STT service."""
+        """Transcribe audio using STT module (direct call)."""
+        # Use direct module call (module services always use direct calls)
+        if self.direct_module:
+            # Lazy initialize module if needed
+            if not self._module_initialized:
+                if hasattr(self.direct_module, 'initialize'):
+                    try:
+                        await self.direct_module.initialize()
+                        self._module_initialized = True
+                    except Exception as e:
+                        logger.warning(f"⚠️  Failed to initialize STT module: {e}")
+                        if self.session:
+                            return await self._transcribe_http(audio_data, sample_rate, language)
+                        raise
+            
+            try:
+                result = await self.direct_module.transcribe(audio_data, sample_rate, language)
+                return result if isinstance(result, dict) else {"text": str(result)}
+            except Exception as e:
+                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
+                if self.session:
+                    return await self._transcribe_http(audio_data, sample_rate, language)
+                raise
+        
+        # HTTP fallback (only if module not available)
+        if self.session:
+            return await self._transcribe_http(audio_data, sample_rate, language)
+        
+        raise ServiceClientError("STT module not available and no HTTP session")
+    
+    async def _transcribe_http(self, audio_data: bytes, sample_rate: int, language: Optional[str]) -> Dict[str, Any]:
+        """HTTP fallback for transcribe"""
         try:
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
             result = await self._post(
@@ -358,7 +387,30 @@ class ExternalTTSClient(BaseServiceClient):
         voice: Optional[str] = None,
         format: str = "wav"
     ) -> bytes:
-        """Synthesize text using external TTS service."""
+        """Synthesize text using TTS module (direct call)."""
+        # Use direct module call (module services always use direct calls)
+        if not self.direct_module:
+            raise ServiceClientError(f"TTS module not available (is_module_service={self.is_module_service})")
+        
+        # Lazy initialize module if needed
+        if not self._module_initialized:
+            if hasattr(self.direct_module, 'initialize'):
+                try:
+                    await self.direct_module.initialize()
+                    self._module_initialized = True
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize TTS module: {e}")
+                    raise ServiceClientError(f"TTS module initialization failed: {e}")
+        
+        try:
+            result = await self.direct_module.synthesize(text, voice_id=voice, format=format)
+            return result if isinstance(result, bytes) else bytes(result)
+        except Exception as e:
+            logger.error(f"❌ Direct module call failed: {e}")
+            raise ServiceClientError(f"TTS module call failed: {e}")
+    
+    async def _synthesize_http(self, text: str, voice: Optional[str], format: str) -> bytes:
+        """HTTP fallback for synthesize"""
         try:
             result = await self._post(
                 "/api/synthesize",

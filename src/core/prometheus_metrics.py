@@ -2,7 +2,6 @@
 Prometheus Metrics and Observability
 Provides metrics collection and Prometheus format export
 """
-import time
 import uuid
 from typing import Dict, Any, Optional, List
 from collections import defaultdict
@@ -170,7 +169,6 @@ class CorrelationIDMiddleware:
     @staticmethod
     async def add_correlation_id(request, call_next):
         """FastAPI middleware to add correlation ID"""
-        from fastapi import Request
         
         # Get or generate correlation ID
         correlation_id = request.headers.get("X-Correlation-ID")

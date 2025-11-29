@@ -32,12 +32,11 @@ Migration Guide:
 """
 
 import sys
-from typing import Optional, Any, Dict, Callable
+from typing import Optional, Any, Dict
 from pathlib import Path
 from loguru import logger as base_logger
 
 from .log_config import LogConfig, LogLevel, get_default_config, is_startup_message
-from .log_formatter import TraceFormatter
 
 # Global state
 _configured_services = set()

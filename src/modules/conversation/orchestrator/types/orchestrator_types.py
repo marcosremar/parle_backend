@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from enum import Enum
 
 # Type Aliases
 ServiceConfig = Dict[str, str]

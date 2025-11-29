@@ -2,8 +2,7 @@
 REST Polling Module - Direct Python calls for REST polling
 """
 
-from typing import Dict, Optional, Any
-from loguru import logger
+from typing import Dict, Any
 
 from src.modules.base_module import BaseModule
 from .service import RestPollingService

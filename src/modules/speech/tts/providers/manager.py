@@ -4,7 +4,6 @@ TTS Provider Manager
 
 from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
-from loguru import logger
 
 from .gtts import GTTSProvider
 from .huggingface import HuggingFaceTTSProvider

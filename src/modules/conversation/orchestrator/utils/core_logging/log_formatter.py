@@ -11,8 +11,15 @@ This module ensures all logs have consistent structure and formatting,
 making them easier to parse and analyze.
 """
 
-import json
-from typing import Dict, Any, Optional, Callable
+try:
+    import orjson as json
+    def json_dumps(obj, default=str):
+        return json.dumps(obj, default=default).decode('utf-8')
+except ImportError:
+    import json
+    def json_dumps(obj, default=str):
+        return json.dumps(obj, default=default)
+from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
 
@@ -128,7 +135,7 @@ class JSONFormatter(LogFormatter):
             **self.sanitize_value(kwargs)
         }
 
-        return json.dumps(log_entry, default=str)
+        return json_dumps(log_entry, default=str)
 
 
 class TraceFormatter(LogFormatter):
@@ -247,7 +254,7 @@ class TraceFormatter(LogFormatter):
         if self.include_span_id and span_id:
             log_entry['span_id'] = span_id
 
-        return json.dumps(log_entry, default=str)
+        return json_dumps(log_entry, default=str)
 
 
 class StructuredFormatter(LogFormatter):

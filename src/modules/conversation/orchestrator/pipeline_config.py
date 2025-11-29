@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Add project root to path to import ServiceRegistry
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from src.config.service_config import ServiceRegistry, ServiceType, get_service_port
+from src.config.service_config import ServiceType, get_service_port
 
 # Global Communication Manager (can be set by orchestrator service)
 comm_manager: Optional['ServiceCommunicationManager'] = None

@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import logging
 import numpy as np
 
-from ..constants import DEFAULT_SAMPLE_RATE, AUDIO_NORMALIZATION_DIVISOR, LLMProvider
+from ..constants import AUDIO_NORMALIZATION_DIVISOR, LLMProvider
 
 logger = logging.getLogger(__name__)
 

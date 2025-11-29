@@ -22,7 +22,7 @@ from typing import Dict, Optional, Any
 
 try:
     from opentelemetry import trace, context
-    from opentelemetry.propagate import inject, extract
+    from opentelemetry.propagate import extract
     from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:

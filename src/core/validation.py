@@ -5,7 +5,6 @@ Provides robust validation for audio, text, and other inputs
 import base64
 import re
 from typing import Optional, Tuple, List
-from pydantic import BaseModel, ValidationError, field_validator
 import logging
 
 logger = logging.getLogger(__name__)

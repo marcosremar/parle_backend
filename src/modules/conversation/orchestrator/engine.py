@@ -13,7 +13,6 @@ This is the brain of the system that:
 from __future__ import annotations
 
 import aiohttp
-import asyncio
 import logging
 import os
 from typing import TYPE_CHECKING, Dict, Any, Optional, List
@@ -28,8 +27,6 @@ sys.path.insert(0, str(project_root))
 
 from .clients import (
     create_service_clients,
-    LLMClient, TTSClient, STTClient, ExternalLLMClient,
-    SessionClient, ScenariosClient, ConversationStoreClient,
     ServiceClientError
 )
 from .fallback_manager import FallbackManager
@@ -41,34 +38,17 @@ from .constants import (
     DEFAULT_SAMPLE_RATE,
     AUDIO_INT16_MAX,
     AUDIO_INT16_MIN,
-    AUDIO_NORMALIZATION_DIVISOR,
     MINIMUM_AUDIO_DURATION_MS,
     MINIMUM_AUDIO_SAMPLES,
     MAXIMUM_AUDIO_SIZE_MB,
-    HIGH_CONFIDENCE_THRESHOLD,
-    DEFAULT_MASTERY_PROBABILITY,
-    DEFAULT_SYSTEM_PROMPT,
     DEFAULT_TEXT_SYSTEM_PROMPT,
     ContextType,
-    ServiceName,
-    LLMProvider,
     StatsKey,
-    ENV_MONOLITH_MODE,
     ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS,
-    DEFAULT_LLM_URL,
-    DEFAULT_TTS_URL,
-    DEFAULT_STT_URL,
     DEFAULT_EXTERNAL_ULTRAVOX_URL,
-    DEFAULT_SESSION_URL,
-    DEFAULT_SCENARIOS_URL,
     DEFAULT_CONVERSATION_STORE_URL,
     DEFAULT_CONVERSATION_HISTORY_URL,
-    ENV_LLM_SERVICE_URL,
-    ENV_TTS_SERVICE_URL,
-    ENV_STT_SERVICE_URL,
     ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL,
-    ENV_SESSION_SERVICE_URL,
-    ENV_SCENARIOS_SERVICE_URL,
     ENV_CONVERSATION_STORE_URL,
     ENV_CONVERSATION_HISTORY_URL,
 )
@@ -76,9 +56,6 @@ from .types import (
     ServiceConfig,
     StatsDict,
     HealthStatus,
-    TurnResponse,
-    TextConversationResponse,
-    StructuredTurnResponse,
 )
 
 if TYPE_CHECKING:
@@ -164,17 +141,11 @@ class ConversationOrchestrator:
             self._get_relevant_skills_func = None
 
     def _load_config_from_env(self) -> None:
-        """Load service URLs from environment variables (with Nomad service discovery support)"""
-        # Check if running in monolith mode
-        self.monolith_mode = os.getenv(ENV_MONOLITH_MODE, "false").lower() == "true"
-        
+        """Load service URLs from environment variables (only for external services)"""
+        # Note: Module services (llm, tts, stt, session, scenarios) use direct calls, no URLs needed
+        # Only external services need URLs
         env_mappings: Dict[str, tuple[str, str]] = {
-            "llm_url": (ENV_LLM_SERVICE_URL, DEFAULT_LLM_URL),
-            "tts_url": (ENV_TTS_SERVICE_URL, DEFAULT_TTS_URL),
-            "stt_url": (ENV_STT_SERVICE_URL, DEFAULT_STT_URL),
             "external_ultravox_url": (ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL, DEFAULT_EXTERNAL_ULTRAVOX_URL),
-            "session_url": (ENV_SESSION_SERVICE_URL, DEFAULT_SESSION_URL),
-            "scenarios_url": (ENV_SCENARIOS_SERVICE_URL, DEFAULT_SCENARIOS_URL),
             "conversation_store_url": (ENV_CONVERSATION_STORE_URL, DEFAULT_CONVERSATION_STORE_URL),
             "conversation_history_url": (ENV_CONVERSATION_HISTORY_URL, DEFAULT_CONVERSATION_HISTORY_URL)
         }
@@ -183,8 +154,7 @@ class ConversationOrchestrator:
             if key not in self.config:
                 self.config[key] = os.getenv(env_var, default)
         
-        if self.monolith_mode:
-            logger.info("🏗️  Orchestrator running in MONOLITH mode (direct module calls)")
+        logger.info("🏗️  Orchestrator using direct module calls (monolithic modular architecture)")
     
     def _get_relevant_skills_for_context(
         self,
@@ -282,21 +252,27 @@ class ConversationOrchestrator:
                 self.in_process_mode = False  # Disable in-process mode on error
 
         # ==========================================
-        # HTTP MODE: Initialize service clients
+        # Initialize service clients (direct calls for modules, HTTP for external services)
         # ==========================================
-        # Always create HTTP clients (needed for fallback even in in-process mode)
-        logger.info("🌐 Initializing HTTP service clients...")
+        logger.info("🔌 Initializing service clients...")
 
-        # Create shared HTTP session
-        self.http_session = aiohttp.ClientSession()
+        # Create shared HTTP session only for external HTTP services (not for module services)
+        from src.core.http_client import HTTPClient
+        self.http_session = await HTTPClient.get_session()
 
-        # Create all service clients (using HTTP directly, no communication manager)
-        # Note: create_service_clients only accepts optional config parameter
+        # Create all service clients
+        # Module services will use direct calls, external services will use HTTP
         self.clients = create_service_clients(self.config)
 
-        # Initialize each client with shared session
+        # Initialize each client
+        # Module services don't need HTTP session, external services do
         for name, client in self.clients.items():
-            await client.initialize(self.http_session)
+            if client.is_module_service:
+                # Module services use direct calls, no HTTP session needed
+                await client.initialize(None)
+            else:
+                # External services need HTTP session
+                await client.initialize(self.http_session)
 
         # Create fallback manager with 2-tier failover
         self.fallback_manager = FallbackManager(
@@ -624,7 +600,7 @@ class ConversationOrchestrator:
             self.stats_tracker.increment_total_turns()
 
         try:
-            print(f"[ORCHESTRATOR_ENGINE] 💬 Processing text conversation: session={session_id}, message={message[:50]}...", flush=True)
+            logger.debug(f"💬 Processing text conversation: session={session_id}, message={message[:50]}...")
             logger.info(f"💬 Processing text conversation: session={session_id}, message={message[:50]}...")
 
             # ==========================================
@@ -724,11 +700,11 @@ class ConversationOrchestrator:
             # ==========================================
             # STEP 2: Call LLM (Structured with validation OR simple text)
             # ==========================================
-            print(f"[DEBUG] Step 2: scenario_id={scenario_id}, session_data={session_data is not None}", flush=True)
+            logger.debug(f"Step 2: scenario_id={scenario_id}, session_data={session_data is not None}")
             validation_metrics = None
 
             # DEBUG: Log scenario_id and scenario_context existence
-            print(f"[DEBUG] Checking scenario_context in locals: {'scenario_context' in locals()}", flush=True)
+            logger.debug(f"Checking scenario_context in locals: {'scenario_context' in locals()}")
             logger.info(f"🔍 DEBUG: scenario_id={scenario_id}, scenario_context_exists={'scenario_context' in locals()}")
             if 'scenario_context' in locals():
                 logger.info(f"🔍 DEBUG: scenario_context keys={list(scenario_context.keys())}")
@@ -1595,11 +1571,13 @@ Próxima resposta:"""
         """
         Cleanup resources.
         
-        Closes HTTP session and cleans up any initialized clients.
+        Note: HTTP session is managed by HTTPClient singleton,
+        so we don't close it here to allow reuse.
         """
         logger.info("🧹 Cleaning up ConversationOrchestrator...")
-        if self.http_session:
-            await self.http_session.close()
+        # Don't close http_session - it's managed by HTTPClient singleton
+        # if self.http_session:
+        #     await self.http_session.close()
 
         # Cleanup structured LLM client
         if hasattr(self, 'structured_llm'):

@@ -3,11 +3,8 @@ File Storage Module - Direct Python calls for File storage
 """
 
 from typing import Dict, Optional, Any, List
-from pathlib import Path
-from loguru import logger
 
 from src.modules.base_module import BaseModule
-from .manager import FileStorageManager
 
 
 class FileStorageModule(BaseModule):
@@ -88,8 +85,8 @@ class FileStorageModule(BaseModule):
             if self.manager:
                 file_path = self.manager.download_file(file_id)
                 if file_path and file_path.exists():
-                    with open(file_path, 'rb') as f:
-                        return f.read()
+                    import asyncio
+                    return await asyncio.to_thread(lambda: open(file_path, 'rb').read())
                 return None
             else:
                 file_data = self._files.get(file_id)

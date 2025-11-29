@@ -8,7 +8,7 @@ import hashlib
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import HTTPException, UploadFile
 import aiofiles
 import mimetypes
@@ -33,6 +33,7 @@ class FileStorageManager:
         """Load file metadata from disk"""
         if self.metadata_file.exists():
             try:
+                import json
                 with open(self.metadata_file, 'r') as f:
                     self.file_metadata = json.load(f)
             except Exception as e:
