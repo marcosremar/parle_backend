@@ -178,14 +178,6 @@ class BaseServiceClient:
             raise ValueError(f"{self.service_name} requires HTTP session (not a module service)")
         self.session = session
         logger.info(f"✅ {self.service_name} client initialized with HTTP (max_retries={self.max_retries})")
-            # Module services don't need HTTP session
-            if self.direct_module:
-                logger.info(f"✅ {self.service_name} client initialized with direct module calls")
-            else:
-                # Fallback: if module creation failed, we might need HTTP
-                if session:
-                    self.session = session
-                    logger.warning(f"⚠️  {self.service_name} using HTTP fallback (module not available)")
 
     async def _retry_with_backoff(
         self,

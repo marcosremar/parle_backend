@@ -101,43 +101,13 @@ class ScenariosClient(BaseServiceClient):
     async def get_scenario(self, scenario_id: str) -> Optional[Dict[str, Any]]:
         """Get scenario configuration"""
         # Use direct module call (module services always use direct calls)
-        if self.direct_module:
-            # Lazy initialize module if needed
-            if not self._module_initialized:
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize scenarios module: {e}")
-                        # Fall back to HTTP if available
-                        if self.session:
-                            try:
-                                return await self._get(f"/api/scenarios/{scenario_id}")
-                            except ServiceClientError:
-                                return None
-                        raise
-            
-            try:
-                return await self.direct_module.get_scenario(scenario_id)
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                if self.session:
-                    try:
-                        return await self._get(f"/api/scenarios/{scenario_id}")
-                    except ServiceClientError:
-                        return None
-                raise
+        await self._ensure_module_initialized()
         
-        # HTTP fallback (only if module not available)
-        if self.session:
-            try:
-                return await self._get(f"/api/scenarios/{scenario_id}")
-            except ServiceClientError:
-                logger.warning(f"⚠️ Scenario {scenario_id} not found")
-                return None
-        
-        raise ServiceClientError("Scenarios module not available and no HTTP session")
+        try:
+            return await self.direct_module.get_scenario(scenario_id)
+        except Exception as e:
+            logger.error(f"❌ Direct module call failed: {e}")
+            raise ServiceClientError(f"Scenarios module call failed: {e}")
 
     async def validate_turn(
         self,

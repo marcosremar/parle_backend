@@ -317,33 +317,14 @@ class ExternalSTTClient(BaseServiceClient):
     async def transcribe(self, audio_data: bytes, sample_rate: int = 16000, language: Optional[str] = None) -> Dict[str, Any]:
         """Transcribe audio using STT module (direct call)."""
         # Use direct module call (module services always use direct calls)
-        if self.direct_module:
-            # Lazy initialize module if needed
-            if not self._module_initialized:
-                if hasattr(self.direct_module, 'initialize'):
-                    try:
-                        await self.direct_module.initialize()
-                        self._module_initialized = True
-                    except Exception as e:
-                        logger.warning(f"⚠️  Failed to initialize STT module: {e}")
-                        if self.session:
-                            return await self._transcribe_http(audio_data, sample_rate, language)
-                        raise
-            
-            try:
-                result = await self.direct_module.transcribe(audio_data, sample_rate, language)
-                return result if isinstance(result, dict) else {"text": str(result)}
-            except Exception as e:
-                logger.warning(f"⚠️  Direct module call failed: {e}, falling back to HTTP")
-                if self.session:
-                    return await self._transcribe_http(audio_data, sample_rate, language)
-                raise
+        await self._ensure_module_initialized()
         
-        # HTTP fallback (only if module not available)
-        if self.session:
-            return await self._transcribe_http(audio_data, sample_rate, language)
-        
-        raise ServiceClientError("STT module not available and no HTTP session")
+        try:
+            result = await self.direct_module.transcribe(audio_data, sample_rate, language)
+            return result if isinstance(result, dict) else {"text": str(result)}
+        except Exception as e:
+            logger.error(f"❌ Direct module call failed: {e}")
+            raise ServiceClientError(f"STT module call failed: {e}")
     
     async def _transcribe_http(self, audio_data: bytes, sample_rate: int, language: Optional[str]) -> Dict[str, Any]:
         """HTTP fallback for transcribe"""
