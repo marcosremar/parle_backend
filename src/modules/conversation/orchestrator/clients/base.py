@@ -278,13 +278,10 @@ class BaseServiceClient:
         timeout: Optional[float] = None
     ) -> Any:
         """Generic POST request using direct HTTP with retry logic"""
-        if not self.session:
-            raise ServiceClientError(f"{self.service_name}: Session not initialized")
-
+        self._require_session()
+        
         url = f"{self.base_url}{path}"
         timeout_value = timeout if timeout is not None else self.default_timeout
-        
-        self._require_session()
         
         async def _do_post():
             async with self.session.post(
