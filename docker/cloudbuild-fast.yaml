@@ -1,0 +1,83 @@
+# Cloud Build config otimizado para velocidade máxima
+# Usa máquinas maiores e cache agressivo
+
+steps:
+  # Build com máquina maior e cache
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '--cache-from'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest'
+      - '--build-arg'
+      - 'BUILDKIT_INLINE_CACHE=1'
+      - '-f'
+      - '${_DOCKERFILE_PATH}'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest'
+      - '.'
+    waitFor: ['-']
+
+  # Push com tags
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}'
+    waitFor: ['build-image']
+
+  # Deploy no Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-service'
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$SHORT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '300'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+    waitFor: ['push-image']
+
+# Opções de build
+options:
+  # Máquina maior = build mais rápido
+  machineType: 'E2_HIGHCPU_8'  # 8 vCPUs, mais rápido
+  # Pool de workers para paralelização
+  pool:
+    name: 'projects/$PROJECT_ID/locations/${_REGION}/workerPools/default'
+  
+  # Timeout maior para builds pesados
+  logging: CLOUD_LOGGING_ONLY
+  
+  # Substituições
+substitutions:
+  _SERVICE_NAME: 'parle-backend'
+  _REGION: 'us-central1'
+  _DOCKERFILE_PATH: 'docker/Dockerfile.fast'
+
+# Timeout
+timeout: '1800s'  # 30 minutos
+
+# Imagens
+images:
+  - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest'

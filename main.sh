@@ -60,6 +60,7 @@ show_help() {
     echo -e "  ${CYAN}benchmark${NC}                Executar testes de performance"
     echo -e "  ${CYAN}deploy${NC}                   Configurar deploy para produção"
     echo -e "  ${CYAN}deploy:gcp${NC}               Fazer deploy no Google Cloud (Cloud Run)"
+    echo -e "  ${CYAN}deploy:gcp:fast${NC}           Deploy rápido no GCP (máquina maior, 5-8 min)"
     echo -e "  ${CYAN}clean${NC}                    Limpar arquivos temporários"
     echo ""
     echo -e "  ${CYAN}docker-up${NC}                Iniciar projeto com Docker (produção)"
@@ -1466,6 +1467,7 @@ cmd_deploy_gcp() {
         # Ou passar como variável de ambiente
         export PARLE_BACKEND_ROOT="$PROJECT_DIR"
         export PARLE_BACKEND_DOCKERFILE="$project_dockerfile"
+        export USE_FAST_BUILD="false"  # Padrão: build normal
         
         # Executar deploy
         python3 test_gcp.py 2>&1 | tee /tmp/gcp_deploy.log
@@ -1583,6 +1585,9 @@ main() {
         ;;
     deploy:gcp)
         cmd_deploy_gcp
+        ;;
+    deploy:gcp:fast)
+        cmd_deploy_gcp_fast
         ;;
     start:linguistic)
         cmd_start_linguistic

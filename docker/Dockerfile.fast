@@ -1,0 +1,140 @@
+# Dockerfile Otimizado para Build Rápido
+# Usa estratégias avançadas de cache e build paralelo
+
+# ============================================================================
+# Stage 1: Builder com cache otimizado
+# ============================================================================
+FROM python:3.11-slim as builder
+
+# Build arguments
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION=1.0.0
+
+# Instalar apenas dependências de build essenciais
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copiar requirements primeiro (melhor cache)
+COPY requirements.txt .
+
+# Estratégia: Instalar dependências em camadas para melhor cache
+# 1. Dependências leves primeiro (cache mais estável)
+# 2. Dependências pesadas depois (menos frequentes mudanças)
+
+# Upgrade pip com cache
+RUN pip install --upgrade --no-cache-dir pip setuptools wheel
+
+# Instalar dependências base (mais estáveis)
+RUN pip install --no-cache-dir --user \
+    fastapi==0.104.1 \
+    uvicorn[standard]==0.24.0 \
+    pydantic>=2.6.0 \
+    pydantic-settings>=2.0.0 \
+    python-multipart==0.0.9 \
+    aiohttp>=3.9.1 \
+    httpx>=0.25.0 \
+    requests>=2.31.0 \
+    loguru>=0.7.2 \
+    python-json-logger>=2.0.0 \
+    prometheus-client>=0.22.0 \
+    redis>=5.0.0 \
+    sqlalchemy>=2.0.23 \
+    aiosqlite>=0.19.0 \
+    PyJWT>=2.8.0 \
+    passlib[bcrypt]>=1.7.4 \
+    pyyaml>=6.0.0 \
+    msgpack>=1.0.5 \
+    jinja2>=3.1.2 \
+    orjson>=3.9.0 \
+    slowapi>=0.1.9 \
+    pytest>=7.4.0 \
+    pytest-asyncio>=0.21.0
+
+# Instalar dependências pesadas (ML/AI) - menos frequentes mudanças
+RUN pip install --no-cache-dir --user \
+    numpy>=1.24.3 \
+    cryptography>=41.0.0 \
+    b2sdk>=1.20.0 \
+    aiofiles>=23.0.0 \
+    psutil>=5.9.0 \
+    websockets>=12.0 \
+    urllib3>=2.5.0
+
+# Instalar dependências ML (mais pesadas, compilação longa)
+RUN pip install --no-cache-dir --user \
+    torch>=2.0.0 \
+    torchaudio>=2.1.0 \
+    transformers>=4.35.2 \
+    soundfile>=0.12.1 \
+    librosa>=0.10.1 \
+    spacy>=3.7.0 \
+    sentence-transformers>=2.2.2 \
+    scikit-learn>=1.3.2 \
+    python-Levenshtein>=0.23.0
+
+# Instalar providers e serviços
+RUN pip install --no-cache-dir --user \
+    elevenlabs>=2.23.0 \
+    huggingface_hub>=0.26.2 \
+    gtts>=2.5.0 \
+    openai>=1.3.0 \
+    litellm>=1.0.0 \
+    viberbot>=1.0.12 \
+    pydub>=0.25.1 \
+    ffmpeg-python>=0.2.0 \
+    Pillow>=10.0.0
+
+# ============================================================================
+# Stage 2: Runtime otimizado
+# ============================================================================
+FROM python:3.11-slim
+
+LABEL maintainer="Parle Team" \
+      org.opencontainers.image.title="Parle Backend" \
+      org.opencontainers.image.description="Parle Backend - Sistema de conversação multimodal" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}"
+
+# Instalar apenas runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Criar usuário não-root
+RUN useradd -m -u 1000 parle && \
+    mkdir -p /app /app/logs && \
+    chown -R parle:parle /app
+
+WORKDIR /app
+
+# Copiar pacotes Python do builder
+COPY --from=builder /root/.local /home/parle/.local
+
+# Copiar código da aplicação (último para melhor cache)
+COPY --chown=parle:parle . .
+
+# Variáveis de ambiente
+ENV PATH=/home/parle/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    ENVIRONMENT=production \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+USER parle
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
