@@ -7,7 +7,7 @@ Clients for API Gateway and other gateway services.
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, List
+from typing import Any
 
 from .base import BaseServiceClient, ServiceClientError
 
@@ -23,25 +23,25 @@ class APIGatewayClient(BaseServiceClient):
     async def register_route(self, route: str, service: str, endpoint: str) -> bool:
         """
         Register route in API Gateway.
-        
+
         Args:
             route: Route path
             service: Service name
             endpoint: Endpoint URL
-            
+
         Returns:
             True if registration successful
         """
         try:
             await self._post(
                 "/api/routes/register",
-                json_data={"route": route, "service": service, "endpoint": endpoint}
+                json_data={"route": route, "service": service, "endpoint": endpoint},
             )
             return True
         except ServiceClientError:
             return False
 
-    async def get_routes(self) -> List[Dict[str, Any]]:
+    async def get_routes(self) -> list[dict[str, Any]]:
         """Get all registered routes"""
         try:
             result = await self._get("/api/routes")

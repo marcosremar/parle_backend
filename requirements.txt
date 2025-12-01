@@ -1,14 +1,15 @@
 # Parle Backend - Unified Requirements
-# Python 3.11+ (Monolith Modular Architecture)
+# Python 3.10+ (Monolith Modular Architecture)
+# Versões fixadas (pinned) para produção
 
 # ============================================================================
 # Core Framework
 # ============================================================================
-fastapi>=0.104.1
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-pydantic-settings>=2.0.0
-python-multipart>=0.0.9
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.0.0
+python-multipart==0.0.9
 
 # ============================================================================
 # HTTP Clients & Communication
@@ -16,6 +17,7 @@ python-multipart>=0.0.9
 aiohttp>=3.9.1
 httpx>=0.25.0
 requests>=2.31.0
+urllib3>=2.5.0  # Security fix for GHSA-48p4-8xcf-vxj5 and GHSA-pq67-6m6q-mj2v
 websockets>=12.0
 
 # ============================================================================
@@ -91,11 +93,11 @@ Pillow>=10.0.0
 jinja2>=3.1.2
 
 # ============================================================================
-# Inter-service Communication (Legacy - will be removed)
+# Inter-service Communication (Legacy - REMOVED)
 # ============================================================================
-pyzmq>=25.0.0
-grpcio>=1.76.0
-protobuf>=6.31.1
+# pyzmq>=25.0.0  # REMOVED - não utilizado
+# grpcio>=1.76.0  # REMOVED - não utilizado
+# protobuf>=6.31.1  # REMOVED - não utilizado
 
 # ============================================================================
 # Testing

@@ -12,67 +12,66 @@ This is the brain of the system that:
 
 from __future__ import annotations
 
-import aiohttp
+import base64
 import logging
 import os
-from typing import TYPE_CHECKING, Dict, Any, Optional, List
-import sys
 from pathlib import Path
+import sys
 import time
-import base64
+from typing import TYPE_CHECKING, Any
+
+import aiohttp
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from .clients import (
-    create_service_clients,
-    ServiceClientError
-)
-from .fallback_manager import FallbackManager
-from .talkers import TalkerFactory, AbstractTalker, Talker
-from .process_turn_with_talker import process_turn_with_talker
-from .engines import StatsTracker, HealthChecker, KnowledgeAnalyzer, ContextLoader, TurnProcessor
+from .clients import ServiceClientError, create_service_clients
 from .constants import (
-    VALID_SKILLS_CACHE_TTL_SECONDS,
-    DEFAULT_SAMPLE_RATE,
     AUDIO_INT16_MAX,
     AUDIO_INT16_MIN,
+    DEFAULT_CONVERSATION_HISTORY_URL,
+    DEFAULT_CONVERSATION_STORE_URL,
+    DEFAULT_EXTERNAL_ULTRAVOX_URL,
+    DEFAULT_SAMPLE_RATE,
+    DEFAULT_TEXT_SYSTEM_PROMPT,
+    ENV_CONVERSATION_HISTORY_URL,
+    ENV_CONVERSATION_STORE_URL,
+    ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL,
+    ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS,
+    HEURISTIC_ANALYSIS_CONFIDENCE,
+    HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS,
+    HEURISTIC_CONFUSION_DETECTION_THRESHOLD,
+    HEURISTIC_DEFAULT_ESTIMATED_TURNS,
+    HEURISTIC_FALLBACK_CONFIDENCE,
+    HEURISTIC_LONG_RESPONSE_THRESHOLD,
+    HEURISTIC_PROMPT_PREFIX_TRUNCATE_LENGTH,
+    HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD,
+    HEURISTIC_SHORT_RESPONSE_ESTIMATED_TURNS,
+    HEURISTIC_SHORT_RESPONSE_THRESHOLD,
+    MAXIMUM_AUDIO_SIZE_MB,
     MINIMUM_AUDIO_DURATION_MS,
     MINIMUM_AUDIO_SAMPLES,
-    MAXIMUM_AUDIO_SIZE_MB,
-    DEFAULT_TEXT_SYSTEM_PROMPT,
+    VALID_SKILLS_CACHE_TTL_SECONDS,
     ContextType,
     StatsKey,
-    ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS,
-    DEFAULT_EXTERNAL_ULTRAVOX_URL,
-    DEFAULT_CONVERSATION_STORE_URL,
-    DEFAULT_CONVERSATION_HISTORY_URL,
-    ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL,
-    ENV_CONVERSATION_STORE_URL,
-    ENV_CONVERSATION_HISTORY_URL,
-    HEURISTIC_SHORT_RESPONSE_THRESHOLD,
-    HEURISTIC_LONG_RESPONSE_THRESHOLD,
-    HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD,
-    HEURISTIC_CONFUSION_DETECTION_THRESHOLD,
-    HEURISTIC_ANALYSIS_CONFIDENCE,
-    HEURISTIC_FALLBACK_CONFIDENCE,
-    HEURISTIC_DEFAULT_ESTIMATED_TURNS,
-    HEURISTIC_SHORT_RESPONSE_ESTIMATED_TURNS,
-    HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS,
-    HEURISTIC_PROMPT_PREFIX_TRUNCATE_LENGTH,
 )
+from .engines import ContextLoader, HealthChecker, KnowledgeAnalyzer, StatsTracker, TurnProcessor
+from .fallback_manager import FallbackManager
+from .process_turn_with_talker import process_turn_with_talker
+from .talkers import AbstractTalker, TalkerFactory
 from .types import (
+    HealthStatus,
     ServiceConfig,
     StatsDict,
-    HealthStatus,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
     from src.core.shared.models.response_models import (
-        ConversationAnalysis,
         AdaptiveInstructions,
+        ConversationAnalysis,
         ErrorCorrection,
     )
 
@@ -90,13 +89,13 @@ class ConversationOrchestrator:
     4. Track session state
     5. Save conversation history
     """
-    
+
     # Cache para valid_skills (evita recalcular a cada turno)
-    _valid_skills_cache: Optional[List[str]] = None
-    _valid_skills_cache_timestamp: Optional[float] = None
+    _valid_skills_cache: list[str] | None = None
+    _valid_skills_cache_timestamp: float | None = None
     _valid_skills_cache_ttl: float = VALID_SKILLS_CACHE_TTL_SECONDS
 
-    def __init__(self, config: Optional[ServiceConfig] = None) -> None:
+    def __init__(self, config: ServiceConfig | None = None) -> None:
         """
         Initialize orchestrator with service clients
 
@@ -108,32 +107,37 @@ class ConversationOrchestrator:
         self._load_config_from_env()
 
         # Service clients (will be initialized later)
-        self.clients: Dict[str, Any] = {}
-        self.http_session: Optional[aiohttp.ClientSession] = None
+        self.clients: dict[str, Any] = {}
+        self.http_session: aiohttp.ClientSession | None = None
 
         # Fallback manager (will be initialized later)
-        self.fallback_manager: Optional[FallbackManager] = None
+        self.fallback_manager: FallbackManager | None = None
 
         # Talker abstraction (will be initialized later)
-        self.talker: Optional[AbstractTalker] = None
+        self.talker: AbstractTalker | None = None
 
         # Engines (will be initialized later)
-        self.stats_tracker: Optional[StatsTracker] = None
-        self.health_checker: Optional[HealthChecker] = None
-        self.knowledge_analyzer: Optional[KnowledgeAnalyzer] = None
-        self.context_loader: Optional[ContextLoader] = None
-        self.turn_processor: Optional[TurnProcessor] = None
-
+        self.stats_tracker: StatsTracker | None = None
+        self.health_checker: HealthChecker | None = None
+        self.knowledge_analyzer: KnowledgeAnalyzer | None = None
+        self.context_loader: ContextLoader | None = None
+        self.turn_processor: TurnProcessor | None = None
 
         logger.info("🏗️ ConversationOrchestrator created - Mode: HTTP (cloud APIs)")
-        
+
         # Import get_skill_difficulty once (for use in loops)
-        self._get_skill_difficulty: Optional[Callable[[str], Optional[float]]] = None
-        self._get_relevant_skills_func: Optional[Callable[[str, str, str], List[str]]] = None
+        self._get_skill_difficulty: Callable[[str], float | None] | None = None
+        self._get_relevant_skills_func: Callable[[str, str, str], list[str]] | None = None
         try:
-            from src.modules.tutoring.student_model.skill_registry import get_skill_difficulty, get_relevant_skills_for_context
+            from src.modules.tutoring.student_model.skill_registry import (
+                get_relevant_skills_for_context,
+                get_skill_difficulty,
+            )
+
             self._get_skill_difficulty = get_skill_difficulty
-            self._get_relevant_skills_func = get_relevant_skills_for_context  # Renamed to avoid conflict
+            self._get_relevant_skills_func = (
+                get_relevant_skills_for_context  # Renamed to avoid conflict
+            )
         except ImportError:
             # Fallback: skill registry not available
             logger.warning("⚠️  Skill registry not available, using fallback functions")
@@ -148,57 +152,66 @@ class ConversationOrchestrator:
         """Load service URLs from environment variables (only for external services)"""
         # Note: Module services (llm, tts, stt, session, scenarios) use direct calls, no URLs needed
         # Only external services need URLs
-        env_mappings: Dict[str, tuple[str, str]] = {
-            "external_ultravox_url": (ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL, DEFAULT_EXTERNAL_ULTRAVOX_URL),
+        env_mappings: dict[str, tuple[str, str]] = {
+            "external_ultravox_url": (
+                ENV_ORCHESTRATOR_EXTERNAL_ULTRAVOX_URL,
+                DEFAULT_EXTERNAL_ULTRAVOX_URL,
+            ),
             "conversation_store_url": (ENV_CONVERSATION_STORE_URL, DEFAULT_CONVERSATION_STORE_URL),
-            "conversation_history_url": (ENV_CONVERSATION_HISTORY_URL, DEFAULT_CONVERSATION_HISTORY_URL)
+            "conversation_history_url": (
+                ENV_CONVERSATION_HISTORY_URL,
+                DEFAULT_CONVERSATION_HISTORY_URL,
+            ),
         }
 
         for key, (env_var, default) in env_mappings.items():
             if key not in self.config:
                 self.config[key] = os.getenv(env_var, default)
-        
+
         logger.info("🏗️  Orchestrator using direct module calls (monolithic modular architecture)")
-    
+
     def _get_relevant_skills_for_context(
         self,
         user_text: str,
         cefr_level: str,
         context_type: str = ContextType.PRODUCTION,
-        force_refresh: bool = False
-    ) -> List[str]:
+        force_refresh: bool = False,
+    ) -> list[str]:
         """
         Get relevant skills for context with caching
-        
+
         Args:
             user_text: Texto do aluno
             cefr_level: Nível CEFR atual
             context_type: Tipo de contexto ("production", "comprehension", "interaction")
             force_refresh: Forçar atualização do cache
-            
+
         Returns:
             Lista filtrada de skill_ids relevantes
         """
         # Se temos a função importada, usar ela
         if self._get_relevant_skills_func:
             return self._get_relevant_skills_func(user_text, cefr_level, context_type)
-        
+
         # Fallback: usar cache simples de todas as skills
         current_time = time.time()
-        
-        if (not force_refresh and 
-            self._valid_skills_cache is not None and 
-            self._valid_skills_cache_timestamp is not None and
-            current_time - self._valid_skills_cache_timestamp < self._valid_skills_cache_ttl):
+
+        if (
+            not force_refresh
+            and self._valid_skills_cache is not None
+            and self._valid_skills_cache_timestamp is not None
+            and current_time - self._valid_skills_cache_timestamp < self._valid_skills_cache_ttl
+        ):
             return self._valid_skills_cache
-        
+
         # Recalcular cache
         try:
             from src.modules.tutoring.student_model.skill_registry import SKILL_CEFR_MAP
+
             valid_skills = []
             for level_skills in SKILL_CEFR_MAP.values():
                 valid_skills.extend(level_skills)
-            
+
             self._valid_skills_cache = valid_skills
             self._valid_skills_cache_timestamp = current_time
             return valid_skills
@@ -209,9 +222,9 @@ class ConversationOrchestrator:
     async def initialize(self) -> None:
         """
         Initialize HTTP session and all service clients.
-        
+
         Must be called before processing any requests.
-        
+
         Raises:
             Exception: If initialization fails critically
         """
@@ -224,6 +237,7 @@ class ConversationOrchestrator:
 
         # Create shared HTTP session only for external HTTP services (not for module services)
         from src.core.http_client import HTTPClient
+
         self.http_session = await HTTPClient.get_session()
 
         # Create all service clients
@@ -242,16 +256,14 @@ class ConversationOrchestrator:
 
         # Create fallback manager with 2-tier failover
         self.fallback_manager = FallbackManager(
-            primary_llm=self.clients["llm"],
-            secondary_llm=self.clients["external_ultravox"]
+            primary_llm=self.clients["llm"], secondary_llm=self.clients["external_ultravox"]
         )
 
         # Initialize engines
         self.stats_tracker = StatsTracker()
         self.health_checker = HealthChecker(self.clients)
         self.knowledge_analyzer = KnowledgeAnalyzer(
-            self.clients,
-            get_skill_difficulty=self._get_skill_difficulty
+            self.clients, get_skill_difficulty=self._get_skill_difficulty
         )
         self.context_loader = ContextLoader(self.clients)
         self.turn_processor = TurnProcessor(
@@ -260,11 +272,13 @@ class ConversationOrchestrator:
             context_loader=self.context_loader,
             knowledge_analyzer=self.knowledge_analyzer,
             stats_tracker=self.stats_tracker,
-            get_relevant_skills_func=self._get_relevant_skills_func
+            get_relevant_skills_func=self._get_relevant_skills_func,
         )
 
         # Health check all services (skip if ORCHESTRATOR_SKIP_HEALTH_CHECKS is set)
-        skip_health_checks = os.getenv(ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS, "false").lower() == "true"
+        skip_health_checks = (
+            os.getenv(ENV_ORCHESTRATOR_SKIP_HEALTH_CHECKS, "false").lower() == "true"
+        )
         if not skip_health_checks:
             await self._health_check_services()
         else:
@@ -279,9 +293,7 @@ class ConversationOrchestrator:
         logger.info("🎯 Creating Talker (conversation pipeline abstraction)...")
         try:
             # Create Talker (all services are external, no GPU needed)
-            self.talker = await TalkerFactory.create_talker(
-                service_clients=self.clients
-            )
+            self.talker = await TalkerFactory.create_talker(service_clients=self.clients)
 
             logger.info(f"✅ Talker ready: {self.talker.name}")
 
@@ -295,7 +307,7 @@ class ConversationOrchestrator:
     async def _health_check_services(self) -> HealthStatus:
         """
         Check health of all downstream services.
-        
+
         Returns:
             Dictionary mapping service names to health status (bool)
         """
@@ -321,7 +333,7 @@ class ConversationOrchestrator:
     async def _run_profile_warmup(self) -> None:
         """
         Run profile-aware warmup for all services.
-        
+
         Note: Currently skipped as services are independent.
         Each service handles its own warmup if needed.
         """
@@ -332,9 +344,9 @@ class ConversationOrchestrator:
         audio_data: bytes,
         session_id: str,
         sample_rate: int = DEFAULT_SAMPLE_RATE,
-        voice_id: Optional[str] = None,
-        force_external_llm: bool = False
-    ) -> Dict[str, Any]:
+        voice_id: str | None = None,
+        force_external_llm: bool = False,
+    ) -> dict[str, Any]:
         """
         Process complete conversation turn - THE MAIN ORCHESTRATION METHOD
 
@@ -369,7 +381,7 @@ class ConversationOrchestrator:
                 session_id=session_id,
                 sample_rate=sample_rate,
                 voice_id=voice_id,
-                force_external_llm=force_external_llm
+                force_external_llm=force_external_llm,
             )
             return result
 
@@ -378,7 +390,7 @@ class ConversationOrchestrator:
             "TurnProcessor not initialized. Call initialize() before processing turns."
         )
 
-    def _format_conversation_history(self, messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    def _format_conversation_history(self, messages: list[dict[str, Any]]) -> list[dict[str, str]]:
         """
         Format conversation history for LLM context
 
@@ -397,18 +409,14 @@ class ConversationOrchestrator:
         return formatted
 
     async def _analyze_and_update_knowledge(
-        self,
-        user_id: str,
-        target_skill: Dict[str, Any],
-        user_text: str,
-        ai_text: str
+        self, user_id: str, target_skill: dict[str, Any], user_text: str, ai_text: str
     ) -> None:
         """
         Background task: Analyze turn and update student knowledge.
-        
+
         This runs asynchronously after the main response is sent,
         so it doesn't block the conversation flow.
-        
+
         Args:
             user_id: User ID
             target_skill: Target skill being practiced
@@ -417,10 +425,7 @@ class ConversationOrchestrator:
         """
         if self.knowledge_analyzer:
             await self.knowledge_analyzer.analyze_and_update_knowledge(
-                user_id=user_id,
-                target_skill=target_skill,
-                user_text=user_text,
-                ai_text=ai_text
+                user_id=user_id, target_skill=target_skill, user_text=user_text, ai_text=ai_text
             )
         else:
             logger.warning("KnowledgeAnalyzer not initialized, skipping knowledge update")
@@ -428,7 +433,7 @@ class ConversationOrchestrator:
     async def get_services_health(self) -> HealthStatus:
         """
         Get health status of all services.
-        
+
         Returns:
             Dictionary mapping service names to health status (bool)
         """
@@ -437,7 +442,7 @@ class ConversationOrchestrator:
     async def get_fallback_health(self) -> HealthStatus:
         """
         Get health status of LLM failover components.
-        
+
         Returns:
             Dictionary mapping component names to health status (bool)
         """
@@ -454,7 +459,7 @@ class ConversationOrchestrator:
         """
         if not self.stats_tracker:
             return {}
-        
+
         stats = self.stats_tracker.get_stats()
         avg_time = self.stats_tracker.get_average_processing_time_ms() / 1000
         success_rate = self.stats_tracker.get_success_rate()
@@ -465,14 +470,13 @@ class ConversationOrchestrator:
             "average_processing_time_ms": int(avg_time * 1000),
             "success_rate": success_rate,
             "primary_llm_rate": primary_llm_rate,
-
             # Controller Integration Metrics
             "controller_integration": {
                 "entry_points": [
                     "API Gateway (POST /process) - port 8888",
                     "WebRTC (POST /process) - port 8020",
                     "WebSocket (Socket.IO audio event) - port 8022",
-                    "REST Polling (POST /api/session/{id}/audio) - port 8600"
+                    "REST Polling (POST /api/session/{id}/audio) - port 8600",
                 ],
                 "controller_type": "ConversationController",
                 "validation_format": "Ultravox LLM Format",
@@ -480,10 +484,9 @@ class ConversationOrchestrator:
                     "audio_format": "Base64 encoded int16 PCM",
                     "sample_rate": f"{DEFAULT_SAMPLE_RATE} Hz (recommended)",
                     "minimum_duration": f"{MINIMUM_AUDIO_DURATION_MS}ms ({MINIMUM_AUDIO_SAMPLES} samples @ 16kHz)",
-                    "maximum_size": f"{MAXIMUM_AUDIO_SIZE_MB} MB"
-                }
+                    "maximum_size": f"{MAXIMUM_AUDIO_SIZE_MB} MB",
+                },
             },
-
             # Data Flow Documentation
             "data_flow": {
                 "description": "Audio data transformation pipeline",
@@ -496,17 +499,16 @@ class ConversationOrchestrator:
                     "6. Ultravox LLM: Processes numpy array with <|audio|> placeholder",
                     "7. Ultravox LLM: Returns text transcript + AI response",
                     "8. TTS: Converts AI text → audio bytes",
-                    "9. Response: Returns {transcript, text, audio} to client"
+                    "9. Response: Returns {transcript, text, audio} to client",
                 ],
-                "critical_note": "Controllers ONLY validate format. Audio conversion happens in Orchestrator."
+                "critical_note": "Controllers ONLY validate format. Audio conversion happens in Orchestrator.",
             },
-
             # Backend Mode Info
             "backend_mode": {
                 "mode": "HTTP (cloud APIs)",
                 "in_process_enabled": False,
-                "http_fallback_calls": stats.get(StatsKey.HTTP_FALLBACK_COUNT, 0)
-            }
+                "http_fallback_calls": stats.get(StatsKey.HTTP_FALLBACK_COUNT, 0),
+            },
         }
 
     def reset_stats(self) -> None:
@@ -519,9 +521,9 @@ class ConversationOrchestrator:
         self,
         message: str,
         session_id: str,
-        voice_id: Optional[str] = None,
-        scenario_id_override: Optional[str] = None
-    ) -> Dict[str, Any]:
+        voice_id: str | None = None,
+        scenario_id_override: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process text conversation with optional audio output
 
@@ -549,8 +551,12 @@ class ConversationOrchestrator:
             self.stats_tracker.increment_total_turns()
 
         try:
-            logger.debug(f"💬 Processing text conversation: session={session_id}, message={message[:50]}...")
-            logger.info(f"💬 Processing text conversation: session={session_id}, message={message[:50]}...")
+            logger.debug(
+                f"💬 Processing text conversation: session={session_id}, message={message[:50]}..."
+            )
+            logger.info(
+                f"💬 Processing text conversation: session={session_id}, message={message[:50]}..."
+            )
 
             # ==========================================
             # STEP 1: Get Session and Scenario Context
@@ -583,7 +589,7 @@ class ConversationOrchestrator:
                             "ai_role": scenario_data.get("ai_role", "assistant"),
                             "user_role": scenario_data.get("user_role", "user"),
                             "language": scenario_data.get("language", "pt-BR"),
-                            "system_prompt": base_system_prompt
+                            "system_prompt": base_system_prompt,
                         }
 
                         # Use system prompt (structured validation will happen in LLM call)
@@ -591,13 +597,16 @@ class ConversationOrchestrator:
 
                 # Get conversation history for context
                 if conversation_id:
-                    messages = await self.clients["conversation_store"].get_context(
-                        conversation_id,
-                        limit=10
-                    )
-                    # Convert to format expected by LLM
-                    conversation_history = self._format_conversation_history(messages)
-                    logger.info(f"📚 Loaded {len(messages)} previous messages for context")
+                    try:
+                        messages = await self.clients["conversation_store"].get_context(
+                            conversation_id, limit=10
+                        )
+                        # Convert to format expected by LLM
+                        conversation_history = self._format_conversation_history(messages)
+                        logger.info(f"📚 Loaded {len(messages)} previous messages for context")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to get conversation context: {e}, continuing without history")
+                        conversation_history = []
 
             else:
                 # Session not found - use scenario_id_override if provided
@@ -612,15 +621,16 @@ class ConversationOrchestrator:
 
                     # Try to create new session (optional service)
                     session_result = await self.clients["session"].create_session(
-                        conversation_id=conversation_id,
-                        session_id=session_id
+                        conversation_id=conversation_id, session_id=session_id
                     )
                     created_session_id = session_result.get("id")
                     logger.info(f"✅ Created new session: {created_session_id}")
 
                 except Exception as e:
                     # Session/Conversation services are optional - continue without them
-                    logger.warning(f"⚠️  Session/Conversation services unavailable - continuing without history")
+                    logger.warning(
+                        "⚠️  Session/Conversation services unavailable - continuing without history"
+                    )
                     logger.debug(f"   Error details: {e}")
                     # Continue without conversation_id - won't save history but conversation will still work
 
@@ -631,7 +641,9 @@ class ConversationOrchestrator:
                     logger.info(f"🔍 DEBUG: scenario_data (no session) = {scenario_data}")
                     if scenario_data:
                         base_system_prompt = scenario_data.get("system_prompt")
-                        logger.info(f"📝 Using scenario (no session): {scenario_data.get('name', scenario_id)}")
+                        logger.info(
+                            f"📝 Using scenario (no session): {scenario_data.get('name', scenario_id)}"
+                        )
 
                         # Build scenario context for structured LLM
                         scenario_context = {
@@ -640,7 +652,7 @@ class ConversationOrchestrator:
                             "ai_role": scenario_data.get("ai_role", "assistant"),
                             "user_role": scenario_data.get("user_role", "user"),
                             "language": scenario_data.get("language", "pt-BR"),
-                            "system_prompt": base_system_prompt
+                            "system_prompt": base_system_prompt,
                         }
 
                         # Use system prompt (structured validation will happen in LLM call)
@@ -649,23 +661,28 @@ class ConversationOrchestrator:
             # ==========================================
             # STEP 2: Call LLM (Structured with validation OR simple text)
             # ==========================================
-            logger.debug(f"Step 2: scenario_id={scenario_id}, session_data={session_data is not None}")
+            logger.debug(
+                f"Step 2: scenario_id={scenario_id}, session_data={session_data is not None}"
+            )
             validation_metrics = None
 
             # DEBUG: Log scenario_id and scenario_context existence
             logger.debug(f"Checking scenario_context in locals: {'scenario_context' in locals()}")
-            logger.info(f"🔍 DEBUG: scenario_id={scenario_id}, scenario_context_exists={'scenario_context' in locals()}")
-            if 'scenario_context' in locals():
+            logger.info(
+                f"🔍 DEBUG: scenario_id={scenario_id}, scenario_context_exists={'scenario_context' in locals()}"
+            )
+            if "scenario_context" in locals():
                 logger.info(f"🔍 DEBUG: scenario_context keys={list(scenario_context.keys())}")
 
             # If scenario exists, use structured LLM (validation + response in one call)
-            if scenario_id and 'scenario_context' in locals():
+            if scenario_id and "scenario_context" in locals():
                 try:
                     logger.info("🤖 Using structured LLM (validation + response in single call)...")
 
                     # Initialize structured LLM client (lazy init)
-                    if not hasattr(self, 'structured_llm'):
+                    if not hasattr(self, "structured_llm"):
                         from .structured_llm_client import StructuredLLMClient
+
                         self.structured_llm = StructuredLLMClient()
                         await self.structured_llm.initialize(self.http_session)
 
@@ -673,7 +690,7 @@ class ConversationOrchestrator:
                     validated_response = await self.structured_llm.generate_with_validation(
                         user_message=message,
                         scenario_context=scenario_context,
-                        conversation_history=conversation_history
+                        conversation_history=conversation_history,
                     )
 
                     # Extract text response and validation
@@ -684,7 +701,7 @@ class ConversationOrchestrator:
                         "should_redirect": validated_response.validation.should_redirect,
                         "found_topics": validated_response.validation.found_topics,
                         "missing_topics": validated_response.validation.missing_topics,
-                        "reason": validated_response.validation.reason
+                        "reason": validated_response.validation.reason,
                     }
 
                     logger.info(
@@ -703,7 +720,7 @@ class ConversationOrchestrator:
                     text_response = await self.clients["llm"].generate(
                         text=message,
                         system_prompt=system_prompt,
-                        conversation_history=conversation_history
+                        conversation_history=conversation_history,
                     )
                     logger.info(f"🤖 LLM response (fallback): {text_response[:100]}...")
                     if self.stats_tracker:
@@ -716,7 +733,7 @@ class ConversationOrchestrator:
                     text_response = await self.clients["llm"].generate(
                         text=message,
                         system_prompt=system_prompt,
-                        conversation_history=conversation_history
+                        conversation_history=conversation_history,
                     )
 
                     logger.info(f"🤖 LLM response: {text_response[:100]}...")
@@ -729,9 +746,9 @@ class ConversationOrchestrator:
                         self.stats_tracker.increment_failed_turns()
                     return {
                         "success": False,
-                        "error": f"LLM processing failed: {str(e)}",
+                        "error": f"LLM processing failed: {e!s}",
                         "response": "",
-                        "session_id": session_id
+                        "session_id": session_id,
                     }
 
             # ==========================================
@@ -748,36 +765,38 @@ class ConversationOrchestrator:
                         voice_id=voice_id,
                         speed=1.0,
                         sample_rate=24000,
-                        format="opus"
+                        format="opus",
                     )
 
                     # Convert to base64 for JSON transport
-                    audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-                    logger.info(f"✅ Audio (local TTS) generated: {len(audio_bytes)} bytes → {len(audio_base64)} base64 chars")
+                    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+                    logger.info(
+                        f"✅ Audio (local TTS) generated: {len(audio_bytes)} bytes → {len(audio_base64)} base64 chars"
+                    )
 
                 except ServiceClientError as e:
-                    logger.warning(f"⚠️  Local TTS service unavailable - trying external TTS")
+                    logger.warning("⚠️  Local TTS service unavailable - trying external TTS")
                     logger.debug(f"   Local TTS error: {e}")
 
                     # Fallback to external TTS (HuggingFace)
                     try:
                         audio_bytes = await self.clients["tts"].synthesize(
-                            text=text_response,
-                            voice="af_heart",
-                            format="wav"
+                            text=text_response, voice="af_heart", format="wav"
                         )
 
                         # Convert to base64 for JSON transport
-                        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-                        logger.info(f"✅ Audio (external TTS) generated: {len(audio_bytes)} bytes → {len(audio_base64)} base64 chars")
+                        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+                        logger.info(
+                            f"✅ Audio (external TTS) generated: {len(audio_bytes)} bytes → {len(audio_base64)} base64 chars"
+                        )
 
                     except ServiceClientError as e2:
-                        logger.warning(f"⚠️  External TTS also failed - continuing without audio")
+                        logger.warning("⚠️  External TTS also failed - continuing without audio")
                         logger.debug(f"   External TTS error: {e2}")
                         # Continue without audio - don't fail the whole request
 
                 except Exception as e:
-                    logger.warning(f"⚠️  TTS service unavailable - continuing without audio")
+                    logger.warning("⚠️  TTS service unavailable - continuing without audio")
                     logger.debug(f"   TTS error: {e}")
                     # Continue without audio
 
@@ -791,7 +810,7 @@ class ConversationOrchestrator:
                         user_audio=None,  # No audio in text mode
                         user_text=message,
                         ai_text=text_response,
-                        ai_audio=None  # No audio in text mode
+                        ai_audio=None,  # No audio in text mode
                     )
                     logger.info(f"💾 Turn saved to conversation {conversation_id}")
                 except ServiceClientError as e:
@@ -815,10 +834,7 @@ class ConversationOrchestrator:
                 "audio": audio_base64,  # Opus 24kHz base64 encoded (if voice_id provided)
                 "context_size": len(conversation_history),
                 "messages_count": messages_count,
-                "metrics": {
-                    "processing_time_ms": processing_time * 1000,
-                    "timestamp": time.time()
-                }
+                "metrics": {"processing_time_ms": processing_time * 1000, "timestamp": time.time()},
             }
 
             # Add validation metrics if available (from structured LLM)
@@ -834,9 +850,9 @@ class ConversationOrchestrator:
                 self.stats_tracker.increment_failed_turns()
             return {
                 "success": False,
-                "error": f"Internal error: {str(e)}",
+                "error": f"Internal error: {e!s}",
                 "response": "",
-                "session_id": session_id
+                "session_id": session_id,
             }
 
     async def process_turn_structured(
@@ -844,8 +860,8 @@ class ConversationOrchestrator:
         audio_data: bytes,
         session_id: str,
         sample_rate: int = DEFAULT_SAMPLE_RATE,
-        voice_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        voice_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process conversation turn with STRUCTURED VALIDATION (Pydantic)
 
@@ -881,7 +897,9 @@ class ConversationOrchestrator:
             self.stats_tracker.increment_total_turns()
 
         try:
-            logger.info(f"🎤 Processing structured turn: session={session_id}, audio={len(audio_data)} bytes")
+            logger.info(
+                f"🎤 Processing structured turn: session={session_id}, audio={len(audio_data)} bytes"
+            )
 
             # ==========================================
             # STEP 1: STT (External Groq Whisper)
@@ -890,19 +908,14 @@ class ConversationOrchestrator:
 
             try:
                 transcribed_text = await self.clients["stt"].transcribe(
-                    audio_data=audio_data,
-                    language="pt"  # or auto-detect from scenario
+                    audio_data=audio_data, language="pt"  # or auto-detect from scenario
                 )
                 logger.info(f"✅ Transcribed: {transcribed_text[:100]}...")
             except ServiceClientError as e:
                 logger.error(f"❌ STT failed: {e}")
                 if self.stats_tracker:
                     self.stats_tracker.increment_failed_turns()
-                return {
-                    "success": False,
-                    "error": f"STT failed: {e}",
-                    "session_id": session_id
-                }
+                return {"success": False, "error": f"STT failed: {e}", "session_id": session_id}
 
             # ==========================================
             # STEP 2: Get Scenario Context
@@ -924,7 +937,7 @@ class ConversationOrchestrator:
                         "ai_role": scenario_data.get("ai_role", "assistant"),
                         "user_role": scenario_data.get("user_role", "user"),
                         "language": scenario_data.get("language", "pt-BR"),
-                        "system_prompt": scenario_data.get("system_prompt", "")
+                        "system_prompt": scenario_data.get("system_prompt", ""),
                     }
                     logger.info(f"📝 Using scenario: {scenario_data.get('name')}")
             else:
@@ -935,7 +948,7 @@ class ConversationOrchestrator:
                     "ai_role": "helpful assistant",
                     "user_role": "user",
                     "language": "pt-BR",
-                    "system_prompt": "You are a helpful AI assistant."
+                    "system_prompt": "You are a helpful AI assistant.",
                 }
 
             # Get conversation history
@@ -952,8 +965,9 @@ class ConversationOrchestrator:
             logger.info("🤖 Calling structured LLM (validation + generation in one call)...")
 
             # Initialize structured LLM client (lazy init)
-            if not hasattr(self, 'structured_llm'):
+            if not hasattr(self, "structured_llm"):
                 from .structured_llm_client import StructuredLLMClient
+
                 self.structured_llm = StructuredLLMClient()
                 await self.structured_llm.initialize(self.http_session)
 
@@ -962,7 +976,7 @@ class ConversationOrchestrator:
                 validated_response = await self.structured_llm.generate_with_validation(
                     user_message=transcribed_text,
                     scenario_context=scenario_context,
-                    conversation_history=conversation_history
+                    conversation_history=conversation_history,
                 )
 
                 # Extract fields (typed, no parsing!)
@@ -987,7 +1001,7 @@ class ConversationOrchestrator:
                 return {
                     "success": False,
                     "error": f"LLM processing failed: {e}",
-                    "session_id": session_id
+                    "session_id": session_id,
                 }
 
             # ==========================================
@@ -998,8 +1012,7 @@ class ConversationOrchestrator:
             audio_response = None
             try:
                 audio_response = await self.clients["tts"].synthesize(
-                    text=assistant_text,
-                    voice_id=voice_id
+                    text=assistant_text, voice_id=voice_id
                 )
                 logger.info(f"✅ TTS generated: {len(audio_response)} bytes")
             except ServiceClientError as e:
@@ -1008,9 +1021,7 @@ class ConversationOrchestrator:
                 # Fallback to external TTS
                 try:
                     audio_response = await self.clients["external_tts"].synthesize(
-                        text=assistant_text,
-                        voice="af_heart",
-                        format="wav"
+                        text=assistant_text, voice="af_heart", format="wav"
                     )
                     logger.info(f"✅ External TTS generated: {len(audio_response)} bytes")
                 except ServiceClientError as e2:
@@ -1027,7 +1038,7 @@ class ConversationOrchestrator:
                         user_audio=audio_data,
                         user_text=transcribed_text,
                         ai_text=assistant_text,
-                        ai_audio=audio_response
+                        ai_audio=audio_response,
                     )
                     logger.info(f"💾 Turn saved to conversation {conversation_id}")
                 except Exception as e:
@@ -1046,8 +1057,8 @@ class ConversationOrchestrator:
                             "in_scope": validation.in_scope,
                             "should_redirect": validation.should_redirect,
                             "found_topics": validation.found_topics,
-                            "validated_at": datetime.now(timezone.utc).isoformat()
-                        }
+                            "validated_at": datetime.now(timezone.utc).isoformat(),
+                        },
                     )
                     logger.info("📊 Scenario state updated")
                 except Exception as e:
@@ -1074,21 +1085,21 @@ class ConversationOrchestrator:
                     "should_redirect": validation.should_redirect,
                     "found_topics": validation.found_topics,
                     "missing_topics": validation.missing_topics,
-                    "reason": validation.reason
+                    "reason": validation.reason,
                 },
                 "metadata": {
                     "sentiment": metadata.sentiment if metadata else None,
                     "intent": metadata.intent if metadata else None,
                     "language_quality": metadata.language_quality if metadata else None,
-                    "confidence": metadata.confidence if metadata else None
+                    "confidence": metadata.confidence if metadata else None,
                 },
                 "metrics": {
                     "processing_time_ms": int(processing_time * 1000),
                     "stt_provider": "external_groq",
                     "llm_provider": "structured_groq_pydantic",
                     "tts_provider": "http_service",
-                    "has_audio": audio_response is not None
-                }
+                    "has_audio": audio_response is not None,
+                },
             }
 
         except Exception as e:
@@ -1097,8 +1108,8 @@ class ConversationOrchestrator:
                 self.stats_tracker.increment_failed_turns()
             return {
                 "success": False,
-                "error": f"Orchestration failed: {str(e)}",
-                "session_id": session_id
+                "error": f"Orchestration failed: {e!s}",
+                "session_id": session_id,
             }
 
     async def process_turn_with_talker(
@@ -1106,8 +1117,8 @@ class ConversationOrchestrator:
         audio_data: bytes,
         session_id: str,
         sample_rate: int = DEFAULT_SAMPLE_RATE,
-        voice_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        voice_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process conversation turn using Talker abstraction (SIMPLIFIED VERSION)
 
@@ -1124,9 +1135,7 @@ class ConversationOrchestrator:
         Returns:
             Dict with success, text, audio, transcript, talker, and metrics
         """
-        return await process_turn_with_talker(
-            self, audio_data, session_id, sample_rate, voice_id
-        )
+        return await process_turn_with_talker(self, audio_data, session_id, sample_rate, voice_id)
 
     # ============================================================================
     # STREAMING METHODS WITH ADAPTIVE PARAMETERS (Phase 2: Streaming JSON)
@@ -1137,7 +1146,7 @@ class ConversationOrchestrator:
         audio_data: bytes,
         session_id: str,
         sample_rate: int = DEFAULT_SAMPLE_RATE,
-        voice_id: Optional[str] = None
+        voice_id: str | None = None,
     ):
         """
         Process conversation turn with streaming JSON output and adaptive parameters.
@@ -1184,8 +1193,7 @@ class ConversationOrchestrator:
             if conversation_id:
                 try:
                     messages = await self.clients["conversation_store"].get_context(
-                        conversation_id,
-                        limit=5
+                        conversation_id, limit=5
                     )
                     conversation_history = self._format_conversation_history(messages)
                 except Exception as e:
@@ -1206,7 +1214,7 @@ class ConversationOrchestrator:
                     event="error",
                     sequence=sequence,
                     data={"error": "Speech-to-text failed", "details": str(e)},
-                    is_final=True
+                    is_final=True,
                 )
                 return
 
@@ -1217,47 +1225,39 @@ class ConversationOrchestrator:
             llm_start = time.time()
 
             async for text_chunk in self._stream_llm_response(
-                user_transcript,
-                conversation_history,
-                session_data
+                user_transcript, conversation_history, session_data
             ):
                 llm_text_buffer += text_chunk
                 sequence += 1
 
                 # Yield text chunk
                 yield StreamingJSONEvent(
-                    event="text_chunk",
-                    sequence=sequence,
-                    data=text_chunk,
-                    timestamp=time.time()
+                    event="text_chunk", sequence=sequence, data=text_chunk, timestamp=time.time()
                 )
 
             llm_duration = time.time() - llm_start
-            logger.info(f"✅ LLM: Generated {len(llm_text_buffer)} chars ({llm_duration*1000:.0f}ms)")
+            logger.info(
+                f"✅ LLM: Generated {len(llm_text_buffer)} chars ({llm_duration*1000:.0f}ms)"
+            )
 
             # ==========================================
             # STEP 4: Analyze response (async, in-parallel)
             # ==========================================
-            analysis = await self._generate_analysis(
-                user_transcript,
-                llm_text_buffer
-            )
+            analysis = await self._generate_analysis(user_transcript, llm_text_buffer)
             sequence += 1
 
             yield StreamingJSONEvent(
                 event="analysis",
                 sequence=sequence,
                 data=analysis.model_dump(),
-                timestamp=time.time()
+                timestamp=time.time(),
             )
 
             # ==========================================
             # STEP 5: Generate adaptive instructions
             # ==========================================
             adaptive_instructions = await self._generate_adaptive_instructions(
-                user_transcript,
-                llm_text_buffer,
-                analysis
+                user_transcript, llm_text_buffer, analysis
             )
             sequence += 1
 
@@ -1265,23 +1265,20 @@ class ConversationOrchestrator:
                 event="adaptive_instructions",
                 sequence=sequence,
                 data=adaptive_instructions.model_dump(),
-                timestamp=time.time()
+                timestamp=time.time(),
             )
 
             # ==========================================
             # STEP 6: Error correction detection
             # ==========================================
-            error_correction = await self._detect_error_patterns(
-                user_transcript,
-                llm_text_buffer
-            )
+            error_correction = await self._detect_error_patterns(user_transcript, llm_text_buffer)
             if error_correction.correction_needed or error_correction.pattern_detected:
                 sequence += 1
                 yield StreamingJSONEvent(
                     event="error_correction",
                     sequence=sequence,
                     data=error_correction.model_dump(),
-                    timestamp=time.time()
+                    timestamp=time.time(),
                 )
 
             # ==========================================
@@ -1298,10 +1295,10 @@ class ConversationOrchestrator:
                     "transcript": user_transcript,
                     "response": llm_text_buffer,
                     "total_time_ms": int(total_time * 1000),
-                    "session_id": session_id
+                    "session_id": session_id,
                 },
                 timestamp=time.time(),
-                is_final=True
+                is_final=True,
             )
 
             logger.info(f"✅ Streaming turn complete ({total_time*1000:.0f}ms total)")
@@ -1315,14 +1312,11 @@ class ConversationOrchestrator:
                 sequence=sequence,
                 data={"error": str(e)},
                 timestamp=time.time(),
-                is_final=True
+                is_final=True,
             )
 
     async def _stream_llm_response(
-        self,
-        user_input: str,
-        history: List[Dict[str, Any]],
-        session_data: Dict[str, Any]
+        self, user_input: str, history: list[dict[str, Any]], session_data: dict[str, Any]
     ) -> Any:  # Generator type would be AsyncGenerator[str, None] but keeping Any for compatibility
         """
         Stream LLM response as chunks.
@@ -1349,9 +1343,9 @@ class ConversationOrchestrator:
 
         except Exception as e:
             logger.error(f"❌ LLM streaming error: {e}")
-            yield f"[Erro no LLM: {str(e)}]"
+            yield f"[Erro no LLM: {e!s}]"
 
-    async def _generate_analysis(self, user_input: str, llm_output: str) -> "ConversationAnalysis":
+    async def _generate_analysis(self, user_input: str, llm_output: str) -> ConversationAnalysis:
         """
         Generate ConversationAnalysis metadata from response.
 
@@ -1379,7 +1373,7 @@ class ConversationOrchestrator:
                 "transportation": ["táxi", "uber", "transporte", "ônibus", "carro", "car"],
                 "weather": ["tempo", "chuva", "sol", "temperatura"],
                 "food": ["comida", "restaurante", "pizza", "café"],
-                "travel": ["viagem", "hotel", "passagem", "destino"]
+                "travel": ["viagem", "hotel", "passagem", "destino"],
             }
 
             for theme_key, keywords in theme_keywords.items():
@@ -1398,7 +1392,7 @@ class ConversationOrchestrator:
                 response_type=response_type,
                 theme=theme,
                 tone=tone,
-                confidence=HEURISTIC_ANALYSIS_CONFIDENCE
+                confidence=HEURISTIC_ANALYSIS_CONFIDENCE,
             )
 
         except Exception as e:
@@ -1409,15 +1403,12 @@ class ConversationOrchestrator:
                 response_type="other",
                 theme="general",
                 tone="helpful",
-                confidence=HEURISTIC_FALLBACK_CONFIDENCE
+                confidence=HEURISTIC_FALLBACK_CONFIDENCE,
             )
 
     async def _generate_adaptive_instructions(
-        self,
-        user_input: str,
-        llm_output: str,
-        analysis: "ConversationAnalysis"
-    ) -> "AdaptiveInstructions":
+        self, user_input: str, llm_output: str, analysis: ConversationAnalysis
+    ) -> AdaptiveInstructions:
         """
         Generate AdaptiveInstructions for next LLM response.
 
@@ -1444,7 +1435,9 @@ class ConversationOrchestrator:
             if len(llm_output) > HEURISTIC_LONG_RESPONSE_THRESHOLD:
                 estimated_turns = HEURISTIC_SHORT_RESPONSE_ESTIMATED_TURNS  # Long response, likely nearing resolution
             elif len(user_input) > HEURISTIC_LONG_RESPONSE_THRESHOLD:
-                estimated_turns = HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS  # Complex question, might need more
+                estimated_turns = (
+                    HEURISTIC_COMPLEX_QUESTION_ESTIMATED_TURNS  # Complex question, might need more
+                )
 
             # Generate prefix for next prompt
             next_prompt_prefix = f"""Usuário anterior perguntou: {user_input[:HEURISTIC_PROMPT_PREFIX_TRUNCATE_LENGTH]}...
@@ -1457,9 +1450,11 @@ Próxima resposta:"""
             return AdaptiveInstructions(
                 next_prompt_prefix=next_prompt_prefix,
                 tone_adjustment="maintain_current",
-                verbosity="medium" if len(llm_output) > HEURISTIC_LONG_RESPONSE_THRESHOLD else "concise",
+                verbosity=(
+                    "medium" if len(llm_output) > HEURISTIC_LONG_RESPONSE_THRESHOLD else "concise"
+                ),
                 expected_next_topics=expected_topics,
-                estimated_turns_remaining=estimated_turns
+                estimated_turns_remaining=estimated_turns,
             )
 
         except Exception as e:
@@ -1471,10 +1466,10 @@ Próxima resposta:"""
                 tone_adjustment="maintain_current",
                 verbosity="medium",
                 expected_next_topics=["clarification"],
-                estimated_turns_remaining=HEURISTIC_DEFAULT_ESTIMATED_TURNS
+                estimated_turns_remaining=HEURISTIC_DEFAULT_ESTIMATED_TURNS,
             )
 
-    async def _detect_error_patterns(self, user_input: str, llm_output: str) -> "ErrorCorrection":
+    async def _detect_error_patterns(self, user_input: str, llm_output: str) -> ErrorCorrection:
         """
         Detect common error patterns and suggest corrections.
 
@@ -1490,7 +1485,10 @@ Próxima resposta:"""
             suggested_clarification = None
 
             # Detect location format errors
-            if "location" in user_input.lower() and len(llm_output) < HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD:
+            if (
+                "location" in user_input.lower()
+                and len(llm_output) < HEURISTIC_SHORT_LLM_OUTPUT_THRESHOLD
+            ):
                 pattern_detected = "location_format_error"
                 suggested_clarification = "Pode detalhar o endereço? (rua, número, bairro)"
 
@@ -1504,22 +1502,19 @@ Próxima resposta:"""
                 pattern_detected=pattern_detected,
                 suggested_clarification=suggested_clarification,
                 correction_needed=pattern_detected is not None,
-                correction_urgency="medium" if pattern_detected else "low"
+                correction_urgency="medium" if pattern_detected else "low",
             )
 
         except Exception as e:
             logger.error(f"⚠️ Error pattern detection failed: {e}")
             from src.core.shared.models.response_models import ErrorCorrection
 
-            return ErrorCorrection(
-                pattern_detected=None,
-                correction_needed=False
-            )
+            return ErrorCorrection(pattern_detected=None, correction_needed=False)
 
     async def cleanup(self) -> None:
         """
         Cleanup resources.
-        
+
         Note: HTTP session is managed by HTTPClient singleton,
         so we don't close it here to allow reuse.
         """
@@ -1529,7 +1524,7 @@ Próxima resposta:"""
         #     await self.http_session.close()
 
         # Cleanup structured LLM client
-        if hasattr(self, 'structured_llm'):
+        if hasattr(self, "structured_llm"):
             await self.structured_llm.cleanup()
 
         # Cleanup Talker

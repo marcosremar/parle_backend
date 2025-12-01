@@ -2,49 +2,55 @@
 Rest Polling Module - Direct Python calls for Rest polling
 """
 
-from typing import Dict, Any
+from typing import Any
 
 from src.modules.base_module import BaseModule
 
 
 class RestPollingModule(BaseModule):
     """Rest Polling Module for direct Python calls"""
-    
+
     def __init__(self):
         super().__init__("rest_polling")
         self.service = None
-    
+
     async def _initialize(self) -> bool:
         """Initialize rest polling service"""
         try:
             # Import from local module
-            from .rest_polling.service import RestPollingService
-            from src.core.unified_context import ServiceContext
             from src.core.communication.facade import ServiceCommunicationManager
-            
+            from src.core.unified_context import ServiceContext
+
+            from .rest_polling.service import RestPollingService
+
             # Create minimal ServiceContext
             try:
                 comm = ServiceCommunicationManager()
             except (ImportError, AttributeError, ValueError) as e:
                 # Fallback mock communication manager
                 self.logger.warning(f"ServiceCommunicationManager not available: {e}, using mock")
+
                 class MockComm:
-                    def get_service_url(self, service_name): return None
-                    def send_request(self, *args, **kwargs): return None
+                    def get_service_url(self, service_name):
+                        return None
+
+                    def send_request(self, *args, **kwargs):
+                        return None
+
                 comm = MockComm()
-            
+
             config = {"name": "rest_polling", "port": 8700}
             context = ServiceContext.create(
                 service_name="rest_polling",
                 comm=comm,
                 config=config,
                 profile="standalone",
-                execution_mode="external"
+                execution_mode="external",
             )
-            
+
             self.service = RestPollingService(config=config, context=context)
             success = await self.service.initialize()
-            
+
             if success:
                 self.logger.info("✅ Rest Polling Module initialized")
                 return True
@@ -56,12 +62,12 @@ class RestPollingModule(BaseModule):
             # Fallback: service not available but module can still exist
             self.service = None
             return True
-    
-    async def health_check(self) -> Dict[str, Any]:
+
+    async def health_check(self) -> dict[str, Any]:
         """Health check"""
         if not self.initialized:
             await self.initialize()
-        
+
         try:
             if self.service:
                 return await self.service.health_check()
@@ -69,12 +75,8 @@ class RestPollingModule(BaseModule):
                 return {
                     "status": "degraded",
                     "service": "rest_polling",
-                    "message": "Service not available"
+                    "message": "Service not available",
                 }
         except Exception as e:
             self.logger.error(f"❌ Health check failed: {e}")
-            return {
-                "status": "unhealthy",
-                "service": "rest_polling",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "service": "rest_polling", "error": str(e)}

@@ -24,11 +24,11 @@ Use cases:
 - Compliance tracking (GDPR, HIPAA, etc.)
 """
 
-import json
-from enum import Enum
-from typing import Optional, Dict, Any
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
+from typing import Any
+
 from loguru import logger as base_logger
 
 from .log_config import get_logs_dir
@@ -36,6 +36,7 @@ from .log_config import get_logs_dir
 
 class AuditEventType(str, Enum):
     """Audit event types for classification"""
+
     # Authentication events
     LOGIN = "login"
     LOGOUT = "logout"
@@ -82,10 +83,7 @@ class AuditLogger:
     """
 
     def __init__(
-        self,
-        service_name: str,
-        logs_dir: Optional[Path] = None,
-        retention: str = "365 days"
+        self, service_name: str, logs_dir: Path | None = None, retention: str = "365 days"
     ):
         """
         Initialize audit logger
@@ -116,20 +114,20 @@ class AuditLogger:
             compression="zip",
             serialize=True,  # JSON format
             enqueue=True,  # Thread-safe
-            filter=lambda record: record["extra"].get("audit") is True
+            filter=lambda record: record["extra"].get("audit") is True,
         )
 
     def _log_event(
         self,
         event_type: AuditEventType,
         message: str,
-        user_id: Optional[str] = None,
-        resource: Optional[str] = None,
-        action: Optional[str] = None,
+        user_id: str | None = None,
+        resource: str | None = None,
+        action: str | None = None,
         result: str = "success",
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        **extra_context
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        **extra_context,
     ) -> None:
         """
         Log audit event
@@ -146,11 +144,11 @@ class AuditLogger:
             **extra_context: Additional context
         """
         audit_event = {
-            "timestamp": datetime.now(timezone.utc).isoformat() + 'Z',
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "service": self.service_name,
             "event_type": event_type.value,
             "message": message,
-            "result": result
+            "result": result,
         }
 
         # Add optional fields
@@ -176,9 +174,11 @@ class AuditLogger:
         # Log with audit marker
         try:
             import orjson as json
-            json_str = json.dumps(audit_event).decode('utf-8')
+
+            json_str = json.dumps(audit_event).decode("utf-8")
         except ImportError:
             import json
+
             json_str = json.dumps(audit_event)
         base_logger.bind(audit=True).info(json_str)
 
@@ -186,8 +186,8 @@ class AuditLogger:
         self,
         message: str,
         event_type: AuditEventType = AuditEventType.SECURITY_ALERT,
-        user_id: Optional[str] = None,
-        **context
+        user_id: str | None = None,
+        **context,
     ) -> None:
         """
         Log security event
@@ -198,20 +198,15 @@ class AuditLogger:
             user_id: User involved (if applicable)
             **context: Additional context
         """
-        self._log_event(
-            event_type=event_type,
-            message=message,
-            user_id=user_id,
-            **context
-        )
+        self._log_event(event_type=event_type, message=message, user_id=user_id, **context)
 
     def log_access_event(
         self,
         action: str,
         resource: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         result: str = "success",
-        **context
+        **context,
     ) -> None:
         """
         Log data access event
@@ -238,16 +233,16 @@ class AuditLogger:
             resource=resource,
             action=action,
             result=result,
-            **context
+            **context,
         )
 
     def log_auth_event(
         self,
         event_type: AuditEventType,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         result: str = "success",
-        ip_address: Optional[str] = None,
-        **context
+        ip_address: str | None = None,
+        **context,
     ) -> None:
         """
         Log authentication/authorization event
@@ -275,17 +270,17 @@ class AuditLogger:
             user_id=user_id,
             result=result,
             ip_address=ip_address,
-            **context
+            **context,
         )
 
     def log_data_change(
         self,
         resource: str,
         action: str,
-        user_id: Optional[str] = None,
-        old_value: Optional[Any] = None,
-        new_value: Optional[Any] = None,
-        **context
+        user_id: str | None = None,
+        old_value: Any | None = None,
+        new_value: Any | None = None,
+        **context,
     ) -> None:
         """
         Log data change event with before/after values
@@ -306,16 +301,11 @@ class AuditLogger:
         if new_value is not None:
             change_context["new_value"] = str(new_value)
 
-        self.log_access_event(
-            action=action,
-            resource=resource,
-            user_id=user_id,
-            **change_context
-        )
+        self.log_access_event(action=action, resource=resource, user_id=user_id, **change_context)
 
 
 # Singleton instance per service
-_audit_loggers: Dict[str, AuditLogger] = {}
+_audit_loggers: dict[str, AuditLogger] = {}
 
 
 def get_audit_logger(service_name: str) -> AuditLogger:
@@ -346,10 +336,7 @@ def get_audit_logger(service_name: str) -> AuditLogger:
 
 # Convenience functions for common audit events
 def log_security_event(
-    service_name: str,
-    message: str,
-    user_id: Optional[str] = None,
-    **context
+    service_name: str, message: str, user_id: str | None = None, **context
 ) -> None:
     """
     Quick function to log security event
@@ -365,11 +352,7 @@ def log_security_event(
 
 
 def log_access_event(
-    service_name: str,
-    action: str,
-    resource: str,
-    user_id: Optional[str] = None,
-    **context
+    service_name: str, action: str, resource: str, user_id: str | None = None, **context
 ) -> None:
     """
     Quick function to log access event
@@ -389,10 +372,10 @@ def log_data_change(
     service_name: str,
     resource: str,
     action: str,
-    user_id: Optional[str] = None,
-    old_value: Optional[Any] = None,
-    new_value: Optional[Any] = None,
-    **context
+    user_id: str | None = None,
+    old_value: Any | None = None,
+    new_value: Any | None = None,
+    **context,
 ) -> None:
     """
     Quick function to log data change
@@ -408,8 +391,5 @@ def log_data_change(
     """
     audit = get_audit_logger(service_name)
     audit.log_data_change(
-        resource, action, user_id,
-        old_value=old_value,
-        new_value=new_value,
-        **context
+        resource, action, user_id, old_value=old_value, new_value=new_value, **context
     )

@@ -7,31 +7,32 @@ All data structures and type aliases are defined here for type safety.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Type Aliases
-ServiceConfig = Dict[str, str]
-StatsDict = Dict[str, Any]
-HealthStatus = Dict[str, bool]
+ServiceConfig = dict[str, str]
+StatsDict = dict[str, Any]
+HealthStatus = dict[str, bool]
 
 
 @dataclass
 class TurnResponse:
     """Response from process_turn() method"""
-    success: bool
-    text: Optional[str] = None
-    audio: Optional[bytes] = None
-    transcript: Optional[str] = None
-    session_id: Optional[str] = None
-    llm_used: Optional[str] = None
-    voice_id: Optional[str] = None
-    circuit_state: Optional[Dict[str, Any]] = None
-    metrics: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    success: bool
+    text: str | None = None
+    audio: bytes | None = None
+    transcript: str | None = None
+    session_id: str | None = None
+    llm_used: str | None = None
+    voice_id: str | None = None
+    circuit_state: dict[str, Any] | None = None
+    metrics: dict[str, Any] | None = None
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses"""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "success": self.success,
         }
         if self.text is not None:
@@ -58,19 +59,20 @@ class TurnResponse:
 @dataclass
 class TextConversationResponse:
     """Response from process_text_conversation() method"""
-    success: bool
-    response: Optional[str] = None
-    session_id: Optional[str] = None
-    audio: Optional[str] = None  # base64 encoded
-    context_size: Optional[int] = None
-    messages_count: Optional[int] = None
-    metrics: Optional[Dict[str, Any]] = None
-    validation: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    success: bool
+    response: str | None = None
+    session_id: str | None = None
+    audio: str | None = None  # base64 encoded
+    context_size: int | None = None
+    messages_count: int | None = None
+    metrics: dict[str, Any] | None = None
+    validation: dict[str, Any] | None = None
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses"""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "success": self.success,
         }
         if self.response is not None:
@@ -95,20 +97,21 @@ class TextConversationResponse:
 @dataclass
 class StructuredTurnResponse:
     """Response from process_turn_structured() method"""
-    success: bool
-    text: Optional[str] = None
-    audio: Optional[bytes] = None
-    transcript: Optional[str] = None
-    session_id: Optional[str] = None
-    voice_id: Optional[str] = None
-    validation: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
-    metrics: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    success: bool
+    text: str | None = None
+    audio: bytes | None = None
+    transcript: str | None = None
+    session_id: str | None = None
+    voice_id: str | None = None
+    validation: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+    metrics: dict[str, Any] | None = None
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses"""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "success": self.success,
         }
         if self.text is not None:
@@ -135,78 +138,86 @@ class StructuredTurnResponse:
 @dataclass
 class SessionData:
     """Session data structure"""
+
     session_id: str
-    conversation_id: Optional[str] = None
-    scenario_id: Optional[str] = None
-    user_id: Optional[str] = None
-    voice_id: Optional[str] = None
+    conversation_id: str | None = None
+    scenario_id: str | None = None
+    user_id: str | None = None
+    voice_id: str | None = None
 
 
 @dataclass
 class ScenarioData:
     """Scenario data structure"""
+
     scenario_id: str
-    name: Optional[str] = None
-    system_prompt: Optional[str] = None
-    type: Optional[str] = None
-    expected_topics: List[str] = field(default_factory=list)
-    ai_role: Optional[str] = None
-    user_role: Optional[str] = None
-    language: Optional[str] = None
+    name: str | None = None
+    system_prompt: str | None = None
+    type: str | None = None
+    expected_topics: list[str] = field(default_factory=list)
+    ai_role: str | None = None
+    user_role: str | None = None
+    language: str | None = None
 
 
 @dataclass
 class ConversationHistory:
     """Conversation history structure"""
-    messages: List[Dict[str, Any]] = field(default_factory=list)
-    conversation_id: Optional[str] = None
+
+    messages: list[dict[str, Any]] = field(default_factory=list)
+    conversation_id: str | None = None
 
 
 @dataclass
 class StudentCEFRProgress:
     """Student CEFR progress data"""
+
     user_id: str
-    current_level: Optional[str] = None
-    current_estimated_level: Optional[str] = None
-    cefr_details: Dict[str, Any] = field(default_factory=dict)
+    current_level: str | None = None
+    current_estimated_level: str | None = None
+    cefr_details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class TargetSkill:
     """Target skill data"""
-    skill_id: Optional[str] = None
-    skill_name: Optional[str] = None
+
+    skill_id: str | None = None
+    skill_name: str | None = None
     mastery_probability: float = 0.0
 
 
 @dataclass
 class TurnAnalysis:
     """Turn analysis results"""
-    errors: List[Dict[str, Any]] = field(default_factory=list)
-    correct_skills: List[str] = field(default_factory=list)
-    linguistic_features: Dict[str, Any] = field(default_factory=dict)
-    semantic_skill_mapping: Dict[str, float] = field(default_factory=dict)
-    summary: Optional[str] = None
+
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    correct_skills: list[str] = field(default_factory=list)
+    linguistic_features: dict[str, Any] = field(default_factory=dict)
+    semantic_skill_mapping: dict[str, float] = field(default_factory=dict)
+    summary: str | None = None
 
 
 @dataclass
 class SkillsExtraction:
     """Skills extraction results"""
-    skills: List[Dict[str, Any]] = field(default_factory=list)
-    overall_linguistic_features: Dict[str, Any] = field(default_factory=dict)
-    summary: Optional[str] = None
+
+    skills: list[dict[str, Any]] = field(default_factory=list)
+    overall_linguistic_features: dict[str, Any] = field(default_factory=dict)
+    summary: str | None = None
 
 
 @dataclass
 class ProcessingMetrics:
     """Processing metrics"""
+
     input_audio_size: int = 0
     output_audio_size: int = 0
     processing_time_ms: int = 0
-    llm_used: Optional[str] = None
+    llm_used: str | None = None
     has_tts: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             "input_audio_size": self.input_audio_size,

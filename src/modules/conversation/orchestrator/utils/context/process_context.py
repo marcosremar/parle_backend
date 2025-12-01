@@ -10,7 +10,6 @@ Manages resources specific to a process:
 
 import logging
 import os
-from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class ResourceLimits:
     """Resource limits for a process"""
 
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, config: dict | None = None):
         """
         Initialize resource limits
 
@@ -28,9 +27,9 @@ class ResourceLimits:
         if config is None:
             config = {}
 
-        self.max_cpu_percent = config.get('max_cpu_percent', 80)
-        self.max_ram_mb = config.get('max_ram_mb', 4096)
-        self.max_gpu_mb = config.get('max_gpu_mb', None)  # None = no limit
+        self.max_cpu_percent = config.get("max_cpu_percent", 80)
+        self.max_ram_mb = config.get("max_ram_mb", 4096)
+        self.max_gpu_mb = config.get("max_gpu_mb")  # None = no limit
 
         logger.debug(
             f"Resource limits: "
@@ -42,9 +41,9 @@ class ResourceLimits:
     def to_dict(self) -> dict:
         """Export limits as dict"""
         return {
-            'max_cpu_percent': self.max_cpu_percent,
-            'max_ram_mb': self.max_ram_mb,
-            'max_gpu_mb': self.max_gpu_mb
+            "max_cpu_percent": self.max_cpu_percent,
+            "max_ram_mb": self.max_ram_mb,
+            "max_gpu_mb": self.max_gpu_mb,
         }
 
 
@@ -68,11 +67,7 @@ class ProcessContext:
     """
 
     def __init__(
-        self,
-        process_id: str,
-        execution_mode: str,
-        global_context,
-        config: Optional[Dict] = None
+        self, process_id: str, execution_mode: str, global_context, config: dict | None = None
     ):
         """
         Initialize ProcessContext
@@ -92,7 +87,7 @@ class ProcessContext:
         self.communication = None
 
         # Resource Limits
-        self.limits = ResourceLimits(self.config.get('limits', {}))
+        self.limits = ResourceLimits(self.config.get("limits", {}))
 
         logger.info(
             f"🔧 ProcessContext created: {process_id} "
@@ -155,7 +150,7 @@ class ProcessContext:
         logger.info(f"🛑 Shutting down ProcessContext: {self.process_id}")
 
         # Shutdown communication
-        if self.communication and hasattr(self.communication, 'shutdown'):
+        if self.communication and hasattr(self.communication, "shutdown"):
             try:
                 await self.communication.shutdown()
                 logger.info("   Communication shutdown complete")
@@ -171,7 +166,7 @@ class ProcessContext:
             "execution_mode": self.execution_mode,
             "pid": os.getpid(),
             "communication": type(self.communication).__name__ if self.communication else None,
-            "limits": self.limits.to_dict()
+            "limits": self.limits.to_dict(),
         }
 
 
@@ -188,11 +183,8 @@ class StubCommunication:
     async def call(self, service_name: str, method: str, params: dict = None):
         """Stub call - logs and returns None"""
         logger.warning(
-            f"StubCommunication.call({service_name}.{method}) - "
-            f"No real communication available"
+            f"StubCommunication.call({service_name}.{method}) - " f"No real communication available"
         )
-        return None
 
     async def shutdown(self):
         """Stub shutdown"""
-        pass

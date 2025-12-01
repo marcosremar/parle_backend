@@ -10,11 +10,10 @@ Cloud-based API processing:
 This abstraction keeps the main Orchestrator pipeline clean and simple.
 """
 
+from abc import ABC, abstractmethod
 import logging
 import time
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
-import numpy as np
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,23 +34,22 @@ class AbstractTalker(ABC):
             "total_calls": 0,
             "successful_calls": 0,
             "failed_calls": 0,
-            "total_time_ms": 0
+            "total_time_ms": 0,
         }
 
     @abstractmethod
     async def initialize(self):
         """Initialize resources (models, API clients, etc)"""
-        pass
 
     @abstractmethod
     async def process_turn(
         self,
         audio_data: bytes,
         sample_rate: int,
-        system_prompt: Optional[str] = None,
-        conversation_history: Optional[List[Dict]] = None,
-        voice_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        system_prompt: str | None = None,
+        conversation_history: list[dict] | None = None,
+        voice_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process complete conversation turn
 
@@ -70,23 +68,27 @@ class AbstractTalker(ABC):
                 - audio: bytes (AI response audio)
                 - metrics: Dict (timing breakdown)
         """
-        pass
 
     @abstractmethod
     async def cleanup(self):
         """Cleanup resources"""
-        pass
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get usage statistics"""
-        avg_time = (self.stats["total_time_ms"] / self.stats["total_calls"]
-                   if self.stats["total_calls"] > 0 else 0)
+        avg_time = (
+            self.stats["total_time_ms"] / self.stats["total_calls"]
+            if self.stats["total_calls"] > 0
+            else 0
+        )
 
         return {
             **self.stats,
             "average_time_ms": int(avg_time),
-            "success_rate": (self.stats["successful_calls"] / self.stats["total_calls"]
-                           if self.stats["total_calls"] > 0 else 0)
+            "success_rate": (
+                self.stats["successful_calls"] / self.stats["total_calls"]
+                if self.stats["total_calls"] > 0
+                else 0
+            ),
         }
 
 
@@ -104,7 +106,7 @@ class Talker(AbstractTalker):
     - All services are external (no GPU required)
     """
 
-    def __init__(self, service_clients: Dict[str, Any]):
+    def __init__(self, service_clients: dict[str, Any]):
         super().__init__("Talker")
         self.clients = service_clients
         self.stt_client = None
@@ -143,10 +145,10 @@ class Talker(AbstractTalker):
         self,
         audio_data: bytes,
         sample_rate: int,
-        system_prompt: Optional[str] = None,
-        conversation_history: Optional[List[Dict]] = None,
-        voice_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        system_prompt: str | None = None,
+        conversation_history: list[dict] | None = None,
+        voice_id: str | None = None,
+    ) -> dict[str, Any]:
         """Process turn using cloud APIs"""
 
         start_time = time.time()
@@ -161,11 +163,14 @@ class Talker(AbstractTalker):
             stt_start = time.time()
 
             transcript_result = await self.stt_client.transcribe(
-                audio_data=audio_data,
-                language="pt"  # Portuguese
+                audio_data=audio_data, language="pt"  # Portuguese
             )
 
-            transcript = transcript_result.get("text", "") if isinstance(transcript_result, dict) else transcript_result
+            transcript = (
+                transcript_result.get("text", "")
+                if isinstance(transcript_result, dict)
+                else transcript_result
+            )
 
             stt_time = (time.time() - stt_start) * 1000
 
@@ -179,7 +184,7 @@ class Talker(AbstractTalker):
             response_text = await self.llm_client.generate(
                 text=transcript,
                 system_prompt=system_prompt or "You are a helpful AI assistant.",
-                conversation_history=conversation_history or []
+                conversation_history=conversation_history or [],
             )
 
             llm_time = (time.time() - llm_start) * 1000
@@ -192,9 +197,7 @@ class Talker(AbstractTalker):
             tts_start = time.time()
 
             audio_response = await self.tts_client.synthesize(
-                text=response_text,
-                voice_id=voice_id or None,
-                format="wav"
+                text=response_text, voice_id=voice_id or None, format="wav"
             )
 
             tts_time = (time.time() - tts_start) * 1000
@@ -222,19 +225,15 @@ class Talker(AbstractTalker):
                     "llm_time_ms": int(llm_time),
                     "tts_time_ms": int(tts_time),
                     "total_time_ms": int(total_time),
-                    "gpu_used": False
-                }
+                    "gpu_used": False,
+                },
             }
 
         except Exception as e:
             logger.error(f"❌ Talker error: {e}")
             self.stats["failed_calls"] += 1
 
-            return {
-                "success": False,
-                "error": str(e),
-                "talker": "external"
-            }
+            return {"success": False, "error": str(e), "talker": "external"}
 
     async def cleanup(self):
         """Cleanup resources"""
@@ -252,8 +251,8 @@ class TalkerFactory:
 
     @staticmethod
     async def create_talker(
-        service_clients: Dict[str, Any],
-        **kwargs  # Accept but ignore legacy parameters (gpu_available, force_external)
+        service_clients: dict[str, Any],
+        **kwargs,  # Accept but ignore legacy parameters (gpu_available, force_external)
     ) -> AbstractTalker:
         """
         Create Talker instance

@@ -31,19 +31,20 @@ Migration Guide:
         logger = get_logger("my_service")
 """
 
-import sys
-from typing import Optional, Any, Dict
 from pathlib import Path
+import sys
+from typing import Any
+
 from loguru import logger as base_logger
 
 from .log_config import LogConfig, LogLevel, get_default_config, is_startup_message
 
 # Global state
 _configured_services = set()
-_default_config: Optional[LogConfig] = None
+_default_config: LogConfig | None = None
 
 
-def configure_logging(config: Optional[LogConfig] = None) -> None:
+def configure_logging(config: LogConfig | None = None) -> None:
     """
     Configure global logging settings
 
@@ -68,15 +69,15 @@ def configure_logging(config: Optional[LogConfig] = None) -> None:
             sys.stdout,
             level=config.level.value,
             format=config.console_format,
-            colorize=config.colorize
+            colorize=config.colorize,
         )
 
 
 def setup_logging(
     service_name: str,
     level: str = "INFO",
-    logs_dir: Optional[Path] = None,
-    config: Optional[LogConfig] = None
+    logs_dir: Path | None = None,
+    config: LogConfig | None = None,
 ) -> Any:
     """
     Setup logging for a service using Loguru
@@ -110,9 +111,7 @@ def setup_logging(
     # Use provided config or create default
     if config is None:
         config = LogConfig(
-            service_name=service_name,
-            level=LogLevel(level.upper()),
-            logs_dir=logs_dir
+            service_name=service_name, level=LogLevel(level.upper()), logs_dir=logs_dir
         )
 
     # Create scoped logger for this service
@@ -131,7 +130,7 @@ def setup_logging(
                 level=config.level.value,
                 format=config.console_format,
                 colorize=config.colorize,
-                filter=lambda record: record["extra"].get("service") == service_name
+                filter=lambda record: record["extra"].get("service") == service_name,
             )
 
         # 2. Service-specific log file (all logs)
@@ -144,7 +143,7 @@ def setup_logging(
                 compression=config.compression,
                 format=config.file_format,
                 enqueue=config.enqueue,
-                filter=lambda record: record["extra"].get("service") == service_name
+                filter=lambda record: record["extra"].get("service") == service_name,
             )
 
         # 3. Error log file (errors only)
@@ -157,7 +156,7 @@ def setup_logging(
                 compression=config.compression,
                 format=config.error_format,
                 enqueue=config.enqueue,
-                filter=lambda record: record["extra"].get("service") == service_name
+                filter=lambda record: record["extra"].get("service") == service_name,
             )
 
         # 4. JSON log file (for log aggregators like ELK, Loki)
@@ -170,11 +169,12 @@ def setup_logging(
                 compression=config.compression,
                 serialize=True,  # JSON format
                 enqueue=config.enqueue,
-                filter=lambda record: record["extra"].get("service") == service_name
+                filter=lambda record: record["extra"].get("service") == service_name,
             )
 
         # 5. Startup log file (captures startup messages from all services)
         if config.startup_file:
+
             def startup_filter(record) -> bool:
                 """Filter to capture startup-related messages for this service"""
                 if record["extra"].get("service") != service_name:
@@ -187,9 +187,11 @@ def setup_logging(
                 rotation="50 MB",
                 retention="30 days",
                 compression=config.compression,
-                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | [" + service_name + "] {message}",
+                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | ["
+                + service_name
+                + "] {message}",
                 filter=startup_filter,
-                enqueue=config.enqueue
+                enqueue=config.enqueue,
             )
 
         _configured_services.add(service_name)
@@ -224,9 +226,9 @@ def get_logger(service_name: str) -> Any:
 
 def get_scoped_logger(
     service_name: str,
-    trace_id: Optional[str] = None,
-    span_id: Optional[str] = None,
-    **extra_context
+    trace_id: str | None = None,
+    span_id: str | None = None,
+    **extra_context,
 ) -> Any:
     """
     Get a logger with OpenTelemetry trace context
@@ -255,10 +257,7 @@ def get_scoped_logger(
         logger.info("Request processed")
         # Output includes: [trace:abc123] [span:def456] user_id=user123
     """
-    context = {
-        "service": service_name,
-        **extra_context
-    }
+    context = {"service": service_name, **extra_context}
 
     if trace_id:
         context["trace_id"] = trace_id
@@ -290,8 +289,8 @@ def shutdown_logging() -> None:
 
 def log_exception(
     exception: Exception,
-    context: Optional[Dict[str, Any]] = None,
-    service_name: Optional[str] = None
+    context: dict[str, Any] | None = None,
+    service_name: str | None = None,
 ) -> None:
     """
     Helper function to log exceptions with context

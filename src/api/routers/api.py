@@ -3,27 +3,29 @@ API Router Consolidado - Todos os endpoints em um único router
 Usa módulos internos para chamadas diretas Python
 """
 
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form, Depends, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from loguru import logger
 import base64
-import jwt
 import os
-from src.core.security import (
-    validate_upload_size,
-    validate_content_type,
-    safe_log_error
-)
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import jwt
+from loguru import logger
+from pydantic import BaseModel, Field
+
+from src.core.audit_log import log_auth_event
 from src.core.config import get_config
 from src.core.constants import (
-    DEFAULT_PAGE_SIZE,
-    MAX_PAGE_SIZE,
-    CONVERSATION_RATE_LIMIT,
     AUTH_LOGIN_RATE_LIMIT,
     AUTH_REGISTER_RATE_LIMIT,
-    TUTORING_RATE_LIMIT
+    CONVERSATION_RATE_LIMIT,
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    TUTORING_RATE_LIMIT,
+)
+from src.core.security import (
+    safe_log_error,
+    validate_content_type,
+    validate_upload_size,
 )
 
 config = get_config()
@@ -31,8 +33,10 @@ config = get_config()
 # Limiter will be set from main app
 app_limiter = None
 
+
 def apply_rate_limit(limit: str):
     """Apply rate limit using app limiter"""
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             # Find Request in args/kwargs
@@ -42,23 +46,27 @@ def apply_rate_limit(limit: str):
                     request = arg
                     break
             if not request:
-                request = kwargs.get('request') or kwargs.get('http_request')
-            
+                request = kwargs.get("request") or kwargs.get("http_request")
+
             if request and app_limiter:
                 try:
                     limited_func = app_limiter.limit(limit)(func)
                     return await limited_func(*args, **kwargs)
                 except Exception as e:
                     from slowapi.errors import RateLimitExceeded
+
                     if isinstance(e, RateLimitExceeded):
                         raise HTTPException(
                             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                            detail=f"Rate limit exceeded: {limit}"
+                            detail=f"Rate limit exceeded: {limit}",
                         )
                     raise
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
@@ -71,10 +79,13 @@ async def get_module(module_name: str):
     """Get module instance (cached and initialized)"""
     if module_name not in _modules_cache:
         from src.modules import module_factory
+
         module = module_factory.create(module_name)
         # Initialize module if it has initialize method and is not already initialized
-        if hasattr(module, 'initialize'):
-            is_initialized = getattr(module, 'initialized', False) or getattr(module, '_initialized', False)
+        if hasattr(module, "initialize"):
+            is_initialized = getattr(module, "initialized", False) or getattr(
+                module, "_initialized", False
+            )
             if not is_initialized:
                 try:
                     result = await module.initialize()
@@ -83,6 +94,7 @@ async def get_module(module_name: str):
                 except Exception as e:
                     logger.error(f"Failed to initialize {module_name}: {e}")
                     import traceback
+
                     logger.debug(traceback.format_exc())
         _modules_cache[module_name] = module
     return _modules_cache[module_name]
@@ -92,9 +104,30 @@ async def get_module(module_name: str):
 # Health Check
 # ============================================================================
 
-@router.get("/health")
+
+@router.get(
+    "/health",
+    summary="Health check",
+    description="Verifica o status de saúde da API",
+    tags=["Health"],
+)
 async def health():
-    """Health check geral"""
+    """
+    Health check endpoint
+
+    Returns the health status of the API and modules.
+
+    Returns:
+        Dict with:
+        - status: Health status ("ok" or "error")
+        - mode: Operation mode ("monolith")
+
+    Example:
+        {
+            "status": "ok",
+            "mode": "monolith"
+        }
+    """
     return {"status": "ok", "mode": "monolith"}
 
 
@@ -102,31 +135,43 @@ async def health():
 # Speech (STT/TTS)
 # ============================================================================
 
+
 class TranscribeRequest(BaseModel):
-    audio_base64: Optional[str] = None
-    audio_url: Optional[str] = None
+    audio_base64: str | None = None
+    audio_url: str | None = None
     language: str = "pt"
     model: str = "whisper-large-v3"
 
 
 class SynthesizeRequest(BaseModel):
     text: str
-    voice_id: Optional[str] = None
-    provider: Optional[str] = None
+    voice_id: str | None = None
+    provider: str | None = None
     language: str = "pt"
     speed: float = 1.0
 
 
-@router.post("/speech/stt/transcribe")
+@router.post(
+    "/speech/stt/transcribe",
+    summary="Transcrever áudio para texto",
+    description="""
+    Transcreve áudio para texto usando o provedor STT configurado.
+    
+    Suporta áudio em base64 ou URL. O sistema detecta automaticamente o idioma
+    se não especificado.
+    """,
+    response_description="Resultado da transcrição com texto e metadados",
+    tags=["Speech", "STT"],
+)
 async def transcribe(request: TranscribeRequest):
     """
     STT transcription endpoint
-    
+
     Transcribes audio to text using the configured STT provider.
-    
+
     Args:
         request: TranscribeRequest with audio_base64 or audio_url
-        
+
     Returns:
         Dict with:
         - text: Transcribed text
@@ -134,7 +179,10 @@ async def transcribe(request: TranscribeRequest):
         - duration: Audio duration (if available)
         - model: Model used
         - provider: Provider used
-        
+
+    Raises:
+        HTTPException: 500 if transcription fails
+
     Example:
         {
             "audio_base64": "base64_encoded_audio...",
@@ -144,12 +192,22 @@ async def transcribe(request: TranscribeRequest):
     """
     try:
         stt = await get_module("stt")
-        result = await stt.transcribe(
-            audio_base64=request.audio_base64,
-            audio_url=request.audio_url,
-            language=request.language,
-            model=request.model
-        )
+
+        # Use circuit breaker if available
+        if hasattr(stt, "transcribe_with_fallback"):
+            result = await stt.transcribe_with_fallback(
+                audio_base64=request.audio_base64,
+                audio_url=request.audio_url,
+                language=request.language,
+                model=request.model,
+            )
+        else:
+            result = await stt.transcribe(
+                audio_base64=request.audio_base64,
+                audio_url=request.audio_url,
+                language=request.language,
+                model=request.model,
+            )
         return result
     except Exception as e:
         logger.error(f"STT failed: {e}")
@@ -158,37 +216,42 @@ async def transcribe(request: TranscribeRequest):
 
 @router.post("/speech/stt/transcribe-file")
 async def transcribe_file(
-    file: UploadFile = File(...),
-    language: str = Form("pt"),
-    model: str = Form("whisper-large-v3")
+    file: UploadFile = File(...), language: str = Form("pt"), model: str = Form("whisper-large-v3")
 ):
     """Transcribe uploaded file"""
     try:
         audio_data = await file.read()
-        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-        
+        audio_base64 = base64.b64encode(audio_data).decode("utf-8")
+
         stt = await get_module("stt")
-        result = await stt.transcribe(
-            audio_base64=audio_base64,
-            language=language,
-            model=model
-        )
+        result = await stt.transcribe(audio_base64=audio_base64, language=language, model=model)
         return result
     except Exception as e:
         logger.error(f"STT failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/speech/tts/synthesize")
+@router.post(
+    "/speech/tts/synthesize",
+    summary="Sintetizar texto para áudio",
+    description="""
+    Converte texto em áudio usando o provedor TTS configurado.
+    
+    Suporta múltiplos provedores (ElevenLabs, HuggingFace, etc.) e permite
+    personalização de voz, velocidade e idioma.
+    """,
+    response_description="Áudio sintetizado em base64 com metadados",
+    tags=["Speech", "TTS"],
+)
 async def synthesize(request: SynthesizeRequest):
     """
     TTS synthesis endpoint
-    
+
     Converts text to speech audio using the configured TTS provider.
-    
+
     Args:
         request: SynthesizeRequest with text and optional voice settings
-        
+
     Returns:
         Dict with:
         - audio_base64: Base64 encoded audio data
@@ -197,7 +260,10 @@ async def synthesize(request: SynthesizeRequest):
         - voice_id: Voice ID used
         - duration: Audio duration (if available)
         - sample_rate: Sample rate (if available)
-        
+
+    Raises:
+        HTTPException: 500 if synthesis fails
+
     Example:
         {
             "text": "Hello, world!",
@@ -208,13 +274,24 @@ async def synthesize(request: SynthesizeRequest):
     """
     try:
         tts = await get_module("tts")
-        result = await tts.synthesize(
-            text=request.text,
-            voice_id=request.voice_id,
-            provider=request.provider,
-            language=request.language,
-            speed=request.speed
-        )
+
+        # Use circuit breaker if available
+        if hasattr(tts, "synthesize_with_fallback"):
+            result = await tts.synthesize_with_fallback(
+                text=request.text,
+                voice_id=request.voice_id,
+                provider=request.provider,
+                language=request.language,
+                speed=request.speed,
+            )
+        else:
+            result = await tts.synthesize(
+                text=request.text,
+                voice_id=request.voice_id,
+                provider=request.provider,
+                language=request.language,
+                speed=request.speed,
+            )
         return result
     except Exception as e:
         logger.error(f"TTS failed: {e}")
@@ -225,12 +302,13 @@ async def synthesize(request: SynthesizeRequest):
 # LLM
 # ============================================================================
 
+
 class GenerateRequest(BaseModel):
     prompt: str
-    model: Optional[str] = None
+    model: str | None = None
     max_tokens: int = 500
     temperature: float = 0.7
-    system_prompt: Optional[str] = None
+    system_prompt: str | None = None
 
 
 class ChatMessage(BaseModel):
@@ -239,32 +317,90 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: List[ChatMessage]
-    model: Optional[str] = None
+    messages: list[ChatMessage]
+    model: str | None = None
     max_tokens: int = 500
     temperature: float = 0.7
 
 
-@router.post("/llm/generate")
+@router.post(
+    "/llm/generate",
+    summary="Gerar texto com LLM",
+    description="""
+    Gera texto usando modelos de linguagem (LLM).
+    
+    Suporta múltiplos provedores via LiteLLM e permite configuração de
+    temperatura, max_tokens e system prompts.
+    """,
+    response_description="Texto gerado pelo LLM",
+    tags=["LLM", "AI"],
+)
 async def generate(request: GenerateRequest):
-    """LLM generation"""
+    """
+    LLM generation endpoint
+
+    Generates text using language models.
+
+    Args:
+        request: GenerateRequest with prompt and generation parameters
+
+    Returns:
+        Dict with generated text and metadata
+
+    Raises:
+        HTTPException: 500 if generation fails
+    """
     try:
         llm = await get_module("llm")
-        result = await llm.generate(
-            prompt=request.prompt,
-            model=request.model,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature
-        )
+
+        # Use circuit breaker if available
+        if hasattr(llm, "generate_with_fallback"):
+            result = await llm.generate_with_fallback(
+                prompt=request.prompt,
+                model=request.model,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+            )
+        else:
+            result = await llm.generate(
+                prompt=request.prompt,
+                model=request.model,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+            )
         return result
     except Exception as e:
         logger.error(f"LLM failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/llm/chat")
+@router.post(
+    "/llm/chat",
+    summary="Chat completion com LLM",
+    description="""
+    Completa conversas usando modelos de linguagem.
+    
+    Aceita uma lista de mensagens com roles (user, assistant, system) e
+    retorna a resposta do assistente.
+    """,
+    response_description="Resposta do chat",
+    tags=["LLM", "AI", "Chat"],
+)
 async def chat(request: ChatRequest):
-    """Chat completion"""
+    """
+    Chat completion endpoint
+
+    Completes chat conversations using language models.
+
+    Args:
+        request: ChatRequest with messages list and parameters
+
+    Returns:
+        Dict with assistant response
+
+    Raises:
+        HTTPException: 500 if chat completion fails
+    """
     try:
         llm = await get_module("llm")
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
@@ -272,7 +408,7 @@ async def chat(request: ChatRequest):
             messages=messages,
             model=request.model,
             max_tokens=request.max_tokens,
-            temperature=request.temperature
+            temperature=request.temperature,
         )
         return result
     except Exception as e:
@@ -284,6 +420,7 @@ async def chat(request: ChatRequest):
 # Auth
 # ============================================================================
 
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -293,21 +430,24 @@ class CreateUserRequest(BaseModel):
     username: str
     email: str
     password: str
-    full_name: Optional[str] = None
+    full_name: str | None = None
 
 
 def verify_token(token: str) -> dict:
     """Verify JWT token"""
     try:
         secret = os.getenv("JWT_SECRET_KEY", "your-secret-key")
-        return jwt.decode(token, secret, algorithms=["HS256"])
+        # verify_exp=True is default, but being explicit
+        return jwt.decode(token, secret, algorithms=["HS256"], options={"verify_exp": True})
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.DecodeError:
+    except (jwt.DecodeError, jwt.InvalidTokenError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> dict:
     """Get current authenticated user"""
     if not credentials:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -319,44 +459,161 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
     return user_data
 
 
-@router.post("/auth/login")
+@router.post(
+    "/auth/login",
+    summary="Login de usuário",
+    description="Autentica um usuário e retorna token JWT",
+    response_description="Token JWT e informações do usuário",
+    tags=["Auth", "Authentication"],
+)
 @apply_rate_limit(AUTH_LOGIN_RATE_LIMIT)
-async def login(request: LoginRequest):
-    """User login"""
+async def login(request: LoginRequest, http_request: Request = None):
+    """
+    User login endpoint
+
+    Authenticates a user with email and password, returns JWT token.
+
+    Args:
+        request: LoginRequest with email and password
+
+    Returns:
+        Dict with:
+        - token: JWT authentication token
+        - user: User information
+        - expires_in: Token expiration time in seconds
+
+    Raises:
+        HTTPException: 401 if credentials are invalid
+        HTTPException: 500 if login fails
+
+    Example:
+        {
+            "email": "user@example.com",
+            "password": "securepassword"
+        }
+    """
     try:
         user = await get_module("user")
         result = await user.login(email=request.email, password=request.password)
+
+        # Audit log
+        user_id = result.get("user", {}).get("id") if isinstance(result, dict) else None
+        ip_address = http_request.client.host if http_request and http_request.client else None
+        log_auth_event(
+            "login", user_id=user_id, email=request.email, ip_address=ip_address, success=True
+        )
+
         return result
     except ValueError as e:
+        # Audit log failed login
+        ip_address = http_request.client.host if http_request and http_request.client else None
+        log_auth_event(
+            "login",
+            email=request.email,
+            ip_address=ip_address,
+            success=False,
+            details={"error": str(e)},
+        )
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         logger.error(f"Login failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/auth/register")
+@router.post(
+    "/auth/register",
+    summary="Registro de usuário",
+    description="Cria uma nova conta de usuário",
+    response_description="Informações do usuário criado e token JWT",
+    tags=["Auth", "Authentication"],
+)
 @apply_rate_limit(AUTH_REGISTER_RATE_LIMIT)
-async def register(request: CreateUserRequest):
-    """User registration"""
+async def register(request: CreateUserRequest, http_request: Request = None):
+    """
+    User registration endpoint
+
+    Creates a new user account.
+
+    Args:
+        request: CreateUserRequest with user information
+
+    Returns:
+        Dict with:
+        - user: Created user information
+        - token: JWT authentication token
+
+    Raises:
+        HTTPException: 400 if validation fails (email exists, weak password, etc.)
+        HTTPException: 500 if registration fails
+
+    Example:
+        {
+            "username": "johndoe",
+            "email": "john@example.com",
+            "password": "securepassword",
+            "full_name": "John Doe"
+        }
+    """
     try:
         user = await get_module("user")
         result = await user.create_user(
             username=request.username,
             email=request.email,
             password=request.password,
-            full_name=request.full_name
+            full_name=request.full_name,
         )
+
+        # Audit log
+        user_id = result.get("user", {}).get("id") if isinstance(result, dict) else None
+        ip_address = http_request.client.host if http_request and http_request.client else None
+        log_auth_event(
+            "register", user_id=user_id, email=request.email, ip_address=ip_address, success=True
+        )
+
         return result
     except ValueError as e:
+        # Audit log failed registration
+        ip_address = http_request.client.host if http_request and http_request.client else None
+        log_auth_event(
+            "register",
+            email=request.email,
+            ip_address=ip_address,
+            success=False,
+            details={"error": str(e)},
+        )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Registration failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/auth/me")
+@router.get(
+    "/auth/me",
+    summary="Obter usuário atual",
+    description="Retorna informações do usuário autenticado",
+    response_description="Informações do usuário",
+    tags=["Auth", "User"],
+)
 async def get_me(current_user: dict = Depends(get_current_user)):
-    """Get current user"""
+    """
+    Get current authenticated user endpoint
+
+    Returns information about the currently authenticated user.
+
+    Args:
+        current_user: Authenticated user (from dependency)
+
+    Returns:
+        Dict with user information:
+        - id: User ID
+        - username: Username
+        - email: Email address
+        - full_name: Full name (if available)
+        - created_at: Account creation timestamp
+
+    Raises:
+        HTTPException: 401 if not authenticated
+    """
     return current_user
 
 
@@ -364,86 +621,122 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 # Conversation (Orchestrator, Session, Scenarios, Store)
 # ============================================================================
 
+
 class ConversationRequest(BaseModel):
     """Unified conversation request - accepts text or audio"""
-    message: Optional[str] = Field(None, description="Text message (for text conversation)")
+
+    message: str | None = Field(None, description="Text message (for text conversation)")
     session_id: str = Field(..., description="Session ID")
-    voice_id: Optional[str] = Field(None, description="Optional voice ID for audio response")
+    voice_id: str | None = Field(None, description="Optional voice ID for audio response")
     language: str = Field("pt", description="Language code")
     max_tokens: int = Field(512, description="Max tokens for LLM")
     temperature: float = Field(0.7, description="Temperature for LLM")
 
 
-@router.post("/conversation")
+@router.post(
+    "/conversation",
+    summary="Conversação unificada",
+    description="""
+    Endpoint unificado para conversação que aceita texto ou áudio.
+    
+    Suporta dois modos:
+    - Texto: Envie campo 'message' para conversação por texto
+    - Áudio: Envie 'file' ou 'audio_base64' para speech-to-speech
+    
+    O sistema processa automaticamente e retorna resposta no mesmo formato.
+    """,
+    response_description="Resposta da conversação (texto ou áudio)",
+    tags=["Conversation", "AI"],
+)
 @apply_rate_limit(CONVERSATION_RATE_LIMIT)
 async def conversation(
     http_request: Request,
     request: ConversationRequest = None,
-    file: Optional[UploadFile] = File(None),
-    audio_base64: Optional[str] = Form(None),
-    message: Optional[str] = Form(None),
+    file: UploadFile | None = File(None),
+    audio_base64: str | None = Form(None),
+    message: str | None = Form(None),
     session_id: str = Form(...),
-    voice_id: Optional[str] = Form(None),
+    voice_id: str | None = Form(None),
     language: str = Form("pt"),
     max_tokens: int = Form(100),
-    temperature: float = Form(0.7)
+    temperature: float = Form(0.7),
 ):
     """
     Unified conversation endpoint - accepts text or audio input
-    
+
     Supports both:
     - Text conversation: send 'message' field
     - Speech-to-speech: send 'file' or 'audio_base64' field
+
+    Args:
+        http_request: FastAPI Request object
+        request: ConversationRequest (optional, for JSON body)
+        file: Uploaded audio file (optional)
+        audio_base64: Base64 encoded audio (optional)
+        message: Text message (optional)
+        session_id: Session ID (required)
+        voice_id: Voice ID for audio response (optional)
+        language: Language code (default: "pt")
+        max_tokens: Max tokens for LLM (default: 100)
+        temperature: Temperature for LLM (default: 0.7)
+
+    Returns:
+        Dict with:
+        - For text: {"text": "response text"}
+        - For audio: {"audio_base64": "...", "text": "transcribed text"}
+
+    Raises:
+        HTTPException: 400 if no input provided
+        HTTPException: 413 if file too large
+        HTTPException: 500 if processing fails
     """
     try:
         orchestrator = await get_module("orchestrator")
-        
+
         # Get orchestrator engine
-        if hasattr(orchestrator, 'orchestrator'):
+        if hasattr(orchestrator, "orchestrator"):
             orchestrator_engine = orchestrator.orchestrator
-        elif hasattr(orchestrator, 'process_text_conversation'):
+        elif hasattr(orchestrator, "process_text_conversation"):
             # Module has direct method
             pass
         else:
-            raise HTTPException(status_code=500, detail="Orchestrator module not properly initialized")
-        
+            raise HTTPException(
+                status_code=500, detail="Orchestrator module not properly initialized"
+            )
+
         # Handle text conversation
         if message or (request and request.message):
             text_message = message or (request.message if request else None)
-            if hasattr(orchestrator, 'process_text_conversation'):
+            if hasattr(orchestrator, "process_text_conversation"):
                 result = await orchestrator.process_text_conversation(
-                    message=text_message,
-                    session_id=session_id,
-                    voice_id=voice_id
+                    message=text_message, session_id=session_id, voice_id=voice_id
                 )
             else:
                 result = await orchestrator_engine.process_text_conversation(
-                    message=text_message,
-                    session_id=session_id,
-                    voice_id=voice_id
+                    message=text_message, session_id=session_id, voice_id=voice_id
                 )
             return result
-        
+
         # Handle audio conversation (speech-to-speech)
         if file:
             # Validate file size
             validate_upload_size(file.size, config.server.max_upload_size_mb)
-            
+
             # Validate content type
             if file.content_type:
-                validate_content_type(file.content_type, ['audio/', 'application/octet-stream'])
-            
+                validate_content_type(file.content_type, ["audio/", "application/octet-stream"])
+
             audio_data = await file.read()
-            
+
             # Additional size check after reading
             if len(audio_data) > config.server.max_upload_size_mb * 1024 * 1024:
                 raise HTTPException(
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"File size exceeds maximum allowed size ({config.server.max_upload_size_mb}MB)"
+                    detail=f"File size exceeds maximum allowed size ({config.server.max_upload_size_mb}MB)",
                 )
-            
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-        
+
+            audio_base64 = base64.b64encode(audio_data).decode("utf-8")
+
         if audio_base64:
             result = await orchestrator.process_turn(
                 session_id=session_id,
@@ -451,12 +744,15 @@ async def conversation(
                 language=language,
                 voice_id=voice_id,
                 max_tokens=max_tokens,
-                temperature=temperature
+                temperature=temperature,
             )
             return result
-        
-        raise HTTPException(status_code=400, detail="Either 'message' (text) or 'file'/'audio_base64' (audio) required")
-        
+
+        raise HTTPException(
+            status_code=400,
+            detail="Either 'message' (text) or 'file'/'audio_base64' (audio) required",
+        )
+
     except HTTPException:
         raise
     except Exception as e:
@@ -467,13 +763,15 @@ async def conversation(
 @router.post("/conversation/session/create")
 async def create_session(
     user_id: str = Form(...),
-    scenario_id: Optional[str] = Form(None),
-    conversation_id: Optional[str] = Form(None)
+    scenario_id: str | None = Form(None),
+    conversation_id: str | None = Form(None),
 ):
     """Create session"""
     try:
         session = await get_module("session")
-        return await session.create_session(user_id=user_id, scenario_id=scenario_id, conversation_id=conversation_id)
+        return await session.create_session(
+            user_id=user_id, scenario_id=scenario_id, conversation_id=conversation_id
+        )
     except Exception as e:
         logger.error(f"Session creation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -497,9 +795,7 @@ async def get_session(session_id: str):
 
 @router.post("/conversation/store/save")
 async def save_message(
-    conversation_id: str = Form(...),
-    role: str = Form(...),
-    content: str = Form(...)
+    conversation_id: str = Form(...), role: str = Form(...), content: str = Form(...)
 ):
     """Save message"""
     try:
@@ -515,14 +811,16 @@ async def get_messages(
     conversation_id: str,
     limit: int = DEFAULT_PAGE_SIZE,
     skip: int = 0,
-    max_limit: int = MAX_PAGE_SIZE
+    max_limit: int = MAX_PAGE_SIZE,
 ):
     """Get conversation messages with pagination"""
     try:
         limit = min(limit, max_limit)
         store = await get_module("conversation_store")
-        if hasattr(store, 'get_messages'):
-            return await store.get_messages(conversation_id=conversation_id, limit=limit, offset=skip)
+        if hasattr(store, "get_messages"):
+            return await store.get_messages(
+                conversation_id=conversation_id, limit=limit, offset=skip
+            )
         else:
             raise HTTPException(status_code=501, detail="Messages endpoint not implemented")
     except HTTPException:
@@ -534,19 +832,18 @@ async def get_messages(
 
 @router.get("/conversation/store/user/{user_id}/conversations")
 async def list_user_conversations(
-    user_id: str,
-    limit: int = DEFAULT_PAGE_SIZE,
-    skip: int = 0,
-    max_limit: int = MAX_PAGE_SIZE
+    user_id: str, limit: int = DEFAULT_PAGE_SIZE, skip: int = 0, max_limit: int = MAX_PAGE_SIZE
 ):
     """List user conversations with pagination"""
     try:
         limit = min(limit, max_limit)
         store = await get_module("conversation_store")
-        if hasattr(store, 'list_user_conversations'):
+        if hasattr(store, "list_user_conversations"):
             return await store.list_user_conversations(user_id=user_id, limit=limit, offset=skip)
         else:
-            raise HTTPException(status_code=501, detail="List conversations endpoint not implemented")
+            raise HTTPException(
+                status_code=501, detail="List conversations endpoint not implemented"
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -559,13 +856,13 @@ async def get_context(
     conversation_id: str,
     limit: int = DEFAULT_PAGE_SIZE,
     skip: int = 0,
-    max_limit: int = MAX_PAGE_SIZE
+    max_limit: int = MAX_PAGE_SIZE,
 ):
     """Get conversation context with pagination"""
     try:
         # Enforce max limit
         limit = min(limit, max_limit)
-        
+
         store = await get_module("conversation_store")
         return await store.get_context(conversation_id=conversation_id, limit=limit, offset=skip)
     except Exception as e:
@@ -573,16 +870,15 @@ async def get_context(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-
 # ============================================================================
 # Tutoring (Diagnostic, Pedagogical Policy, Learning Path, Student Model)
 # ============================================================================
 
+
 class AnalyzeTurnRequest(BaseModel):
     user_text: str
-    ai_text: Optional[str] = None
-    valid_skills: Optional[List[str]] = None
+    ai_text: str | None = None
+    valid_skills: list[str] | None = None
 
 
 @router.post("/tutoring/diagnostic/analyze")
@@ -592,15 +888,13 @@ async def analyze_turn(request: AnalyzeTurnRequest):
     try:
         diagnostic = await get_module("diagnostic_module")
         # Check if module is disabled
-        if hasattr(diagnostic, 'disabled') and diagnostic.disabled:
+        if hasattr(diagnostic, "disabled") and diagnostic.disabled:
             raise HTTPException(
                 status_code=503,
-                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable.",
             )
         return await diagnostic.analyze_turn(
-            user_text=request.user_text,
-            ai_text=request.ai_text,
-            valid_skills=request.valid_skills
+            user_text=request.user_text, ai_text=request.ai_text, valid_skills=request.valid_skills
         )
     except HTTPException:
         raise
@@ -616,10 +910,10 @@ async def compose_prompt(context: dict):
     try:
         policy = await get_module("pedagogical_policy")
         # Check if module is disabled
-        if hasattr(policy, 'disabled') and policy.disabled:
+        if hasattr(policy, "disabled") and policy.disabled:
             raise HTTPException(
                 status_code=503,
-                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable.",
             )
         return await policy.compose_prompt(context=context)
     except HTTPException:
@@ -631,15 +925,15 @@ async def compose_prompt(context: dict):
 
 @router.get("/tutoring/path/{user_id}/next")
 @apply_rate_limit(TUTORING_RATE_LIMIT)
-async def get_next_skill(user_id: str, cefr_level: Optional[str] = None):
+async def get_next_skill(user_id: str, cefr_level: str | None = None):
     """Get next skill"""
     try:
         path = await get_module("learning_path")
         # Check if module is disabled
-        if hasattr(path, 'disabled') and path.disabled:
+        if hasattr(path, "disabled") and path.disabled:
             raise HTTPException(
                 status_code=503,
-                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable.",
             )
         return await path.get_next_skill(user_id=user_id, cefr_level=cefr_level)
     except HTTPException:
@@ -656,10 +950,10 @@ async def get_student_profile(user_id: str):
     try:
         student = await get_module("student_model")
         # Check if module is disabled
-        if hasattr(student, 'disabled') and student.disabled:
+        if hasattr(student, "disabled") and student.disabled:
             raise HTTPException(
                 status_code=503,
-                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable."
+                detail="Tutoring modules are disabled. Set ENABLE_TUTORING_MODULES=true to enable.",
             )
         return await student.get_profile(user_id)
     except HTTPException:
@@ -673,23 +967,28 @@ async def get_student_profile(user_id: str):
 # Storage (File Storage, Database)
 # ============================================================================
 
+
 @router.post("/storage/file/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    tags: Optional[str] = Form(None),
-    metadata: Optional[str] = Form(None)
+    tags: str | None = Form(None),
+    metadata: str | None = Form(None),
 ):
     """Upload file"""
     try:
         file_storage = await get_module("file_storage")
         file_content = await file.read()
         tags_list = tags.split(",") if tags else None
-        metadata_dict = eval(metadata) if metadata else None
+        metadata_dict = None
+        if metadata:
+            import json
+
+            metadata_dict = json.loads(metadata)
         return await file_storage.upload_file(
             file_content=file_content,
             filename=file.filename,
             tags=tags_list,
-            metadata=metadata_dict
+            metadata=metadata_dict,
         )
     except Exception as e:
         logger.error(f"Upload failed: {e}")
@@ -705,6 +1004,7 @@ async def download_file(file_id: str):
         if not file_content:
             raise HTTPException(status_code=404, detail="File not found")
         from fastapi.responses import Response
+
         return Response(content=file_content, media_type="application/octet-stream")
     except HTTPException:
         raise

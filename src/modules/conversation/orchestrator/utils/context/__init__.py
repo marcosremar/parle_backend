@@ -13,14 +13,26 @@ DEPRECATED (v3.x - kept for backward compatibility):
 
 import warnings
 
+from ..unified_context import (
+    ResourceLimits as UnifiedResourceLimits,
+)
+
 # v4.0: Unified context system
-from ..unified_context import ServiceContext as UnifiedServiceContext, ResourceLimits as UnifiedResourceLimits
+from ..unified_context import (
+    ServiceContext as UnifiedServiceContext,
+)
+from .global_context import GlobalContext as OldGlobalContext
+from .process_context import (
+    ProcessContext as OldProcessContext,
+)
+from .process_context import (
+    ResourceLimits as OldResourceLimits,
+)
+from .service_context import LoggerFactory
+from .service_context import ServiceContext as OldServiceContext
 
 # v3.x: Old context system (DEPRECATED - kept for backward compatibility)
-from .shared_state import SharedGPUState, GPUMemoryError
-from .global_context import GlobalContext as OldGlobalContext
-from .process_context import ProcessContext as OldProcessContext, ResourceLimits as OldResourceLimits
-from .service_context import ServiceContext as OldServiceContext, LoggerFactory
+from .shared_state import GPUMemoryError, SharedGPUState
 
 # Export unified context as primary
 ServiceContext = UnifiedServiceContext
@@ -32,18 +44,17 @@ ProcessContext = OldProcessContext
 
 __all__ = [
     # v4.0: Unified context (PRIMARY)
-    'ServiceContext',
-    'ResourceLimits',
-
+    "ServiceContext",
+    "ResourceLimits",
     # GPU shared state (still used)
-    'SharedGPUState',
-    'GPUMemoryError',
-
+    "SharedGPUState",
+    "GPUMemoryError",
     # DEPRECATED (v3.x - backward compatibility only)
-    'GlobalContext',  # DEPRECATED
-    'ProcessContext',  # DEPRECATED
-    'LoggerFactory',  # DEPRECATED
+    "GlobalContext",  # DEPRECATED
+    "ProcessContext",  # DEPRECATED
+    "LoggerFactory",  # DEPRECATED
 ]
+
 
 # Show deprecation warning when old context classes are imported
 def _warn_deprecated():
@@ -51,5 +62,5 @@ def _warn_deprecated():
         "Importing GlobalContext/ProcessContext from src.core.context is deprecated. "
         "Use ServiceContext from src.core.unified_context instead.",
         DeprecationWarning,
-        stacklevel=3
+        stacklevel=3,
     )

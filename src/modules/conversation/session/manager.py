@@ -4,11 +4,12 @@ Database-backed Session Manager
 Manages session state via Database Service using HTTP
 """
 
-import logging
-import uuid
-import httpx
-from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
+import logging
+from typing import Any
+import uuid
+
+import httpx
 
 from .models import LLMType, SessionResponse
 
@@ -26,11 +27,7 @@ class SessionManager:
     """
 
     def __init__(
-        self,
-        redis_url: str = None,
-        default_ttl: int = 1800,
-        redis_db: int = 0,
-        comm_manager=None
+        self, redis_url: str = None, default_ttl: int = 1800, redis_db: int = 0, comm_manager=None
     ) -> None:
         """
         Initialize session manager
@@ -54,7 +51,7 @@ class SessionManager:
         This method is kept for backwards compatibility but is not used.
         Session and Database are separate processes, so they use HTTP.
         """
-        pass  # Not needed for HTTP communication
+        # Not needed for HTTP communication
 
     async def connect(self) -> None:
         """Connect to Database Service (health check)"""
@@ -64,13 +61,17 @@ class SessionManager:
             if response.status_code == 200:
                 result = response.json()
                 if result.get("status") == "healthy":
-                    logger.info(f"✅ Connected to Database Service for session storage")
-                    logger.info(f"   Storage: {result.get('realtime_database_connected', False) and 'Redis' or 'SQLite'}")
+                    logger.info("✅ Connected to Database Service for session storage")
+                    logger.info(
+                        f"   Storage: {(result.get('realtime_database_connected', False) and 'Redis') or 'SQLite'}"
+                    )
                     return
                 else:
                     logger.warning(f"⚠️  Database Service health check returned: {result}")
             else:
-                logger.warning(f"⚠️  Database Service health check failed: HTTP {response.status_code}")
+                logger.warning(
+                    f"⚠️  Database Service health check failed: HTTP {response.status_code}"
+                )
         except Exception as e:
             logger.warning(f"⚠️  Database Service not available: {e}")
             logger.info("Session service will return degraded status (sessions may not persist)")
@@ -83,10 +84,10 @@ class SessionManager:
     async def create_session(
         self,
         scenario_id: str,
-        conversation_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        session_id: Optional[str] = None
+        conversation_id: str | None = None,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
     ) -> str:
         """
         Create a new session
@@ -121,15 +122,12 @@ class SessionManager:
             "failover_count": 0,
             "created_at": now,
             "last_activity": now,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
         try:
             # Store via Database Service HTTP API
-            response = await self.client.post(
-                f"{self.database_url}/sessions",
-                json=session_data
-            )
+            response = await self.client.post(f"{self.database_url}/sessions", json=session_data)
 
             if response.status_code in (200, 201):
                 result = response.json()
@@ -141,14 +139,16 @@ class SessionManager:
                     raise Exception(f"Failed to create session: {result}")
             else:
                 error_text = response.text
-                logger.error(f"❌ Failed to create session: HTTP {response.status_code}: {error_text}")
+                logger.error(
+                    f"❌ Failed to create session: HTTP {response.status_code}: {error_text}"
+                )
                 raise Exception(f"Failed to create session: HTTP {response.status_code}")
 
         except Exception as e:
             logger.error(f"❌ Failed to create session: {e}")
             raise
 
-    async def get_session(self, session_id: str) -> Optional[SessionResponse]:
+    async def get_session(self, session_id: str) -> SessionResponse | None:
         """
         Get session by ID
 
@@ -176,7 +176,7 @@ class SessionManager:
                         created_at=data["created_at"],
                         last_activity=data["last_activity"],
                         ttl_seconds=self.default_ttl,
-                        metadata=data.get("metadata", {})
+                        metadata=data.get("metadata", {}),
                     )
                 else:
                     logger.warning(f"⚠️  Session {session_id} not found")
@@ -192,8 +192,8 @@ class SessionManager:
     async def update_session(
         self,
         session_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        active_llm: Optional[LLMType] = None
+        metadata: dict[str, Any] | None = None,
+        active_llm: LLMType | None = None,
     ) -> bool:
         """
         Update session metadata and/or active LLM
@@ -237,13 +237,14 @@ class SessionManager:
                 # Increment failover count if switching to fallback
                 if old_llm != active_llm.value and active_llm == LLMType.FALLBACK:
                     data["failover_count"] = data.get("failover_count", 0) + 1
-                    logger.warning(f"🔄 Session {session_id} failed over to {active_llm.value} "
-                                 f"(count: {data['failover_count']})")
+                    logger.warning(
+                        f"🔄 Session {session_id} failed over to {active_llm.value} "
+                        f"(count: {data['failover_count']})"
+                    )
 
             # Save back via HTTP
             update_response = await self.client.put(
-                f"{self.database_url}/sessions/{session_id}",
-                json=data
+                f"{self.database_url}/sessions/{session_id}", json=data
             )
 
             if update_response.status_code in (200, 201):
@@ -262,7 +263,7 @@ class SessionManager:
             logger.error(f"❌ Failed to update session: {e}")
             return False
 
-    async def heartbeat(self, session_id: str, extend_by: Optional[int] = None) -> bool:
+    async def heartbeat(self, session_id: str, extend_by: int | None = None) -> bool:
         """
         Send heartbeat to extend session TTL
 
@@ -276,7 +277,7 @@ class SessionManager:
         # Update last_activity timestamp
         return await self.update_session(
             session_id=session_id,
-            metadata={"last_heartbeat": datetime.now(timezone.utc).isoformat()}
+            metadata={"last_heartbeat": datetime.now(timezone.utc).isoformat()},
         )
 
     async def delete_session(self, session_id: str) -> bool:
@@ -308,7 +309,7 @@ class SessionManager:
             logger.error(f"❌ Failed to delete session: {e}")
             return False
 
-    async def get_all_sessions(self) -> List[SessionResponse]:
+    async def get_all_sessions(self) -> list[SessionResponse]:
         """
         Get all active sessions
 
@@ -325,18 +326,20 @@ class SessionManager:
 
                     sessions = []
                     for data in sessions_data:
-                        sessions.append(SessionResponse(
-                            id=data["id"],
-                            scenario_id=data["scenario_id"],
-                            conversation_id=data["conversation_id"],
-                            user_id=data.get("user_id"),
-                            active_llm=LLMType(data.get("active_llm", "primary")),
-                            failover_count=data.get("failover_count", 0),
-                            created_at=data["created_at"],
-                            last_activity=data["last_activity"],
-                            ttl_seconds=self.default_ttl,
-                            metadata=data.get("metadata", {})
-                        ))
+                        sessions.append(
+                            SessionResponse(
+                                id=data["id"],
+                                scenario_id=data["scenario_id"],
+                                conversation_id=data["conversation_id"],
+                                user_id=data.get("user_id"),
+                                active_llm=LLMType(data.get("active_llm", "primary")),
+                                failover_count=data.get("failover_count", 0),
+                                created_at=data["created_at"],
+                                last_activity=data["last_activity"],
+                                ttl_seconds=self.default_ttl,
+                                metadata=data.get("metadata", {}),
+                            )
+                        )
 
                     return sessions
                 else:
@@ -373,7 +376,7 @@ class SessionManager:
                 result = response.json()
                 return result.get("status") == "healthy"
             return False
-        except (redis.ConnectionError, redis.TimeoutError, OSError):
+        except (OSError, ConnectionError, TimeoutError):
             return False
 
     async def cleanup_expired(self) -> None:
@@ -381,4 +384,3 @@ class SessionManager:
         Cleanup task - Database Service handles this automatically
         This method is kept for backwards compatibility
         """
-        pass

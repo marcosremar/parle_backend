@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Dict, Any, Optional
-from warnings import warn
+from typing import Any
 
-from .base import BaseServiceClient, ServiceClientError, Priority
+from .base import BaseServiceClient, Priority, ServiceClientError
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +26,10 @@ class LLMClient(BaseServiceClient):
         audio_data: bytes,
         sample_rate: int = 16000,
         max_tokens: int = 512,
-        voice_id: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-        priority: Priority = Priority.NORMAL
-    ) -> Dict[str, Any]:
+        voice_id: str | None = None,
+        system_prompt: str | None = None,
+        priority: Priority = Priority.NORMAL,
+    ) -> dict[str, Any]:
         """
         Process audio through Ultravox (integrated STT + LLM).
 
@@ -46,12 +45,12 @@ class LLMClient(BaseServiceClient):
             Dict with 'text' (response) and 'transcript' (optional)
         """
         try:
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            audio_base64 = base64.b64encode(audio_data).decode("utf-8")
             request_data = {
                 "audio_base64": audio_base64,
                 "sample_rate": sample_rate,
                 "max_tokens": max_tokens,
-                "voice_id": voice_id
+                "voice_id": voice_id,
             }
             if system_prompt:
                 request_data["system_prompt"] = system_prompt
@@ -60,10 +59,10 @@ class LLMClient(BaseServiceClient):
             logger.info(f"🤖 LLM responded: {result.get('text', '')[:100]}...")
 
             return {
-                "text": result.get('text', ''),
-                "transcript": result.get('transcript', ''),
-                "metadata": result.get('metadata', {}),
-                "latency_ms": result.get('latency_ms', 0)
+                "text": result.get("text", ""),
+                "transcript": result.get("transcript", ""),
+                "metadata": result.get("metadata", {}),
+                "latency_ms": result.get("latency_ms", 0),
             }
         except Exception as e:
             logger.error(f"❌ LLM error: {e}")
@@ -79,10 +78,10 @@ class TTSClient(BaseServiceClient):
     async def synthesize(
         self,
         text: str,
-        voice_id: Optional[str] = None,
+        voice_id: str | None = None,
         speed: float = 1.0,
         sample_rate: int = 16000,
-        format: str = "wav"
+        format: str = "wav",
     ) -> bytes:
         """
         Synthesize text to speech.
@@ -100,22 +99,36 @@ class TTSClient(BaseServiceClient):
         try:
             if voice_id:
                 valid_elevenlabs_voices = [
-                    "Rachel", "Drew", "Clyde", "Paul", "Domi", "Dave", "Fin",
-                    "Bella", "Antoni", "Thomas", "Charlie", "Emily", "Elli",
-                    "Josh", "Arnold", "Adam", "Sam"
+                    "Rachel",
+                    "Drew",
+                    "Clyde",
+                    "Paul",
+                    "Domi",
+                    "Dave",
+                    "Fin",
+                    "Bella",
+                    "Antoni",
+                    "Thomas",
+                    "Charlie",
+                    "Emily",
+                    "Elli",
+                    "Josh",
+                    "Arnold",
+                    "Adam",
+                    "Sam",
                 ]
                 if voice_id not in valid_elevenlabs_voices:
                     logger.warning(f"⚠️  Voice '{voice_id}' is not valid, normalizing to None")
                     voice_id = None
                 elif not voice_id.strip():
                     voice_id = None
-            
+
             data = {
                 "text": text,
                 "voice": voice_id,
                 "speed": speed,
                 "sample_rate": sample_rate,
-                "format": format
+                "format": format,
             }
 
             audio_data = await self._post("/synthesize", json_data=data, timeout=20.0)
@@ -132,7 +145,9 @@ class STTClient(BaseServiceClient):
     def __init__(self) -> None:
         super().__init__("stt")
 
-    async def transcribe(self, audio_data: bytes, sample_rate: int = 16000, language: Optional[str] = None) -> Dict[str, Any]:
+    async def transcribe(
+        self, audio_data: bytes, sample_rate: int = 16000, language: str | None = None
+    ) -> dict[str, Any]:
         """
         Transcribe audio to text.
 
@@ -146,10 +161,11 @@ class STTClient(BaseServiceClient):
         """
         try:
             import numpy as np
+
             audio_array = np.frombuffer(audio_data, dtype=np.int16)
             audio_list = (audio_array / 32768.0).tolist()
 
-            request_data: Dict[str, Any] = {"audio": audio_list}
+            request_data: dict[str, Any] = {"audio": audio_list}
             if language:
                 request_data["language"] = language
 
@@ -166,25 +182,26 @@ class SecondaryLLMClient(BaseServiceClient):
     """Secondary LLM service client (fallback LLM via external API)"""
 
     def __init__(self) -> None:
-        super().__init__("external_ultravox")  # Keep service name for backward compatibility
+        # external_ultravox is an external service, not a module service
+        super().__init__("external_ultravox", is_module_service=False)  # Keep service name for backward compatibility
 
     async def process_audio(
         self,
         audio_data: bytes,
         sample_rate: int = 16000,
         max_tokens: int = 512,
-        voice_id: Optional[str] = None,
-        system_prompt: Optional[str] = None,
-        priority: Priority = Priority.NORMAL
-    ) -> Dict[str, Any]:
+        voice_id: str | None = None,
+        system_prompt: str | None = None,
+        priority: Priority = Priority.NORMAL,
+    ) -> dict[str, Any]:
         """Process audio through External LLM service via HTTP."""
         try:
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            audio_base64 = base64.b64encode(audio_data).decode("utf-8")
             request_data = {
                 "audio_base64": audio_base64,
                 "sample_rate": sample_rate,
                 "max_tokens": max_tokens,
-                "voice_id": voice_id
+                "voice_id": voice_id,
             }
             if system_prompt:
                 request_data["system_prompt"] = system_prompt
@@ -193,10 +210,10 @@ class SecondaryLLMClient(BaseServiceClient):
             logger.info(f"🤖 Secondary LLM responded: {result.get('text', '')[:100]}...")
 
             return {
-                "text": result.get('text', ''),
-                "transcript": result.get('transcript', ''),
-                "metadata": result.get('metadata', {}),
-                "latency_ms": result.get('latency_ms', 0)
+                "text": result.get("text", ""),
+                "transcript": result.get("transcript", ""),
+                "metadata": result.get("metadata", {}),
+                "latency_ms": result.get("latency_ms", 0),
             }
         except Exception as e:
             logger.error(f"❌ Secondary LLM error: {e}")
@@ -214,11 +231,8 @@ class ExternalLLMClient(BaseServiceClient):
         super().__init__("llm", is_module_service=True)
 
     async def call_conversation(
-        self,
-        user_input: str,
-        history: list,
-        session_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, user_input: str, history: list, session_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Call LLM with conversation context."""
         try:
             result = await self._post(
@@ -226,9 +240,9 @@ class ExternalLLMClient(BaseServiceClient):
                 json_data={
                     "user_input": user_input,
                     "history": history,
-                    "session_data": session_data
+                    "session_data": session_data,
                 },
-                timeout=60.0
+                timeout=60.0,
             )
             return result
         except Exception as e:
@@ -238,15 +252,15 @@ class ExternalLLMClient(BaseServiceClient):
     async def generate(
         self,
         text: str,
-        system_prompt: Optional[str] = None,
-        conversation_history: Optional[list] = None,
+        system_prompt: str | None = None,
+        conversation_history: list | None = None,
         max_tokens: int = 500,
         temperature: float = 0.7,
-        **kwargs
+        **kwargs,
     ) -> str:
         """
         Generate text using LLM
-        
+
         Args:
             text: Input text/message
             system_prompt: Optional system prompt
@@ -254,7 +268,7 @@ class ExternalLLMClient(BaseServiceClient):
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature
             **kwargs: Additional parameters
-            
+
         Returns:
             Generated text as string
         """
@@ -265,53 +279,53 @@ class ExternalLLMClient(BaseServiceClient):
             raise ServiceClientError("max_tokens must be a positive integer")
         if not isinstance(temperature, (int, float)) or temperature < 0 or temperature > 2:
             raise ServiceClientError("temperature must be between 0 and 2")
-        
+
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
-        
+
         try:
             result = await self.direct_module.generate(
                 prompt=text,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
             )
             # Normalizar resposta para string
             if isinstance(result, dict):
-                return result.get('text', result.get('response', result.get('content', str(result))))
+                return result.get(
+                    "text", result.get("response", result.get("content", str(result)))
+                )
             elif isinstance(result, str):
                 return result
             else:
                 return str(result)
         except Exception as e:
             self._handle_module_error("generate", e)
-    
+
     async def _generate_http(
         self,
         text: str,
-        system_prompt: Optional[str] = None,
-        conversation_history: Optional[list] = None,
+        system_prompt: str | None = None,
+        conversation_history: list | None = None,
         max_tokens: int = 500,
         temperature: float = 0.7,
-        **kwargs
+        **kwargs,
     ) -> str:
         """HTTP fallback for generate"""
         try:
-            data = {
-                "text": text,
-                "max_tokens": max_tokens,
-                "temperature": temperature
-            }
+            data = {"text": text, "max_tokens": max_tokens, "temperature": temperature}
             if system_prompt:
                 data["system_prompt"] = system_prompt
             if conversation_history:
                 data["conversation_history"] = conversation_history
             data.update(kwargs)
-            
+
             result = await self._post("/api/generate", json_data=data)
             # Normalizar resposta para string
             if isinstance(result, dict):
-                return result.get('text', result.get('response', result.get('content', str(result))))
+                return result.get(
+                    "text", result.get("response", result.get("content", str(result)))
+                )
             elif isinstance(result, str):
                 return result
             else:
@@ -320,46 +334,51 @@ class ExternalLLMClient(BaseServiceClient):
             logger.error(f"❌ LLM generation failed: {e}")
             raise
 
+
 class ExternalSTTClient(BaseServiceClient):
     """External STT service client (renamed from external_stt)"""
 
     def __init__(self) -> None:
         super().__init__("stt", is_module_service=True)
 
-    async def transcribe(self, audio_data: bytes, sample_rate: int = 16000, language: Optional[str] = None) -> Dict[str, Any]:
+    async def transcribe(
+        self, audio_data: bytes, sample_rate: int = 16000, language: str | None = None
+    ) -> dict[str, Any]:
         """Transcribe audio using STT module (direct call)."""
         # Validate input
         if not audio_data or not isinstance(audio_data, bytes) or len(audio_data) == 0:
             raise ServiceClientError("audio_data must be non-empty bytes")
         if not isinstance(sample_rate, int) or sample_rate < 1:
             raise ServiceClientError("sample_rate must be a positive integer")
-        
+
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
-        
+
         try:
             result = await self.direct_module.transcribe(audio_data, sample_rate, language)
             return result if isinstance(result, dict) else {"text": str(result)}
         except Exception as e:
             self._handle_module_error("transcribe", e)
-    
-    async def _transcribe_http(self, audio_data: bytes, sample_rate: int, language: Optional[str]) -> Dict[str, Any]:
+
+    async def _transcribe_http(
+        self, audio_data: bytes, sample_rate: int, language: str | None
+    ) -> dict[str, Any]:
         """
         HTTP fallback for transcribe
-        
+
         ⚠️ DEPRECATED: Not used for module services (which use direct calls).
         Kept for reference/debugging only.
         """
         try:
-            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            audio_base64 = base64.b64encode(audio_data).decode("utf-8")
             result = await self._post(
                 "/api/transcribe",
                 json_data={
                     "audio_base64": audio_base64,
                     "sample_rate": sample_rate,
-                    "language": language or "auto"
+                    "language": language or "auto",
                 },
-                timeout=15.0
+                timeout=15.0,
             )
             return {"text": result.get("text", "")}
         except Exception as e:
@@ -373,44 +392,35 @@ class ExternalTTSClient(BaseServiceClient):
     def __init__(self) -> None:
         super().__init__("tts", is_module_service=True)
 
-    async def synthesize(
-        self,
-        text: str,
-        voice: Optional[str] = None,
-        format: str = "wav"
-    ) -> bytes:
+    async def synthesize(self, text: str, voice: str | None = None, format: str = "wav") -> bytes:
         """Synthesize text using TTS module (direct call)."""
         # Validate input
         if not text or not isinstance(text, str) or not text.strip():
             raise ServiceClientError("text must be a non-empty string")
         if format not in ["wav", "mp3", "pcm"]:
             raise ServiceClientError(f"format must be one of: wav, mp3, pcm (got: {format})")
-        
+
         # Use direct module call (module services always use direct calls)
         await self._ensure_module_initialized()
-        
+
         try:
             result = await self.direct_module.synthesize(text, voice_id=voice, format=format)
             return result if isinstance(result, bytes) else bytes(result)
         except Exception as e:
             self._handle_module_error("synthesize", e)
-    
-    async def _synthesize_http(self, text: str, voice: Optional[str], format: str) -> bytes:
+
+    async def _synthesize_http(self, text: str, voice: str | None, format: str) -> bytes:
         """
         HTTP fallback for synthesize
-        
+
         ⚠️ DEPRECATED: Not used for module services (which use direct calls).
         Kept for reference/debugging only.
         """
         try:
             result = await self._post(
                 "/api/synthesize",
-                json_data={
-                    "text": text,
-                    "voice": voice or "af_heart",
-                    "format": format
-                },
-                timeout=20.0
+                json_data={"text": text, "voice": voice or "af_heart", "format": format},
+                timeout=20.0,
             )
             return result
         except Exception as e:

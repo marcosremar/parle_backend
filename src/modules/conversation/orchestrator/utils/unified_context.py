@@ -43,16 +43,16 @@ Usage:
             # - self.telemetry (OpenTelemetry integration)
 """
 
-import os
-from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
-
-# NEW: Use unified logging system instead of direct loguru import
-from .core_logging import setup_logging
+from typing import Any
 
 # For backward compatibility and non-service logging
 from loguru import logger as base_logger
+
+# NEW: Use unified logging system instead of direct loguru import
+from .core_logging import setup_logging
 
 # Singleton managers (lazy-loaded)
 _gpu_manager = None
@@ -65,15 +65,16 @@ _telemetry_configured = False  # Flag to ensure configure_telemetry is called on
 @dataclass
 class ResourceLimits:
     """Resource limits for a service/process"""
+
     max_cpu_percent: int = 80
     max_ram_mb: int = 4096
-    max_gpu_mb: Optional[int] = None
+    max_gpu_mb: int | None = None
 
     def to_dict(self) -> dict:
         return {
-            'max_cpu_percent': self.max_cpu_percent,
-            'max_ram_mb': self.max_ram_mb,
-            'max_gpu_mb': self.max_gpu_mb
+            "max_cpu_percent": self.max_cpu_percent,
+            "max_ram_mb": self.max_ram_mb,
+            "max_gpu_mb": self.max_gpu_mb,
         }
 
 
@@ -100,15 +101,15 @@ class ServiceContext:
     # Core dependencies (injected automatically)
     logger: Any = None  # Loguru logger
     comm: Any = None  # ServiceCommunicationManager
-    settings: Optional[Any] = None  # SettingsService (singleton)
+    settings: Any | None = None  # SettingsService (singleton)
 
     # Optional dependencies (lazy-loaded)
-    gpu: Optional[Any] = None
-    metrics: Optional[Any] = None
-    telemetry: Optional[Any] = None  # UnifiedTelemetry (OpenTelemetry integration)
+    gpu: Any | None = None
+    metrics: Any | None = None
+    telemetry: Any | None = None  # UnifiedTelemetry (OpenTelemetry integration)
 
     # Configuration
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
     # Profile and execution info
     profile: str = "dev-local"
@@ -122,15 +123,15 @@ class ServiceContext:
         cls,
         service_name: str,
         comm: Any,
-        config: Optional[Dict] = None,
-        gpu: Optional[Any] = None,
-        metrics: Optional[Any] = None,
-        telemetry: Optional[Any] = None,
+        config: dict | None = None,
+        gpu: Any | None = None,
+        metrics: Any | None = None,
+        telemetry: Any | None = None,
         profile: str = "dev-local",
         execution_mode: str = "module",
         process_id: str = "service_manager",
-        limits: Optional[Dict] = None
-    ) -> 'ServiceContext':
+        limits: dict | None = None,
+    ) -> "ServiceContext":
         """
         Factory method to create ServiceContext with DI
 
@@ -151,19 +152,21 @@ class ServiceContext:
         # Create scoped logger using unified logging system
         # This ensures consistent logging configuration across all services
         scoped_logger = setup_logging(
-            service_name=service_name,
-            level=os.getenv("LOG_LEVEL", "INFO")
+            service_name=service_name, level=os.getenv("LOG_LEVEL", "INFO")
         )
 
         # Get SettingsService singleton (deprecated - using src.core.config)
         try:
             from src.core.config import get_config
+
             config = get_config()
+
             # Create minimal SettingsService-like interface for backward compatibility
             class SettingsService:
                 @staticmethod
                 def get_instance():
                     return config
+
             settings_service = SettingsService.get_instance()
         except Exception as e:
             scoped_logger.debug(f"Could not load config: {e}")
@@ -199,27 +202,27 @@ class ServiceContext:
             config=merged_config,
             profile=profile,
             execution_mode=execution_mode,
-            limits=resource_limits
+            limits=resource_limits,
         )
 
         # Register service in global registry
         cls._register_service(service_name, context)
 
         context.logger.info(
-            f"📦 ServiceContext created",
+            "📦 ServiceContext created",
             service=service_name,
             profile=profile,
             mode=execution_mode,
             settings="available" if settings_service else "not available",
             gpu="available" if gpu else "not available",
             metrics="available" if metrics else "not available",
-            telemetry="available" if telemetry else "not available"
+            telemetry="available" if telemetry else "not available",
         )
 
         return context
 
     @staticmethod
-    def _load_config(service_name: str, base_config: Dict) -> Dict:
+    def _load_config(service_name: str, base_config: dict) -> dict:
         """
         Load hierarchical configuration
 
@@ -237,11 +240,12 @@ class ServiceContext:
         # 1. Load from global config (lowest priority)
         try:
             from src.core.config import get_config
+
             config = get_config()
             # Check if there's a service-specific section
             service_config = getattr(config, service_name, None)
             if service_config:
-                if hasattr(service_config, 'model_dump'):
+                if hasattr(service_config, "model_dump"):
                     merged.update(service_config.model_dump())
                 elif isinstance(service_config, dict):
                     merged.update(service_config)
@@ -258,7 +262,7 @@ class ServiceContext:
         return merged
 
     @staticmethod
-    def _load_service_config_file(service_name: str) -> Dict:
+    def _load_service_config_file(service_name: str) -> dict:
         """
         Load service-specific config.yaml file
 
@@ -283,7 +287,9 @@ class ServiceContext:
                 base_logger.warning(f"Failed to load {config_path}: {e}")
 
         # Try global config directory
-        global_config_path = Path(__file__).parent.parent.parent / "config" / "services" / f"{service_name}.yaml"
+        global_config_path = (
+            Path(__file__).parent.parent.parent / "config" / "services" / f"{service_name}.yaml"
+        )
 
         if global_config_path.exists():
             try:
@@ -307,6 +313,7 @@ class ServiceContext:
         if _gpu_manager is None:
             try:
                 from src.core.managers.gpu_memory_manager import get_gpu_manager
+
                 _gpu_manager = get_gpu_manager()
                 base_logger.info("✅ GPU Manager lazy-loaded")
             except Exception as e:
@@ -328,6 +335,7 @@ class ServiceContext:
         if _metrics_collector is None:
             try:
                 from src.core.metrics_collector import MetricsCollector
+
                 _metrics_collector = MetricsCollector()
                 base_logger.info("✅ Metrics Collector lazy-loaded")
             except ImportError:
@@ -358,12 +366,13 @@ class ServiceContext:
         if not _telemetry_configured:
             try:
                 from .observability import configure_telemetry
+
                 configure_telemetry(
                     service_name="ultravox-pipeline",
                     service_version="1.0.0",
                     environment=os.getenv("ULTRAVOX_PROFILE", "dev-local"),
                     enable_console=True,  # Enable console exporter for development
-                    enable_prometheus=False  # Disable Prometheus (exporter not installed)
+                    enable_prometheus=False,  # Disable Prometheus (exporter not installed)
                 )
                 _telemetry_configured = True
                 base_logger.info("✅ OpenTelemetry configured globally")
@@ -377,6 +386,7 @@ class ServiceContext:
         if service_name not in _telemetry_instances:
             try:
                 from .observability import get_telemetry
+
                 telemetry = get_telemetry(service_name)
                 _telemetry_instances[service_name] = telemetry
                 base_logger.info(f"✅ OpenTelemetry lazy-loaded for {service_name}")
@@ -384,29 +394,31 @@ class ServiceContext:
                 base_logger.debug(f"OpenTelemetry not available for {service_name}")
                 _telemetry_instances[service_name] = None
             except Exception as e:
-                base_logger.warning(f"⚠️ OpenTelemetry initialization failed for {service_name}: {e}")
+                base_logger.warning(
+                    f"⚠️ OpenTelemetry initialization failed for {service_name}: {e}"
+                )
                 _telemetry_instances[service_name] = None
 
         return _telemetry_instances[service_name]
 
     @staticmethod
-    def _register_service(service_name: str, context: 'ServiceContext'):
+    def _register_service(service_name: str, context: "ServiceContext"):
         """Register service in global registry"""
         _service_registry[service_name] = {
-            'context': context,
-            'process_id': context.process_id,
-            'profile': context.profile,
-            'execution_mode': context.execution_mode,
-            'pid': os.getpid()
+            "context": context,
+            "process_id": context.process_id,
+            "profile": context.profile,
+            "execution_mode": context.execution_mode,
+            "pid": os.getpid(),
         }
 
     @staticmethod
-    def get_service_info(service_name: str) -> Optional[Dict]:
+    def get_service_info(service_name: str) -> dict | None:
         """Get service info from global registry"""
         return _service_registry.get(service_name)
 
     @staticmethod
-    def get_all_services() -> Dict[str, Dict]:
+    def get_all_services() -> dict[str, dict]:
         """Get all registered services"""
         return _service_registry.copy()
 
@@ -421,9 +433,9 @@ class ServiceContext:
         Returns:
             Configuration value
         """
-        if '.' in key:
+        if "." in key:
             # Support dot notation: "llm.model_name"
-            keys = key.split('.')
+            keys = key.split(".")
             value = self.config
             for k in keys:
                 if isinstance(value, dict):
@@ -443,7 +455,7 @@ class ServiceContext:
         self.logger.info("🛑 Shutting down ServiceContext", service=self.service_name)
 
         # Release GPU allocation if any
-        if self.gpu and hasattr(self.gpu, 'release'):
+        if self.gpu and hasattr(self.gpu, "release"):
             try:
                 self.gpu.release(self.service_name)
                 self.logger.info("   GPU released")
@@ -451,7 +463,7 @@ class ServiceContext:
                 self.logger.error(f"   GPU release error: {e}")
 
         # Flush metrics
-        if self.metrics and hasattr(self.metrics, 'flush'):
+        if self.metrics and hasattr(self.metrics, "flush"):
             try:
                 await self.metrics.flush()
                 self.logger.info("   Metrics flushed")
@@ -464,7 +476,7 @@ class ServiceContext:
 
         self.logger.info("✅ ServiceContext shutdown complete", service=self.service_name)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Get service context status
 
@@ -472,17 +484,17 @@ class ServiceContext:
             Status dict with all context information
         """
         return {
-            'service_name': self.service_name,
-            'process_id': self.process_id,
-            'pid': os.getpid(),
-            'profile': self.profile,
-            'execution_mode': self.execution_mode,
-            'gpu': 'available' if self.gpu else 'not available',
-            'communication': type(self.comm).__name__ if self.comm else None,
-            'metrics': 'available' if self.metrics else 'not available',
-            'telemetry': 'available' if self.telemetry else 'not available',
-            'config_keys': list(self.config.keys()),
-            'limits': self.limits.to_dict()
+            "service_name": self.service_name,
+            "process_id": self.process_id,
+            "pid": os.getpid(),
+            "profile": self.profile,
+            "execution_mode": self.execution_mode,
+            "gpu": "available" if self.gpu else "not available",
+            "communication": type(self.comm).__name__ if self.comm else None,
+            "metrics": "available" if self.metrics else "not available",
+            "telemetry": "available" if self.telemetry else "not available",
+            "config_keys": list(self.config.keys()),
+            "limits": self.limits.to_dict(),
         }
 
 
@@ -490,11 +502,8 @@ class ServiceContext:
 # Backward Compatibility Functions
 # ============================================================================
 
-def create_service_context(
-    service_name: str,
-    comm: Any,
-    **kwargs
-) -> ServiceContext:
+
+def create_service_context(service_name: str, comm: Any, **kwargs) -> ServiceContext:
     """
     Create ServiceContext (backward compatible function)
 
@@ -512,7 +521,7 @@ def create_service_context(
     return ServiceContext.create(service_name=service_name, comm=comm, **kwargs)
 
 
-def get_service_registry() -> Dict[str, Dict]:
+def get_service_registry() -> dict[str, dict]:
     """
     Get global service registry (backward compatible)
 
@@ -530,7 +539,7 @@ async def shutdown_all_contexts():
 
     for service_name, service_info in list(_service_registry.items()):
         try:
-            context = service_info.get('context')
+            context = service_info.get("context")
             if context:
                 await context.shutdown()
         except Exception as e:
@@ -548,15 +557,17 @@ async def shutdown_all_contexts():
 # DEPRECATED - Old 3-layer system compatibility
 # ============================================================================
 
+
 class GlobalContext:
     """DEPRECATED: Use ServiceContext instead"""
 
     def __init__(self, *args, **kwargs):
         import warnings
+
         warnings.warn(
             "GlobalContext is deprecated. Use ServiceContext.create() instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         base_logger.warning("⚠️ GlobalContext is deprecated, use ServiceContext")
 
@@ -570,10 +581,11 @@ class ProcessContext:
 
     def __init__(self, *args, **kwargs):
         import warnings
+
         warnings.warn(
             "ProcessContext is deprecated. Use ServiceContext.create() instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         base_logger.warning("⚠️ ProcessContext is deprecated, use ServiceContext")
 

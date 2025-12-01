@@ -6,9 +6,9 @@ Loads conversation context in parallel for better performance.
 
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional, Tuple
 import asyncio
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,37 +16,35 @@ logger = logging.getLogger(__name__)
 class ContextLoader:
     """Loads session, scenario, history, and student data in parallel."""
 
-    def __init__(self, clients: Dict[str, Any]) -> None:
+    def __init__(self, clients: dict[str, Any]) -> None:
         """
         Initialize context loader.
-        
+
         Args:
             clients: Dictionary of service clients
         """
         self.clients = clients
 
     async def load_context(
-        self,
-        session_id: str,
-        session_data: Optional[Dict[str, Any]] = None
-    ) -> Tuple[
-        Optional[Dict[str, Any]],  # scenario_data
-        List[Dict[str, Any]],  # conversation_history
-        Optional[Dict[str, Any]],  # student_cefr_progress
-        Optional[Dict[str, Any]],  # target_skill
-        Optional[str],  # conversation_id
-        Optional[str],  # scenario_id
-        str  # user_id
+        self, session_id: str, session_data: dict[str, Any] | None = None
+    ) -> tuple[
+        dict[str, Any] | None,  # scenario_data
+        list[dict[str, Any]],  # conversation_history
+        dict[str, Any] | None,  # student_cefr_progress
+        dict[str, Any] | None,  # target_skill
+        str | None,  # conversation_id
+        str | None,  # scenario_id
+        str,  # user_id
     ]:
         """
         Load all context data in parallel.
-        
+
         Args:
             session_id: Session identifier
             session_data: Optional pre-loaded session data
-            
+
         Returns:
-            Tuple of (scenario_data, conversation_history, student_cefr_progress, 
+            Tuple of (scenario_data, conversation_history, student_cefr_progress,
                      target_skill, conversation_id, scenario_id, user_id)
         """
         # Load session if not provided
@@ -65,7 +63,7 @@ class ContextLoader:
         user_id = session_data.get("user_id", session_id)
 
         # Build parallel tasks
-        tasks: List[Optional[Any]] = []
+        tasks: list[Any | None] = []
 
         # Scenario task
         if scenario_id and "scenarios" in self.clients:
@@ -75,12 +73,7 @@ class ContextLoader:
 
         # History task
         if conversation_id and "conversation_store" in self.clients:
-            tasks.append(
-                self.clients["conversation_store"].get_context(
-                    conversation_id,
-                    limit=10
-                )
-            )
+            tasks.append(self.clients["conversation_store"].get_context(conversation_id, limit=10))
         else:
             tasks.append(None)
 
@@ -109,7 +102,7 @@ class ContextLoader:
                 logger.warning(f"⚠️ Failed to load scenario: {results[0]}")
 
             # Process history result
-            conversation_history: List[Dict[str, Any]] = []
+            conversation_history: list[dict[str, Any]] = []
             if conversation_id and not isinstance(results[1], Exception) and results[1]:
                 messages = results[1]
                 # Format for LLM (simple format)
@@ -124,7 +117,11 @@ class ContextLoader:
 
             # Process student CEFR result
             student_cefr_progress = None
-            if "student_model" in self.clients and not isinstance(results[2], Exception) and results[2]:
+            if (
+                "student_model" in self.clients
+                and not isinstance(results[2], Exception)
+                and results[2]
+            ):
                 student_cefr_progress = results[2]
                 current_level = (
                     student_cefr_progress.get("current_estimated_level")
@@ -135,9 +132,15 @@ class ContextLoader:
 
             # Process next skill result
             target_skill = None
-            if "learning_path" in self.clients and not isinstance(results[3], Exception) and results[3]:
+            if (
+                "learning_path" in self.clients
+                and not isinstance(results[3], Exception)
+                and results[3]
+            ):
                 target_skill = results[3]
-                logger.info(f"🎯 Target skill: {target_skill.get('skill_name', target_skill.get('skill_id', 'unknown'))}")
+                logger.info(
+                    f"🎯 Target skill: {target_skill.get('skill_name', target_skill.get('skill_id', 'unknown'))}"
+                )
 
             return (
                 scenario_data,
@@ -146,7 +149,7 @@ class ContextLoader:
                 target_skill,
                 conversation_id,
                 scenario_id,
-                user_id
+                user_id,
             )
 
         return None, [], None, None, conversation_id, scenario_id, user_id

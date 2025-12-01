@@ -2,9 +2,10 @@
 File Storage Module - Direct Python calls for File storage
 """
 
-from typing import Dict, Optional, Any, List
+from typing import Any
 
 from src.modules.base_module import BaseModule
+
 try:
     from .file_storage.manager import FileStorageManager
 except ImportError:
@@ -13,23 +14,22 @@ except ImportError:
 
 class FileStorageModule(BaseModule):
     """File Storage Module for direct Python calls"""
-    
+
     def __init__(self):
         super().__init__("file_storage")
         self.storage_manager = None
-    
+
     async def _initialize(self) -> bool:
         """Initialize file storage manager"""
         try:
             # Import file storage manager from local module
             if FileStorageManager:
                 self.storage_manager = FileStorageManager(
-                    base_path="/tmp/file_storage",
-                    max_file_size=100 * 1024 * 1024
+                    base_path="/tmp/file_storage", max_file_size=100 * 1024 * 1024
                 )
             else:
                 self.storage_manager = None
-            
+
             self.logger.info("✅ File Storage Module initialized")
             return True
         except Exception as e:
@@ -38,44 +38,40 @@ class FileStorageModule(BaseModule):
             self.storage_manager = None
             self._files = {}
             return True
-    
+
     async def upload_file(
         self,
         file_content: bytes,
         filename: str,
-        tags: Optional[List[str]] = None,
-        metadata: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        tags: list[str] | None = None,
+        metadata: dict | None = None,
+    ) -> dict[str, Any]:
         """Upload a file"""
         if not self.initialized:
             await self.initialize()
-        
+
         try:
             if self.storage_manager:
                 # Create a mock UploadFile-like object
-                from fastapi import UploadFile
                 from io import BytesIO
-                
-                file_obj = UploadFile(
-                    filename=filename,
-                    file=BytesIO(file_content)
-                )
-                
+
+                from fastapi import UploadFile
+
+                file_obj = UploadFile(filename=filename, file=BytesIO(file_content))
+
                 result = await self.storage_manager.upload_file(
-                    file=file_obj,
-                    tags=tags,
-                    metadata=metadata
+                    file=file_obj, tags=tags, metadata=metadata
                 )
-                
+
                 # Convert to dict if needed
-                if hasattr(result, 'dict'):
+                if hasattr(result, "dict"):
                     return result.dict()
                 return result
             else:
                 # Fallback to in-memory
-                import secrets
                 from datetime import datetime
-                
+                import secrets
+
                 file_id = f"file_{secrets.token_hex(8)}"
                 file_data = {
                     "file_id": file_id,
@@ -84,24 +80,24 @@ class FileStorageModule(BaseModule):
                     "upload_date": datetime.now().isoformat(),
                     "tags": tags or [],
                     "metadata": metadata or {},
-                    "content": file_content
+                    "content": file_content,
                 }
                 self._files[file_id] = file_data
                 return file_data
         except Exception as e:
             self.logger.error(f"❌ File upload failed: {e}")
             raise
-    
-    async def download_file(self, file_id: str) -> Optional[bytes]:
+
+    async def download_file(self, file_id: str) -> bytes | None:
         """Download a file by ID"""
         if not self.initialized:
             await self.initialize()
-        
+
         try:
             if self.storage_manager:
                 file_path = self.storage_manager.download_file(file_id)
                 if file_path and file_path.exists():
-                    with open(file_path, 'rb') as f:
+                    with open(file_path, "rb") as f:
                         return f.read()
                 return None
             else:
@@ -113,17 +109,17 @@ class FileStorageModule(BaseModule):
         except Exception as e:
             self.logger.error(f"❌ File download failed: {e}")
             return None
-    
-    async def get_file_metadata(self, file_id: str) -> Optional[Dict[str, Any]]:
+
+    async def get_file_metadata(self, file_id: str) -> dict[str, Any] | None:
         """Get file metadata"""
         if not self.initialized:
             await self.initialize()
-        
+
         try:
             if self.storage_manager:
                 metadata = self.storage_manager.get_file_metadata(file_id)
                 if metadata:
-                    if hasattr(metadata, 'dict'):
+                    if hasattr(metadata, "dict"):
                         return metadata.dict()
                     return metadata
                 return None
@@ -139,23 +135,21 @@ class FileStorageModule(BaseModule):
         except Exception as e:
             self.logger.error(f"❌ Failed to get file metadata: {e}")
             return None
-    
+
     async def list_files(
-        self,
-        tags: Optional[List[str]] = None,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        self, tags: list[str] | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
         """List files, optionally filtered by tags"""
         if not self.initialized:
             await self.initialize()
-        
+
         try:
             if self.storage_manager:
                 files = self.storage_manager.list_files(tags=tags, limit=limit)
                 # Convert to list of dicts
                 result = []
                 for f in files:
-                    if hasattr(f, 'dict'):
+                    if hasattr(f, "dict"):
                         result.append(f.dict())
                     else:
                         result.append(f)
@@ -164,10 +158,7 @@ class FileStorageModule(BaseModule):
                 # Fallback to in-memory
                 files = list(self._files.values())
                 if tags:
-                    files = [
-                        f for f in files
-                        if any(tag in f.get("tags", []) for tag in tags)
-                    ]
+                    files = [f for f in files if any(tag in f.get("tags", []) for tag in tags)]
                 # Remove content from results
                 for f in files:
                     f.pop("content", None)
@@ -175,12 +166,12 @@ class FileStorageModule(BaseModule):
         except Exception as e:
             self.logger.error(f"❌ Failed to list files: {e}")
             return []
-    
+
     async def delete_file(self, file_id: str) -> bool:
         """Delete a file"""
         if not self.initialized:
             await self.initialize()
-        
+
         try:
             if self.storage_manager:
                 return self.storage_manager.delete_file(file_id)

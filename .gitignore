@@ -356,6 +356,8 @@ tmp/
 temp/
 .tmp/
 .cache/
+
+# Test reports (keep structure, ignore generated reports)
+tests/e2e/reports/*.json
 tests/e2e/reports/*.md
-tests/e2e/reports/*.md
-tmp/
+!tests/e2e/reports/README.md

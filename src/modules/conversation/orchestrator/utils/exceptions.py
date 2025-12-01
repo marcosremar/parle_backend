@@ -44,17 +44,21 @@ Usage:
 
 try:
     import orjson as json
+
     def json_dumps(obj, default=str):
-        return json.dumps(obj, default=default).decode('utf-8')
+        return json.dumps(obj, default=default).decode("utf-8")
+
 except ImportError:
     import json
+
     def json_dumps(obj, default=str):
         return json.dumps(obj, default=default)
+
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, Any, Dict
-
+from typing import Any
 
 # ============================================================================
 # Enums and Context
@@ -96,19 +100,21 @@ class ErrorContext:
         system_info: System state at time of error
     """
 
-    error_id: str = field(default_factory=lambda: f"err_{int(datetime.now(timezone.utc).timestamp() * 1000)}")
+    error_id: str = field(
+        default_factory=lambda: f"err_{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+    )
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    correlation_id: Optional[str] = None
-    trace_id: Optional[str] = None
-    span_id: Optional[str] = None
-    session_id: Optional[str] = None
-    user_id: Optional[str] = None
-    component: Optional[str] = None
-    operation: Optional[str] = None
-    request_data: Optional[Dict[str, Any]] = None
-    system_info: Optional[Dict[str, Any]] = None
+    correlation_id: str | None = None
+    trace_id: str | None = None
+    span_id: str | None = None
+    session_id: str | None = None
+    user_id: str | None = None
+    component: str | None = None
+    operation: str | None = None
+    request_data: dict[str, Any] | None = None
+    system_info: dict[str, Any] | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "error_id": self.error_id,
@@ -149,11 +155,11 @@ class UltravoxError(Exception):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
-        original_error: Optional[Exception] = None,
+        details: dict[str, Any] | None = None,
+        original_error: Exception | None = None,
         severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-        error_code: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
+        error_code: str | None = None,
+        context: ErrorContext | None = None,
     ):
         self.message = message
         self.details = details or {}
@@ -168,12 +174,10 @@ class UltravoxError(Exception):
         if self.details:
             parts.append(f"Details: {self.details}")
         if self.original_error:
-            parts.append(
-                f"Caused by: {type(self.original_error).__name__}: {self.original_error}"
-            )
+            parts.append(f"Caused by: {type(self.original_error).__name__}: {self.original_error}")
         return " | ".join(parts)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert exception to dictionary for structured logging/responses.
 
@@ -231,8 +235,6 @@ class UltravoxError(Exception):
 class ServiceError(UltravoxError):
     """Base class for service-related errors."""
 
-    pass
-
 
 class ServiceUnavailableError(ServiceError):
     """
@@ -246,7 +248,7 @@ class ServiceUnavailableError(ServiceError):
     This is a retryable error.
     """
 
-    def __init__(self, service_name: str, original_error: Optional[Exception] = None):
+    def __init__(self, service_name: str, original_error: Exception | None = None):
         super().__init__(
             f"Service '{service_name}' is unavailable",
             details={"service": service_name, "retryable": True},
@@ -265,9 +267,7 @@ class ServiceTimeoutError(ServiceError):
     This is a retryable error.
     """
 
-    def __init__(
-        self, service_name: str, timeout_ms: int, original_error: Optional[Exception] = None
-    ):
+    def __init__(self, service_name: str, timeout_ms: int, original_error: Exception | None = None):
         super().__init__(
             f"Service '{service_name}' timed out after {timeout_ms}ms",
             details={"service": service_name, "timeout_ms": timeout_ms, "retryable": True},
@@ -287,7 +287,7 @@ class ServiceInitializationError(ServiceError):
     This is NOT retryable without intervention.
     """
 
-    def __init__(self, service_name: str, reason: str, original_error: Optional[Exception] = None):
+    def __init__(self, service_name: str, reason: str, original_error: Exception | None = None):
         super().__init__(
             f"Failed to initialize service '{service_name}': {reason}",
             details={"service": service_name, "reason": reason, "retryable": False},
@@ -303,8 +303,6 @@ class ServiceInitializationError(ServiceError):
 class CommunicationError(UltravoxError):
     """Base class for inter-service communication errors."""
 
-    pass
-
 
 class NetworkError(CommunicationError):
     """
@@ -318,7 +316,7 @@ class NetworkError(CommunicationError):
     This is a retryable error.
     """
 
-    def __init__(self, endpoint: str, original_error: Optional[Exception] = None):
+    def __init__(self, endpoint: str, original_error: Exception | None = None):
         super().__init__(
             f"Network error connecting to {endpoint}",
             details={"endpoint": endpoint, "retryable": True},
@@ -341,8 +339,8 @@ class ProtocolError(CommunicationError):
     def __init__(
         self,
         protocol: str,
-        status_code: Optional[int] = None,
-        original_error: Optional[Exception] = None,
+        status_code: int | None = None,
+        original_error: Exception | None = None,
     ):
         details = {"protocol": protocol}
         if status_code:
@@ -368,7 +366,7 @@ class SerializationError(CommunicationError):
     This is NOT retryable without fixing the data.
     """
 
-    def __init__(self, data_format: str, original_error: Optional[Exception] = None):
+    def __init__(self, data_format: str, original_error: Exception | None = None):
         super().__init__(
             f"Serialization error ({data_format})",
             details={"format": data_format, "retryable": False},
@@ -384,8 +382,6 @@ class SerializationError(CommunicationError):
 class ValidationError(UltravoxError):
     """Base class for validation errors."""
 
-    pass
-
 
 class RequestValidationError(ValidationError):
     """
@@ -399,7 +395,7 @@ class RequestValidationError(ValidationError):
     This is NOT retryable (client error).
     """
 
-    def __init__(self, field: str, reason: str, original_error: Optional[Exception] = None):
+    def __init__(self, field: str, reason: str, original_error: Exception | None = None):
         super().__init__(
             f"Invalid request field '{field}': {reason}",
             details={"field": field, "reason": reason, "retryable": False},
@@ -419,7 +415,7 @@ class ResponseValidationError(ValidationError):
     This may be retryable (server error).
     """
 
-    def __init__(self, service: str, reason: str, original_error: Optional[Exception] = None):
+    def __init__(self, service: str, reason: str, original_error: Exception | None = None):
         super().__init__(
             f"Invalid response from '{service}': {reason}",
             details={"service": service, "reason": reason, "retryable": True},
@@ -439,7 +435,7 @@ class ConfigurationError(ValidationError):
     This is NOT retryable without fixing config.
     """
 
-    def __init__(self, config_key: str, reason: str, original_error: Optional[Exception] = None):
+    def __init__(self, config_key: str, reason: str, original_error: Exception | None = None):
         super().__init__(
             f"Invalid configuration '{config_key}': {reason}",
             details={"config_key": config_key, "reason": reason, "retryable": False},
@@ -454,8 +450,6 @@ class ConfigurationError(ValidationError):
 
 class SecurityError(UltravoxError):
     """Base class for security-related errors."""
-
-    pass
 
 
 class AuthenticationError(SecurityError):
@@ -473,7 +467,7 @@ class AuthenticationError(SecurityError):
     def __init__(
         self,
         reason: str = "Authentication required",
-        original_error: Optional[Exception] = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             f"Authentication failed: {reason}",
@@ -500,7 +494,7 @@ class AuthorizationError(SecurityError):
         self,
         resource: str,
         action: str,
-        original_error: Optional[Exception] = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             f"Access denied: Cannot {action} {resource}",
@@ -532,7 +526,7 @@ class RateLimitError(SecurityError):
         limit: int,
         window_seconds: int,
         retry_after: int = 60,
-        original_error: Optional[Exception] = None,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             f"Rate limit exceeded: {limit} requests per {window_seconds}s",
@@ -555,8 +549,6 @@ class RateLimitError(SecurityError):
 
 class ResourceError(UltravoxError):
     """Base class for resource-related errors."""
-
-    pass
 
 
 class GPUNotAvailableError(ResourceError):
@@ -588,7 +580,7 @@ class MemoryError(ResourceError):
     May be retryable after cleanup.
     """
 
-    def __init__(self, required_mb: Optional[int] = None, retryable: bool = True):
+    def __init__(self, required_mb: int | None = None, retryable: bool = True):
         details = {"retryable": retryable}
         if required_mb:
             details["required_mb"] = required_mb
@@ -611,7 +603,7 @@ class StorageError(ResourceError):
     Retryable depends on the error.
     """
 
-    def __init__(self, operation: str, path: str, original_error: Optional[Exception] = None):
+    def __init__(self, operation: str, path: str, original_error: Exception | None = None):
         super().__init__(
             f"Storage error during {operation}: {path}",
             details={"operation": operation, "path": path},
@@ -627,8 +619,6 @@ class StorageError(ResourceError):
 class AIError(UltravoxError):
     """Base class for AI service errors."""
 
-    pass
-
 
 class LLMError(AIError):
     """
@@ -643,7 +633,11 @@ class LLMError(AIError):
     """
 
     def __init__(
-        self, model: str, reason: str, retryable: bool = True, original_error: Optional[Exception] = None
+        self,
+        model: str,
+        reason: str,
+        retryable: bool = True,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             f"LLM error ({model}): {reason}",
@@ -665,7 +659,11 @@ class STTError(AIError):
     """
 
     def __init__(
-        self, model: str, reason: str, retryable: bool = True, original_error: Optional[Exception] = None
+        self,
+        model: str,
+        reason: str,
+        retryable: bool = True,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             f"STT error ({model}): {reason}",
@@ -687,7 +685,11 @@ class TTSError(AIError):
     """
 
     def __init__(
-        self, model: str, reason: str, retryable: bool = True, original_error: Optional[Exception] = None
+        self,
+        model: str,
+        reason: str,
+        retryable: bool = True,
+        original_error: Exception | None = None,
     ):
         super().__init__(
             f"TTS error ({model}): {reason}",
@@ -734,7 +736,7 @@ def is_retryable(error: Exception) -> bool:
 
 
 def wrap_exception(
-    error: Exception, service_name: Optional[str] = None, operation: Optional[str] = None
+    error: Exception, service_name: str | None = None, operation: str | None = None
 ) -> UltravoxError:
     """
     Wrap a generic exception into an appropriate UltravoxError.
@@ -762,6 +764,7 @@ def wrap_exception(
         return NetworkError(operation or "unknown", error)
 
     # Timeout errors
+    import asyncio
     if isinstance(error, (aiohttp.ServerTimeoutError, TimeoutError, asyncio.TimeoutError)):
         if service_name:
             return ServiceTimeoutError(service_name, 0, error)

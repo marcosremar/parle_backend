@@ -107,7 +107,7 @@ python src/services/api_gateway/app_complete.py
 Ou usar um gerenciador de processos como:
 - `supervisord`
 - `systemd`
-- `docker-compose`
+- `docker/docker-compose.yml`
 
 ---
 
@@ -138,6 +138,8 @@ curl http://localhost:8000/health
 ## 📦 Docker Deployment
 
 ### Dockerfile (Monolith)
+Localizado em `docker/Dockerfile`:
+
 ```dockerfile
 FROM python:3.11-slim
 
@@ -154,7 +156,9 @@ ENV PYTHONPATH=/app
 CMD ["python", "src/api/main.py"]
 ```
 
-### docker-compose.yml (Microservices)
+### docker-compose.yml
+Localizado em `docker/docker-compose.yml`:
+
 ```yaml
 version: '3.8'
 

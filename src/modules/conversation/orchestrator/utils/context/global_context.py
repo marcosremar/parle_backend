@@ -9,8 +9,8 @@ Manages resources shared across ALL processes:
 - Profile Manager
 """
 
-import threading
 import logging
+import threading
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class GlobalContext:
         metrics = global_ctx.metrics
     """
 
-    _instance: Optional['GlobalContext'] = None
+    _instance: Optional["GlobalContext"] = None
     _lock = threading.Lock()
     _initialized = False
 
@@ -43,9 +43,7 @@ class GlobalContext:
             profile_name: Profile to load (gpu-machine, testing, production)
         """
         if GlobalContext._instance is not None:
-            raise RuntimeError(
-                "GlobalContext is a singleton. Use GlobalContext.get_instance()"
-            )
+            raise RuntimeError("GlobalContext is a singleton. Use GlobalContext.get_instance()")
 
         self.profile_name = profile_name
         self.profile = None
@@ -58,10 +56,7 @@ class GlobalContext:
         logger.info(f"🌍 GlobalContext created with profile: {profile_name}")
 
     @classmethod
-    def get_instance(
-        cls,
-        profile_name: Optional[str] = None
-    ) -> 'GlobalContext':
+    def get_instance(cls, profile_name: str | None = None) -> "GlobalContext":
         """
         Get or create GlobalContext singleton
 
@@ -146,11 +141,11 @@ class GlobalContext:
         """Initialize GPU Manager with SharedGPUState"""
         try:
             # Import GPU Manager and SharedGPUState
-            from .shared_state import SharedGPUState
             from ..managers.gpu_memory_manager import get_gpu_manager
+            from .shared_state import SharedGPUState
 
             # Create shared state
-            shared_state = SharedGPUState()
+            SharedGPUState()
 
             # Get GPU Manager singleton
             self.gpu_manager = get_gpu_manager()
@@ -169,6 +164,7 @@ class GlobalContext:
             # Import MetricsCollector (if exists)
             try:
                 from ..metrics_collector import MetricsCollector
+
                 self.metrics = MetricsCollector()
                 await self.metrics.initialize()
                 logger.info("✅ Metrics Collector initialized")
@@ -209,7 +205,7 @@ class GlobalContext:
             del self.service_registry[service_name]
             logger.info(f"🗑️ Service unregistered: {service_name}")
 
-    def get_service(self, service_name: str) -> Optional[dict]:
+    def get_service(self, service_name: str) -> dict | None:
         """Get service info from registry"""
         if self.service_registry is not None:
             return self.service_registry.get(service_name)
@@ -227,7 +223,7 @@ class GlobalContext:
         if self.gpu_manager:
             try:
                 # Release all GPU allocations
-                if hasattr(self.gpu_manager, 'shared_state') and self.gpu_manager.shared_state:
+                if hasattr(self.gpu_manager, "shared_state") and self.gpu_manager.shared_state:
                     self.gpu_manager.shared_state.clear_all()
                     logger.info("   GPU allocations cleared")
             except Exception as e:
@@ -251,5 +247,5 @@ class GlobalContext:
             "gpu_manager": "initialized" if self.gpu_manager else "not available",
             "metrics": "initialized" if self.metrics else "not available",
             "services_count": len(self.service_registry) if self.service_registry else 0,
-            "services": list(self.service_registry.keys()) if self.service_registry else []
+            "services": list(self.service_registry.keys()) if self.service_registry else [],
         }

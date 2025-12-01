@@ -5,12 +5,11 @@ Stores telemetry data for recent requests in memory (circular buffer).
 Allows querying telemetry data via JSON API.
 """
 
-import time
-from typing import Dict, List, Optional
 from collections import deque
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 import threading
+import time
 
 
 @dataclass
@@ -28,9 +27,9 @@ class TelemetryRecord:
     processing_time_ms: float
     status_code: int
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary"""
         return asdict(self)
 
@@ -52,7 +51,7 @@ class TelemetryStore:
         self.max_records = max_records
         self._records: deque = deque(maxlen=max_records)
         self._lock = threading.Lock()
-        self._records_by_id: Dict[str, TelemetryRecord] = {}
+        self._records_by_id: dict[str, TelemetryRecord] = {}
 
     def add_record(
         self,
@@ -64,7 +63,7 @@ class TelemetryStore:
         response_size_bytes: int,
         processing_time_ms: float,
         status_code: int,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """
         Add a telemetry record
@@ -108,7 +107,7 @@ class TelemetryStore:
             self._records.append(record)
             self._records_by_id[request_id] = record
 
-    def get_record(self, request_id: str) -> Optional[TelemetryRecord]:
+    def get_record(self, request_id: str) -> TelemetryRecord | None:
         """
         Get a specific record by request ID
 
@@ -131,7 +130,7 @@ class TelemetryStore:
         with self._lock:
             return len(self._records)
 
-    def get_latest(self, limit: int = 10) -> List[TelemetryRecord]:
+    def get_latest(self, limit: int = 10) -> list[TelemetryRecord]:
         """
         Get latest N records
 
@@ -146,9 +145,7 @@ class TelemetryStore:
             # Return newest first
             return list(reversed(records))[:limit]
 
-    def get_by_service(
-        self, service_name: str, limit: int = 10
-    ) -> List[TelemetryRecord]:
+    def get_by_service(self, service_name: str, limit: int = 10) -> list[TelemetryRecord]:
         """
         Get latest records for a specific service
 
@@ -164,7 +161,7 @@ class TelemetryStore:
             records = [r for r in self._records if r.service_name == service_upper]
             return list(reversed(records))[:limit]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """
         Get overall statistics
 
@@ -183,9 +180,7 @@ class TelemetryStore:
             total = len(self._records)
             successful = sum(1 for r in self._records if r.success)
             total_time = sum(r.processing_time_ms for r in self._records)
-            total_data = sum(
-                r.request_size_bytes + r.response_size_bytes for r in self._records
-            )
+            total_data = sum(r.request_size_bytes + r.response_size_bytes for r in self._records)
 
             return {
                 "total_requests": total,
@@ -204,7 +199,7 @@ class TelemetryStore:
 
 
 # Global telemetry store (singleton)
-_global_store: Optional[TelemetryStore] = None
+_global_store: TelemetryStore | None = None
 
 
 def get_telemetry_store() -> TelemetryStore:

@@ -2,18 +2,18 @@
 Conversation History Module - Direct Python calls for Conversation history
 """
 
-from typing import Dict, Optional, Any, List
+from typing import Any
 
 from src.modules.base_module import BaseModule
 
 
 class ConversationHistoryModule(BaseModule):
     """Conversation History Module for direct Python calls"""
-    
+
     def __init__(self):
         super().__init__("conversation_history")
         self.history_db = {}
-    
+
     async def _initialize(self) -> bool:
         """Initialize conversation history storage"""
         try:
@@ -25,41 +25,33 @@ class ConversationHistoryModule(BaseModule):
             self.logger.warning(f"⚠️  Conversation history service not available: {e}")
             self.history_db = {}
             return True
-    
+
     async def save_turn(
         self,
         conversation_id: str,
         user_input: str,
         ai_response: str,
-        metadata: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        metadata: dict | None = None,
+    ) -> dict[str, Any]:
         """Save a conversation turn"""
         if conversation_id not in self.history_db:
             self.history_db[conversation_id] = []
-        
-        import secrets
+
         from datetime import datetime
-        
+        import secrets
+
         turn_id = f"turn_{secrets.token_hex(8)}"
         turn = {
             "turn_id": turn_id,
             "user_input": user_input,
             "ai_response": ai_response,
             "metadata": metadata or {},
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        
+
         self.history_db[conversation_id].append(turn)
-        return {
-            "turn_id": turn_id,
-            "success": True,
-            "conversation_id": conversation_id
-        }
-    
-    async def get_history(
-        self,
-        conversation_id: str,
-        limit: int = 10
-    ) -> List[Dict[str, Any]]:
+        return {"turn_id": turn_id, "success": True, "conversation_id": conversation_id}
+
+    async def get_history(self, conversation_id: str, limit: int = 10) -> list[dict[str, Any]]:
         """Get conversation history"""
         return self.history_db.get(conversation_id, [])[-limit:]

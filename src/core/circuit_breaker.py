@@ -2,46 +2,50 @@
 Generic Circuit Breaker for Service Resilience
 Can be used for any service (STT, TTS, LLM, etc.)
 """
-import time
-import logging
-from enum import Enum
-from typing import Callable, Any, Optional, Dict
+
+from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
+import logging
+import time
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class CircuitState(Enum):
     """Circuit breaker states"""
-    CLOSED = "closed"        # Normal operation
-    OPEN = "open"            # Circuit open - using fallback or failing fast
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Circuit open - using fallback or failing fast
     HALF_OPEN = "half_open"  # Testing recovery
 
 
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker behavior"""
-    failure_threshold: int = 3       # Failures before opening circuit
-    recovery_timeout: int = 30       # Seconds before retry
-    half_open_max_calls: int = 1     # Test calls in half-open state
-    success_threshold: int = 1       # Successes needed to close from half-open
-    timeout: int = 10                # Timeout for service calls
+
+    failure_threshold: int = 3  # Failures before opening circuit
+    recovery_timeout: int = 30  # Seconds before retry
+    half_open_max_calls: int = 1  # Test calls in half-open state
+    success_threshold: int = 1  # Successes needed to close from half-open
+    timeout: int = 10  # Timeout for service calls
 
 
 class GenericCircuitBreaker:
     """
     Generic circuit breaker for any service
-    
+
     States:
     - CLOSED: Normal operation
     - OPEN: Too many failures, failing fast
     - HALF_OPEN: Testing if service has recovered
     """
 
-    def __init__(self, service_name: str, config: Optional[CircuitBreakerConfig] = None):
+    def __init__(self, service_name: str, config: CircuitBreakerConfig | None = None):
         """
         Initialize circuit breaker
-        
+
         Args:
             service_name: Name of the service (for logging)
             config: Circuit breaker configuration
@@ -62,33 +66,30 @@ class GenericCircuitBreaker:
             f"recovery_timeout={self.config.recovery_timeout}s"
         )
 
-    async def call(
-        self,
-        service_fn: Callable,
-        *args,
-        **kwargs
-    ) -> Any:
+    async def call(self, service_fn: Callable, *args, **kwargs) -> Any:
         """
         Call service function with circuit breaker protection
-        
+
         Args:
             service_fn: Service function to call
             *args, **kwargs: Arguments to pass to service function
-            
+
         Returns:
             Service result
-            
+
         Raises:
             Exception if circuit is open or service fails
         """
         self.total_calls += 1
-        
+
         # Check if circuit is open
         if self.state == CircuitState.OPEN:
             if self._should_attempt_reset():
                 self.state = CircuitState.HALF_OPEN
                 self.success_count_in_half_open = 0
-                logger.info(f"🔄 Circuit breaker HALF_OPEN for {self.service_name} - testing recovery")
+                logger.info(
+                    f"🔄 Circuit breaker HALF_OPEN for {self.service_name} - testing recovery"
+                )
             else:
                 # Circuit still open, fail fast
                 time_until_retry = self._time_until_retry()
@@ -104,11 +105,11 @@ class GenericCircuitBreaker:
         # Try service call
         try:
             import asyncio
+
             result = await asyncio.wait_for(
-                service_fn(*args, **kwargs),
-                timeout=self.config.timeout
+                service_fn(*args, **kwargs), timeout=self.config.timeout
             )
-            
+
             # Success!
             self._on_success()
             self.total_successes += 1
@@ -135,14 +136,13 @@ class GenericCircuitBreaker:
                 self.state = CircuitState.CLOSED
                 self.failure_count = 0
                 self.success_count_in_half_open = 0
-        else:
-            # Reset failure count on success
-            if self.failure_count > 0:
-                logger.debug(
-                    f"✅ {self.service_name} success - resetting failure count "
-                    f"(was {self.failure_count})"
-                )
-                self.failure_count = 0
+        # Reset failure count on success
+        elif self.failure_count > 0:
+            logger.debug(
+                f"✅ {self.service_name} success - resetting failure count "
+                f"(was {self.failure_count})"
+            )
+            self.failure_count = 0
 
     def _on_failure(self):
         """Handle failed call"""
@@ -186,10 +186,10 @@ class GenericCircuitBreaker:
         time_since_failure = time.time() - self.last_failure_time
         return max(0, self.config.recovery_timeout - time_since_failure)
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """
         Get current circuit breaker state
-        
+
         Returns:
             State information with metrics
         """
@@ -198,22 +198,19 @@ class GenericCircuitBreaker:
             "state": self.state.value,
             "failure_count": self.failure_count,
             "time_since_failure": (
-                time.time() - self.last_failure_time 
-                if self.last_failure_time > 0 else None
+                time.time() - self.last_failure_time if self.last_failure_time > 0 else None
             ),
             "time_until_retry": (
-                self._time_until_retry() 
-                if self.state == CircuitState.OPEN else None
+                self._time_until_retry() if self.state == CircuitState.OPEN else None
             ),
             "metrics": {
                 "total_calls": self.total_calls,
                 "total_successes": self.total_successes,
                 "total_failures": self.total_failures,
                 "success_rate": (
-                    self.total_successes / self.total_calls 
-                    if self.total_calls > 0 else 0
-                )
-            }
+                    self.total_successes / self.total_calls if self.total_calls > 0 else 0
+                ),
+            },
         }
 
     def reset(self):
@@ -226,38 +223,33 @@ class GenericCircuitBreaker:
 
 
 # Global circuit breakers registry
-_circuit_breakers: Dict[str, GenericCircuitBreaker] = {}
+_circuit_breakers: dict[str, GenericCircuitBreaker] = {}
 
 
 def get_circuit_breaker(
-    service_name: str,
-    config: Optional[CircuitBreakerConfig] = None
+    service_name: str, config: CircuitBreakerConfig | None = None
 ) -> GenericCircuitBreaker:
     """
     Get or create circuit breaker for a service
-    
+
     Args:
         service_name: Name of the service
         config: Optional circuit breaker configuration
-        
+
     Returns:
         Circuit breaker instance
     """
     if service_name not in _circuit_breakers:
         _circuit_breakers[service_name] = GenericCircuitBreaker(service_name, config)
-    
+
     return _circuit_breakers[service_name]
 
 
-def get_all_circuit_breakers() -> Dict[str, Dict[str, Any]]:
+def get_all_circuit_breakers() -> dict[str, dict[str, Any]]:
     """
     Get state of all circuit breakers
-    
+
     Returns:
         Dictionary of service name -> circuit breaker state
     """
-    return {
-        name: cb.get_state()
-        for name, cb in _circuit_breakers.items()
-    }
-
+    return {name: cb.get_state() for name, cb in _circuit_breakers.items()}

@@ -22,18 +22,19 @@ Usage:
     telemetry.log_info("Processing request")
 """
 
-import logging
-from typing import Optional, Dict, Any
 from contextlib import contextmanager
+import logging
+from typing import Any
 
 # OpenTelemetry imports (core SDK)
 try:
-    from opentelemetry import trace, metrics
+    from opentelemetry import metrics, trace
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-    from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
     from opentelemetry.trace import Status, StatusCode
+
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
@@ -43,18 +44,21 @@ except ImportError:
 # Optional exporters (Jaeger, Prometheus, OTLP)
 try:
     from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+
     JAEGER_AVAILABLE = True
 except ImportError:
     JAEGER_AVAILABLE = False
 
 try:
     from opentelemetry.exporter.prometheus import PrometheusMetricReader
+
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
 
 try:
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
     OTLP_AVAILABLE = True
 except ImportError:
     OTLP_AVAILABLE = False
@@ -64,7 +68,7 @@ except ImportError:
 # Global Configuration
 # ============================================================================
 
-_TELEMETRY_INSTANCES: Dict[str, 'UnifiedTelemetry'] = {}
+_TELEMETRY_INSTANCES: dict[str, "UnifiedTelemetry"] = {}
 _TELEMETRY_CONFIGURED = False
 
 
@@ -72,10 +76,10 @@ def configure_telemetry(
     service_name: str = "ultravox-pipeline",
     service_version: str = "1.0.0",
     environment: str = "development",
-    jaeger_endpoint: Optional[str] = None,
-    otlp_endpoint: Optional[str] = None,
+    jaeger_endpoint: str | None = None,
+    otlp_endpoint: str | None = None,
     enable_prometheus: bool = True,
-    enable_console: bool = False
+    enable_console: bool = False,
 ):
     """
     Configure OpenTelemetry globally.
@@ -102,11 +106,13 @@ def configure_telemetry(
         return
 
     # Create resource
-    resource = Resource.create({
-        SERVICE_NAME: service_name,
-        SERVICE_VERSION: service_version,
-        "environment": environment,
-    })
+    resource = Resource.create(
+        {
+            SERVICE_NAME: service_name,
+            SERVICE_VERSION: service_version,
+            "environment": environment,
+        }
+    )
 
     # ========================================
     # Configure Tracing
@@ -121,14 +127,18 @@ def configure_telemetry(
         )
         tracer_provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
     elif jaeger_endpoint and not JAEGER_AVAILABLE:
-        logging.warning("Jaeger exporter requested but not available - install: pip install opentelemetry-exporter-jaeger")
+        logging.warning(
+            "Jaeger exporter requested but not available - install: pip install opentelemetry-exporter-jaeger"
+        )
 
     # OTLP exporter (OpenTelemetry Protocol)
     if otlp_endpoint and OTLP_AVAILABLE:
         otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
         tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
     elif otlp_endpoint and not OTLP_AVAILABLE:
-        logging.warning("OTLP exporter requested but not available - install: pip install opentelemetry-exporter-otlp")
+        logging.warning(
+            "OTLP exporter requested but not available - install: pip install opentelemetry-exporter-otlp"
+        )
 
     # Console exporter (debug)
     if enable_console:
@@ -147,12 +157,15 @@ def configure_telemetry(
         prometheus_reader = PrometheusMetricReader()
         readers.append(prometheus_reader)
     elif enable_prometheus and not PROMETHEUS_AVAILABLE:
-        logging.warning("Prometheus metrics requested but not available - install: pip install opentelemetry-exporter-prometheus")
+        logging.warning(
+            "Prometheus metrics requested but not available - install: pip install opentelemetry-exporter-prometheus"
+        )
 
     # OTLP metrics reader
     if otlp_endpoint:
         from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
         otlp_metric_exporter = OTLPMetricExporter(endpoint=otlp_endpoint)
         otlp_metric_reader = PeriodicExportingMetricReader(otlp_metric_exporter)
         readers.append(otlp_metric_reader)
@@ -173,12 +186,12 @@ def shutdown_telemetry():
 
     # Shutdown tracer provider
     tracer_provider = trace.get_tracer_provider()
-    if hasattr(tracer_provider, 'shutdown'):
+    if hasattr(tracer_provider, "shutdown"):
         tracer_provider.shutdown()
 
     # Shutdown meter provider
     meter_provider = metrics.get_meter_provider()
-    if hasattr(meter_provider, 'shutdown'):
+    if hasattr(meter_provider, "shutdown"):
         meter_provider.shutdown()
 
     _TELEMETRY_CONFIGURED = False
@@ -188,6 +201,7 @@ def shutdown_telemetry():
 # ============================================================================
 # UnifiedTelemetry Class
 # ============================================================================
+
 
 class UnifiedTelemetry:
     """
@@ -225,9 +239,9 @@ class UnifiedTelemetry:
             self.meter = metrics.get_meter(service_name)
 
             # Pre-create common metrics
-            self._counters: Dict[str, Any] = {}
-            self._histograms: Dict[str, Any] = {}
-            self._gauges: Dict[str, Any] = {}
+            self._counters: dict[str, Any] = {}
+            self._histograms: dict[str, Any] = {}
+            self._gauges: dict[str, Any] = {}
         else:
             self.tracer = None
             self.meter = None
@@ -240,7 +254,7 @@ class UnifiedTelemetry:
     # ========================================
 
     @contextmanager
-    def trace(self, span_name: str, attributes: Optional[Dict[str, Any]] = None):
+    def trace(self, span_name: str, attributes: dict[str, Any] | None = None):
         """
         Create a trace span.
 
@@ -271,24 +285,24 @@ class UnifiedTelemetry:
                 span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise
 
-    def get_current_trace_id(self) -> Optional[str]:
+    def get_current_trace_id(self) -> str | None:
         """Get current trace ID as hex string."""
         if not OPENTELEMETRY_AVAILABLE:
             return None
 
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
-            return format(span.get_span_context().trace_id, '032x')
+            return format(span.get_span_context().trace_id, "032x")
         return None
 
-    def get_current_span_id(self) -> Optional[str]:
+    def get_current_span_id(self) -> str | None:
         """Get current span ID as hex string."""
         if not OPENTELEMETRY_AVAILABLE:
             return None
 
         span = trace.get_current_span()
         if span and span.get_span_context().is_valid:
-            return format(span.get_span_context().span_id, '016x')
+            return format(span.get_span_context().span_id, "016x")
         return None
 
     # ========================================
@@ -314,13 +328,12 @@ class UnifiedTelemetry:
             class NoOpCounter:
                 def add(self, value, attributes=None):
                     pass
+
             return NoOpCounter()
 
         if name not in self._counters:
             self._counters[name] = self.meter.create_counter(
-                name=name,
-                description=description,
-                unit=unit
+                name=name, description=description, unit=unit
             )
         return self._counters[name]
 
@@ -343,13 +356,12 @@ class UnifiedTelemetry:
             class NoOpHistogram:
                 def record(self, value, attributes=None):
                     pass
+
             return NoOpHistogram()
 
         if name not in self._histograms:
             self._histograms[name] = self.meter.create_histogram(
-                name=name,
-                description=description,
-                unit=unit
+                name=name, description=description, unit=unit
             )
         return self._histograms[name]
 
@@ -384,20 +396,20 @@ class UnifiedTelemetry:
 
     def _log_with_trace(self, level: int, message: str, **kwargs):
         """Log message with trace context."""
-        extra = kwargs.get('extra', {})
+        extra = kwargs.get("extra", {})
 
         # Add trace context
         trace_id = self.get_current_trace_id()
         span_id = self.get_current_span_id()
 
         if trace_id:
-            extra['trace_id'] = trace_id
+            extra["trace_id"] = trace_id
         if span_id:
-            extra['span_id'] = span_id
+            extra["span_id"] = span_id
 
-        extra['service'] = self.service_name
+        extra["service"] = self.service_name
 
-        kwargs['extra'] = extra
+        kwargs["extra"] = extra
         self.logger.log(level, message, **kwargs)
 
     def log_debug(self, message: str, **kwargs):
@@ -424,6 +436,7 @@ class UnifiedTelemetry:
 # ============================================================================
 # Singleton Factory
 # ============================================================================
+
 
 def get_telemetry(service_name: str) -> UnifiedTelemetry:
     """

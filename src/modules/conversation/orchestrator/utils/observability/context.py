@@ -18,12 +18,13 @@ Usage:
     context = extract_trace_context(request.headers)
 """
 
-from typing import Dict, Optional, Any
+from typing import Any
 
 try:
-    from opentelemetry import trace, context
+    from opentelemetry import context, trace
     from opentelemetry.propagate import extract
     from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
@@ -35,7 +36,8 @@ except ImportError:
 # Current Context
 # ============================================================================
 
-def get_current_trace_id() -> Optional[str]:
+
+def get_current_trace_id() -> str | None:
     """
     Get current trace ID as hex string.
 
@@ -51,11 +53,11 @@ def get_current_trace_id() -> Optional[str]:
 
     span = trace.get_current_span()
     if span and span.get_span_context().is_valid:
-        return format(span.get_span_context().trace_id, '032x')
+        return format(span.get_span_context().trace_id, "032x")
     return None
 
 
-def get_current_span_id() -> Optional[str]:
+def get_current_span_id() -> str | None:
     """
     Get current span ID as hex string.
 
@@ -71,11 +73,11 @@ def get_current_span_id() -> Optional[str]:
 
     span = trace.get_current_span()
     if span and span.get_span_context().is_valid:
-        return format(span.get_span_context().span_id, '016x')
+        return format(span.get_span_context().span_id, "016x")
     return None
 
 
-def get_trace_context() -> Dict[str, str]:
+def get_trace_context() -> dict[str, str]:
     """
     Get current trace context as dict.
 
@@ -86,17 +88,15 @@ def get_trace_context() -> Dict[str, str]:
         context = get_trace_context()
         # {"trace_id": "5f8a...", "span_id": "abcd..."}
     """
-    return {
-        "trace_id": get_current_trace_id() or "",
-        "span_id": get_current_span_id() or ""
-    }
+    return {"trace_id": get_current_trace_id() or "", "span_id": get_current_span_id() or ""}
 
 
 # ============================================================================
 # Context Propagation (HTTP Headers)
 # ============================================================================
 
-def inject_trace_context(headers: Dict[str, str]) -> Dict[str, str]:
+
+def inject_trace_context(headers: dict[str, str]) -> dict[str, str]:
     """
     Inject trace context into HTTP headers.
 
@@ -129,7 +129,7 @@ def inject_trace_context(headers: Dict[str, str]) -> Dict[str, str]:
     return carrier
 
 
-def extract_trace_context(headers: Dict[str, str]) -> Optional[Any]:
+def extract_trace_context(headers: dict[str, str]) -> Any | None:
     """
     Extract trace context from HTTP headers.
 
@@ -174,6 +174,7 @@ def extract_trace_context(headers: Dict[str, str]) -> Optional[Any]:
 # ============================================================================
 # Manual Context Management
 # ============================================================================
+
 
 def attach_trace_context(ctx: Any) -> Any:
     """
@@ -223,7 +224,8 @@ def detach_trace_context(token: Any):
 # Utility Functions
 # ============================================================================
 
-def create_span_link(trace_id: str, span_id: str) -> Optional[Any]:
+
+def create_span_link(trace_id: str, span_id: str) -> Any | None:
     """
     Create a span link to another trace.
 
@@ -261,7 +263,7 @@ def create_span_link(trace_id: str, span_id: str) -> Optional[Any]:
             trace_id=trace_id_int,
             span_id=span_id_int,
             is_remote=True,
-            trace_flags=TraceFlags(0x01)  # Sampled
+            trace_flags=TraceFlags(0x01),  # Sampled
         )
 
         # Create link

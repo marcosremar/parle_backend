@@ -4,6 +4,12 @@ Backend do projeto Parle - Sistema de conversação multimodal com arquitetura m
 
 ## 📋 Visão Geral
 
+> 📖 **Documentação Completa**: Veja [docs/](docs/) para guias detalhados  
+> 📊 **Status do Projeto**: Veja [docs/status/](docs/status/) para relatórios de implementação  
+> 🐳 **Docker**: Todos os arquivos Docker estão em [docker/](docker/)
+
+## 📋 Visão Geral
+
 O Parle Backend é uma plataforma completa de conversação speech-to-speech que processa áudio de entrada, transcreve para texto, gera respostas usando modelos de linguagem e converte de volta para áudio. O sistema é construído com arquitetura monolítica modular, simplificando deploy e manutenção.
 
 ### Características Principais
@@ -21,7 +27,56 @@ O Parle Backend é uma plataforma completa de conversação speech-to-speech que
 
 Este projeto usa **Conda** como ambiente padrão, com Python 3.11. Todas as dependências são gerenciadas através de um único ambiente Conda.
 
+### Versão Mínima do Python
+
+- **Python 3.10+** (3.11 recomendado, 3.12 suportado)
+- O projeto é testado em Python 3.10, 3.11 e 3.12 no CI/CD
+
+### Requisitos
+
+- Python 3.10+ (3.11 recomendado)
+- Conda (opcional, mas recomendado)
+- Docker (opcional, para desenvolvimento com containers)
+
+### Pre-commit Hooks
+
+O projeto usa pre-commit hooks para garantir qualidade de código. Para instalar:
+
+```bash
+# Instalar pre-commit
+pip install pre-commit
+
+# Instalar hooks
+pre-commit install
+
+# Executar manualmente em todos os arquivos
+pre-commit run --all-files
+```
+
+Os hooks incluem:
+- **ruff**: Linting e formatação
+- **black**: Formatação automática
+- **mypy**: Verificação de tipos
+- **detect-secrets**: Detecção de credenciais
+
 ## 🚀 Início Rápido
+
+### Setup Inicial do Ambiente de Desenvolvimento
+
+Para configurar o ambiente de desenvolvimento completo (pre-commit, dependências, etc.):
+
+```bash
+# Executar script de setup
+./scripts/setup_dev_environment.sh
+```
+
+Este script irá:
+- Instalar todas as dependências
+- Configurar pre-commit hooks
+- Executar auditoria de dependências
+- Verificar configuração
+
+### Usando main.sh
 
 O projeto inclui um script principal `main.sh` que facilita todas as operações:
 

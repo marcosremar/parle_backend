@@ -15,32 +15,33 @@ private/deployment-specific settings (URLs, credentials, etc).
 """
 
 import asyncio
-import logging
-import time
-import os
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 from collections import deque
+from datetime import datetime
+import logging
+import os
 import threading
+import time
+from typing import Any
+
 try:
     import orjson as json
+
     def json_dumps(obj):
-        return json.dumps(obj).decode('utf-8')
+        return json.dumps(obj).decode("utf-8")
+
     def json_loads(s):
         return json.loads(s)
+
 except ImportError:
     import json
+
     json_dumps = json.dumps
     json_loads = json.loads
 from pathlib import Path
 import sys
+
 from src.core.constants import (
-    DEFAULT_WRITE_BUFFER_SIZE,
-    DEFAULT_FLUSH_INTERVAL_MS,
-    MAX_MESSAGES_PER_SESSION,
-    MAX_SESSIONS,
-    SESSION_TTL_MINUTES,
-    REDIS_CACHE_TTL
+    REDIS_CACHE_TTL,
 )
 
 # Add project root to path
@@ -52,16 +53,19 @@ try:
     from src.core.conversational_context import (
         ConversationalContext,
         ConversationMemoryStorage,
-        EmbeddingsMemorySearch
+        EmbeddingsMemorySearch,
     )
 except ImportError:
     # Fallback: create minimal stubs
     class ConversationalContext:
         pass
+
     class ConversationMemoryStorage:
         pass
+
     class EmbeddingsMemorySearch:
         pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,42 +78,42 @@ logger = logging.getLogger(__name__)
 # OPTIMIZED FOR SPEED - In-memory first, disk second
 PERFORMANCE_CONFIG = {
     # In-memory cache settings
-    "enable_redis": False,                   # Disable Redis for single instance (faster)
-    "redis_url": os.getenv("REDIS_URL", "redis://localhost:6379/0"),  # Redis connection - from env or default
-    "memory_first": True,                    # Always serve from memory first
-
+    "enable_redis": False,  # Disable Redis for single instance (faster)
+    "redis_url": os.getenv(
+        "REDIS_URL", "redis://localhost:6379/0"
+    ),  # Redis connection - from env or default
+    "memory_first": True,  # Always serve from memory first
     # Async persistence
-    "async_write": True,                     # Write to disk asynchronously
-    "write_buffer_size": 1000,               # Buffer before flushing
-    "flush_interval_ms": 100,                # Flush every 100ms
-
+    "async_write": True,  # Write to disk asynchronously
+    "write_buffer_size": 1000,  # Buffer before flushing
+    "flush_interval_ms": 100,  # Flush every 100ms
     # Preloading
-    "preload_active_conversations": True,    # Pre-load recent conversations
-    "preload_window_hours": 24,              # Load last 24h of conversations
-    "max_preload_conversations": 10000,      # Max conversations to preload
-
+    "preload_active_conversations": True,  # Pre-load recent conversations
+    "preload_window_hours": 24,  # Load last 24h of conversations
+    "max_preload_conversations": 10000,  # Max conversations to preload
     # Cache optimization
-    "conversation_ttl_minutes": 60,          # Keep in memory for 1 hour
-    "message_batch_size": 100,               # Batch message retrieval
-    "enable_compression": False,             # No compression (speed > space)
+    "conversation_ttl_minutes": 60,  # Keep in memory for 1 hour
+    "message_batch_size": 100,  # Batch message retrieval
+    "enable_compression": False,  # No compression (speed > space)
 }
 
 # Semantic Search Configuration
 SEMANTIC_SEARCH_CONFIG = {
-    "enable_semantic_search": True,          # Enable embeddings-based search
-    "enable_long_term_memory": True,         # Enable conversation summarization
-    "embedding_dim": 384,                    # Sentence-BERT dimension
-    "max_embeddings": 1000,                  # Max embeddings per session
-    "similarity_threshold": 0.7,             # Min similarity for retrieval
-    "cache_similarity_threshold": 0.95,      # For approximate cache hits
+    "enable_semantic_search": True,  # Enable embeddings-based search
+    "enable_long_term_memory": True,  # Enable conversation summarization
+    "embedding_dim": 384,  # Sentence-BERT dimension
+    "max_embeddings": 1000,  # Max embeddings per session
+    "similarity_threshold": 0.7,  # Min similarity for retrieval
+    "cache_similarity_threshold": 0.95,  # For approximate cache hits
     "cache_dir": "data/conversation_cache",  # Embedding cache directory
-    "enable_persistence": True,              # Persist embeddings to disk
-    "cache_ttl_hours": 24,                   # Cache TTL
+    "enable_persistence": True,  # Persist embeddings to disk
+    "cache_ttl_hours": 24,  # Cache TTL
 }
 
 # Default storage directory (can be overridden via STORAGE_DIR env var)
 # Uses ~/.cache/ultravox-pipeline/storage by default (portable, persistent)
 _STORAGE_DIR = None
+
 
 def get_default_storage_dir() -> Path:
     """Get default storage directory for conversation store
@@ -126,6 +130,7 @@ def get_default_storage_dir() -> Path:
             _STORAGE_DIR = Path.home() / ".cache" / "ultravox-pipeline" / "storage"
         _STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     return _STORAGE_DIR
+
 
 DEFAULT_STORAGE_DIR = get_default_storage_dir()
 
@@ -158,17 +163,13 @@ class WriteAheadLog:
         """Open new log file"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_path = self.log_dir / f"wal_{timestamp}.log"
-        self.log_file = open(log_path, 'a')
+        self.log_file = open(log_path, "a")
         logger.info(f"Opened WAL: {log_path}")
 
-    def append(self, operation: str, data: Dict):
+    def append(self, operation: str, data: dict):
         """Append operation to WAL"""
         with self.lock:
-            log_entry = {
-                "timestamp": time.time(),
-                "operation": operation,
-                "data": data
-            }
+            log_entry = {"timestamp": time.time(), "operation": operation, "data": data}
             self.log_file.write(json_dumps(log_entry) + "\n")
             self.log_file.flush()  # Force write to disk
 
@@ -194,7 +195,7 @@ class AsyncWriteBuffer:
         self.flush_task = None
         self.running = False
 
-    def add(self, operation: Dict):
+    def add(self, operation: dict):
         """Add operation to buffer"""
         with self.lock:
             self.buffer.append(operation)
@@ -251,12 +252,12 @@ class FastConversationStorage:
         write_buffer_size: int = 1000,
         flush_interval_ms: int = 100,
         enable_semantic_search: bool = True,
-        enable_long_term_memory: bool = True
+        enable_long_term_memory: bool = True,
     ):
         # In-memory cache (fastest)
-        self.conversations: Dict[str, Dict] = {}
-        self.messages: Dict[str, List[Dict]] = {}  # conv_id -> messages
-        self.user_conversations: Dict[str, List[str]] = {}  # user_id -> conv_ids
+        self.conversations: dict[str, dict] = {}
+        self.messages: dict[str, list[dict]] = {}  # conv_id -> messages
+        self.user_conversations: dict[str, list[str]] = {}  # user_id -> conv_ids
         self.lock = threading.RLock()
 
         # Semantic search and advanced memory
@@ -267,9 +268,7 @@ class FastConversationStorage:
         try:
             # Try with parameters first
             self.memory_store = ConversationMemoryStorage(
-                max_sessions=1000,
-                max_messages_per_session=500,
-                session_ttl_minutes=120
+                max_sessions=1000, max_messages_per_session=500, session_ttl_minutes=120
             )
         except TypeError:
             # If ConversationMemoryStorage doesn't accept arguments, use default
@@ -284,12 +283,14 @@ class FastConversationStorage:
                     context_window_size=10,
                     enable_long_term_memory=enable_long_term_memory,
                     enable_embeddings_search=enable_semantic_search,
-                    memory_store=self.memory_store
+                    memory_store=self.memory_store,
                 )
                 logger.info("🧠 Semantic search and context management enabled")
             except TypeError:
                 # If ConversationalContext doesn't accept arguments, disable semantic search
-                logger.warning("⚠️  ConversationalContext doesn't accept arguments, disabling semantic search")
+                logger.warning(
+                    "⚠️  ConversationalContext doesn't accept arguments, disabling semantic search"
+                )
                 self.context_manager = None
                 self.enable_semantic_search = False
                 self.enable_long_term_memory = False
@@ -297,7 +298,9 @@ class FastConversationStorage:
             self.context_manager = None
 
         # Storage (use portable cache directory as fallback)
-        self.storage_dir = storage_dir or (Path.home() / ".cache" / "ultravox-pipeline" / "conversation_store")
+        self.storage_dir = storage_dir or (
+            Path.home() / ".cache" / "ultravox-pipeline" / "conversation_store"
+        )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
         # Write-ahead log
@@ -312,6 +315,7 @@ class FastConversationStorage:
         if enable_redis:
             try:
                 import redis.asyncio as redis
+
                 self.redis_client = redis.from_url(redis_url)
                 logger.info(f"Redis cache enabled: {redis_url}")
             except ImportError:
@@ -325,7 +329,7 @@ class FastConversationStorage:
             "disk_hits": 0,
             "writes": 0,
             "total_conversations": 0,
-            "total_messages": 0
+            "total_messages": 0,
         }
 
     async def create_conversation(
@@ -333,8 +337,8 @@ class FastConversationStorage:
         user_id: str,
         conversation_id: str,
         title: str = "New Conversation",
-        metadata: Optional[Dict] = None
-    ) -> Dict:
+        metadata: dict | None = None,
+    ) -> dict:
         """
         Create new conversation (FAST - in-memory first)
 
@@ -350,7 +354,7 @@ class FastConversationStorage:
             "metadata": metadata or {},
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
-            "message_count": 0
+            "message_count": 0,
         }
 
         with self.lock:
@@ -365,10 +369,7 @@ class FastConversationStorage:
             self.wal.append("create_conversation", conversation)
 
             # 3. Schedule async disk write
-            self.write_buffer.add({
-                "operation": "create_conversation",
-                "data": conversation
-            })
+            self.write_buffer.add({"operation": "create_conversation", "data": conversation})
 
             # Update stats
             self.stats["writes"] += 1
@@ -378,9 +379,7 @@ class FastConversationStorage:
         if self.enable_redis and self.redis_client:
             try:
                 await self.redis_client.set(
-                    f"conv:{conversation_id}",
-                    json_dumps(conversation),
-                    ex=REDIS_CACHE_TTL
+                    f"conv:{conversation_id}", json_dumps(conversation), ex=REDIS_CACHE_TTL
                 )
             except Exception as e:
                 logger.warning(f"Redis write failed: {e}")
@@ -396,8 +395,8 @@ class FastConversationStorage:
         message_id: str,
         role: str,
         content: str,
-        metadata: Optional[Dict] = None
-    ) -> Dict:
+        metadata: dict | None = None,
+    ) -> dict:
         """
         Add message to conversation (FASTEST - in-memory)
 
@@ -411,7 +410,7 @@ class FastConversationStorage:
             "role": role,
             "content": content,
             "metadata": metadata or {},
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         with self.lock:
@@ -429,10 +428,7 @@ class FastConversationStorage:
             self.wal.append("add_message", message)
 
             # 3. Schedule async disk write
-            self.write_buffer.add({
-                "operation": "add_message",
-                "data": message
-            })
+            self.write_buffer.add({"operation": "add_message", "data": message})
 
             # Update stats
             self.stats["writes"] += 1
@@ -442,9 +438,7 @@ class FastConversationStorage:
         if self.context_manager:
             try:
                 await self.context_manager.add_message(
-                    session_id=conversation_id,
-                    role=role,
-                    content=content
+                    session_id=conversation_id, role=role, content=content
                 )
             except Exception as e:
                 logger.warning(f"Failed to add message to context manager: {e}")
@@ -455,28 +449,25 @@ class FastConversationStorage:
         return message
 
     async def save_message(
-        self,
-        conversation_id: str,
-        role: str,
-        content: str,
-        metadata: Optional[Dict] = None
-    ) -> Dict:
+        self, conversation_id: str, role: str, content: str, metadata: dict | None = None
+    ) -> dict:
         """
         Save a message to conversation (convenience method that generates message_id)
-        
+
         This is a wrapper around add_message that automatically generates a message_id.
         """
         import secrets
+
         message_id = f"msg_{secrets.token_hex(8)}"
         return await self.add_message(
             conversation_id=conversation_id,
             message_id=message_id,
             role=role,
             content=content,
-            metadata=metadata
+            metadata=metadata,
         )
 
-    async def get_conversation(self, conversation_id: str) -> Optional[Dict]:
+    async def get_conversation(self, conversation_id: str) -> dict | None:
         """
         Get conversation (FAST - memory first)
 
@@ -515,11 +506,8 @@ class FastConversationStorage:
         return None
 
     async def get_messages(
-        self,
-        conversation_id: str,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict]:
+        self, conversation_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict]:
         """
         Get conversation messages (FAST - memory first)
         """
@@ -528,7 +516,7 @@ class FastConversationStorage:
         with self.lock:
             if conversation_id in self.messages:
                 messages = self.messages[conversation_id]
-                result = messages[offset:offset + limit]
+                result = messages[offset : offset + limit]
                 self.stats["memory_hits"] += 1
                 latency_ms = (time.time() - start_time) * 1000
                 logger.debug(f"Retrieved {len(result)} messages in {latency_ms:.2f}ms")
@@ -537,43 +525,35 @@ class FastConversationStorage:
         return []
 
     async def list_user_conversations(
-        self,
-        user_id: str,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict]:
+        self, user_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict]:
         """List user conversations (memory-optimized)"""
         with self.lock:
             if user_id not in self.user_conversations:
                 return []
 
-            conv_ids = self.user_conversations[user_id][offset:offset + limit]
+            conv_ids = self.user_conversations[user_id][offset : offset + limit]
             conversations = [
-                self.conversations[conv_id]
-                for conv_id in conv_ids
-                if conv_id in self.conversations
+                self.conversations[conv_id] for conv_id in conv_ids if conv_id in self.conversations
             ]
 
             return conversations
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get storage statistics"""
         with self.lock:
             total_requests = (
-                self.stats["memory_hits"] +
-                self.stats["redis_hits"] +
-                self.stats["disk_hits"]
+                self.stats["memory_hits"] + self.stats["redis_hits"] + self.stats["disk_hits"]
             )
 
             return {
                 **self.stats,
                 "total_requests": total_requests,
                 "memory_hit_rate": (
-                    self.stats["memory_hits"] / total_requests * 100
-                    if total_requests > 0 else 0
+                    self.stats["memory_hits"] / total_requests * 100 if total_requests > 0 else 0
                 ),
                 "in_memory_conversations": len(self.conversations),
-                "in_memory_messages": sum(len(msgs) for msgs in self.messages.values())
+                "in_memory_messages": sum(len(msgs) for msgs in self.messages.values()),
             }
 
     async def preload_recent_conversations(self, window_hours: int = 24):
@@ -586,12 +566,7 @@ class FastConversationStorage:
         # TODO: Implement disk scan and load
         logger.info("Preload complete")
 
-    async def semantic_search(
-        self,
-        conversation_id: str,
-        query: str,
-        top_k: int = 5
-    ) -> List[Dict]:
+    async def semantic_search(self, conversation_id: str, query: str, top_k: int = 5) -> list[dict]:
         """
         Semantic search over conversation messages (< 5ms)
 
@@ -614,9 +589,7 @@ class FastConversationStorage:
         try:
             # Use embeddings search from context manager
             results = await self.context_manager.search_similar_messages(
-                session_id=conversation_id,
-                query=query,
-                top_k=top_k
+                session_id=conversation_id, query=query, top_k=top_k
             )
 
             latency_ms = (time.time() - start_time) * 1000
@@ -629,11 +602,8 @@ class FastConversationStorage:
             return []
 
     async def get_relevant_context(
-        self,
-        conversation_id: str,
-        current_message: str,
-        max_context_messages: int = 10
-    ) -> Dict[str, Any]:
+        self, conversation_id: str, current_message: str, max_context_messages: int = 10
+    ) -> dict[str, Any]:
         """
         Get relevant context for current message (RAG)
 
@@ -652,15 +622,8 @@ class FastConversationStorage:
         """
         if not self.context_manager:
             # Fallback to simple recent messages
-            messages = await self.get_messages(
-                conversation_id,
-                limit=max_context_messages
-            )
-            return {
-                "recent_messages": messages,
-                "summary": None,
-                "similar_messages": []
-            }
+            messages = await self.get_messages(conversation_id, limit=max_context_messages)
+            return {"recent_messages": messages, "summary": None, "similar_messages": []}
 
         start_time = time.time()
 
@@ -669,7 +632,7 @@ class FastConversationStorage:
             context = await self.context_manager.get_context(
                 session_id=conversation_id,
                 current_message=current_message,
-                max_messages=max_context_messages
+                max_messages=max_context_messages,
             )
 
             latency_ms = (time.time() - start_time) * 1000
@@ -680,15 +643,8 @@ class FastConversationStorage:
         except Exception as e:
             logger.error(f"Failed to get context: {e}")
             # Fallback to memory
-            messages = await self.get_messages(
-                conversation_id,
-                limit=max_context_messages
-            )
-            return {
-                "recent_messages": messages,
-                "summary": None,
-                "similar_messages": []
-            }
+            messages = await self.get_messages(conversation_id, limit=max_context_messages)
+            return {"recent_messages": messages, "summary": None, "similar_messages": []}
 
     async def shutdown(self):
         """Graceful shutdown - flush all buffers"""

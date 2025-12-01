@@ -4,21 +4,21 @@ Fallback Manager - Manages LLM failover using circuit breaker pattern
 Coordinates failover between Primary LLM and Fallback LLM (both external APIs)
 """
 
-import logging
 import asyncio
+import logging
 import os
-from typing import Dict, Any, Optional
-import sys
 from pathlib import Path
+import sys
+from typing import Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from .utils.pipeline.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from .utils.exceptions import ServiceUnavailableError
 # Note: get_settings() was deprecated, using environment variables directly
 from .clients import LLMClient, SecondaryLLMClient
+from .utils.exceptions import ServiceUnavailableError
+from .utils.pipeline.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,7 @@ class FallbackManager:
     - Automatic recovery when primary comes back
     """
 
-    def __init__(self,
-                 primary_llm: LLMClient,
-                 secondary_llm: SecondaryLLMClient):
+    def __init__(self, primary_llm: LLMClient, secondary_llm: SecondaryLLMClient):
         """
         Initialize failover manager with 2-tier fallback
 
@@ -52,7 +50,8 @@ class FallbackManager:
         # Note: Config deprecated, using environment variables or defaults
         try:
             from src.core.config import get_config
-            config = get_config()
+
+            get_config()
             # Try to get failover config from new config system
             # If not available, use defaults
             failure_threshold = int(os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", "3"))
@@ -60,14 +59,14 @@ class FallbackManager:
             half_open_max_calls = int(os.getenv("CIRCUIT_BREAKER_HALF_OPEN_MAX_CALLS", "1"))
             primary_timeout = float(os.getenv("CIRCUIT_BREAKER_PRIMARY_TIMEOUT", "10.0"))
             fallback_timeout = float(os.getenv("CIRCUIT_BREAKER_FALLBACK_TIMEOUT", "10.0"))
-            
+
             self.circuit_breaker = CircuitBreaker(
                 CircuitBreakerConfig(
                     failure_threshold=failure_threshold,
                     recovery_timeout=recovery_timeout,
                     half_open_max_calls=half_open_max_calls,
                     primary_timeout=primary_timeout,
-                    fallback_timeout=fallback_timeout
+                    fallback_timeout=fallback_timeout,
                 )
             )
             logger.info("🔌 Circuit breaker initialized for automatic LLM failover")
@@ -82,17 +81,19 @@ class FallbackManager:
                     recovery_timeout=30.0,
                     half_open_max_calls=1,
                     primary_timeout=10.0,
-                    fallback_timeout=10.0
+                    fallback_timeout=10.0,
                 )
             )
 
-    async def call_llm_with_failover(self,
-                                     audio_data: bytes,
-                                     sample_rate: int,
-                                     system_prompt: Optional[str] = None,
-                                     conversation_id: Optional[str] = None,
-                                     conversation_history: Optional[list] = None,
-                                     force_external_llm: bool = False) -> Dict[str, Any]:
+    async def call_llm_with_failover(
+        self,
+        audio_data: bytes,
+        sample_rate: int,
+        system_prompt: str | None = None,
+        conversation_id: str | None = None,
+        conversation_history: list | None = None,
+        force_external_llm: bool = False,
+    ) -> dict[str, Any]:
         """
         Call LLM with automatic 2-tier failover
         Preserves conversation context during failover for seamless experience
@@ -118,7 +119,7 @@ class FallbackManager:
                 - circuit_state: Current circuit breaker state
         """
 
-        async def primary_fn(context: Dict[str, Any]) -> Dict[str, Any]:
+        async def primary_fn(context: dict[str, Any]) -> dict[str, Any]:
             """
             Primary LLM function (external API)
             """
@@ -127,17 +128,17 @@ class FallbackManager:
             result = await self.primary_llm.process_audio(
                 audio_data=context["audio_data"],
                 sample_rate=context["sample_rate"],
-                system_prompt=context.get("system_prompt")
+                system_prompt=context.get("system_prompt"),
             )
 
             return {
                 "text": result["text"],
                 "transcript": result.get("transcript", ""),
                 "metadata": result.get("metadata", {}),
-                "llm_tier": "primary"
+                "llm_tier": "primary",
             }
 
-        async def secondary_fn(context: Dict[str, Any]) -> Dict[str, Any]:
+        async def secondary_fn(context: dict[str, Any]) -> dict[str, Any]:
             """
             Secondary LLM function (external API, fallback)
             Same interface as primary
@@ -147,14 +148,14 @@ class FallbackManager:
             result = await self.secondary_llm.process_audio(
                 audio_data=context["audio_data"],
                 sample_rate=context["sample_rate"],
-                system_prompt=context.get("system_prompt")
+                system_prompt=context.get("system_prompt"),
             )
 
             return {
                 "text": result["text"],
                 "transcript": result.get("transcript", ""),
                 "metadata": result.get("metadata", {}),
-                "llm_tier": "secondary"
+                "llm_tier": "secondary",
             }
 
         # Call with 2-tier fallback: try primary, then secondary
@@ -163,14 +164,16 @@ class FallbackManager:
             "sample_rate": sample_rate,
             "system_prompt": system_prompt,
             "conversation_id": conversation_id,
-            "conversation_history": conversation_history
+            "conversation_history": conversation_history,
         }
 
         # Try each tier in order (or skip primary if force_external_llm=True)
         try:
             # If force_external_llm, skip primary and go directly to secondary
             if force_external_llm:
-                logger.info("🔀 force_external_llm=True, skipping primary LLM and using External Ultravox...")
+                logger.info(
+                    "🔀 force_external_llm=True, skipping primary LLM and using External Ultravox..."
+                )
                 result = await secondary_fn(context)
                 logger.info("✅ External LLM (forced) succeeded")
                 llm_tier = result.pop("llm_tier", "fallback")
@@ -181,7 +184,7 @@ class FallbackManager:
                     "transcript": result.get("transcript", ""),
                     "llm_used": "fallback",  # Always return "fallback" for secondary
                     "circuit_state": self.get_circuit_state(),
-                    "metadata": result.get("metadata", {})
+                    "metadata": result.get("metadata", {}),
                 }
 
             # Normal failover: Try primary first
@@ -196,7 +199,7 @@ class FallbackManager:
                     "transcript": result.get("transcript", ""),
                     "llm_used": llm_tier,
                     "circuit_state": self.get_circuit_state(),
-                    "metadata": result.get("metadata", {})
+                    "metadata": result.get("metadata", {}),
                 }
             except Exception as primary_error:
                 logger.warning(f"⚠️ Primary LLM failed: {primary_error}")
@@ -205,7 +208,9 @@ class FallbackManager:
                 try:
                     result = await secondary_fn(context)
                     logger.info("✅ Secondary LLM succeeded (External Ultravox)")
-                    llm_tier = result.pop("llm_tier", "fallback")  # Changed from "secondary" to "fallback"
+                    llm_tier = result.pop(
+                        "llm_tier", "fallback"
+                    )  # Changed from "secondary" to "fallback"
 
                     return {
                         "success": True,
@@ -213,11 +218,13 @@ class FallbackManager:
                         "transcript": result.get("transcript", ""),
                         "llm_used": "fallback",  # Always return "fallback" for secondary
                         "circuit_state": self.get_circuit_state(),
-                        "metadata": result.get("metadata", {})
+                        "metadata": result.get("metadata", {}),
                     }
                 except Exception as secondary_error:
                     # Both tiers failed
-                    logger.error(f"❌ Both LLM tiers failed: Primary={primary_error}, Secondary={secondary_error}")
+                    logger.error(
+                        f"❌ Both LLM tiers failed: Primary={primary_error}, Secondary={secondary_error}"
+                    )
                     raise Exception(f"Both LLM tiers failed. Last error: {secondary_error}")
 
         except Exception as e:
@@ -225,7 +232,7 @@ class FallbackManager:
             # Raise exception instead of returning dict for consistency
             raise ServiceUnavailableError("LLM", f"All LLM tiers failed: {e}") from e
 
-    def get_circuit_state(self) -> Dict[str, Any]:
+    def get_circuit_state(self) -> dict[str, Any]:
         """
         Get current circuit breaker state
 
@@ -238,10 +245,10 @@ class FallbackManager:
             "failure_count": state.get("failure_count", 0),
             "success_count": state.get("success_count", 0),
             "last_failure_time": state.get("last_failure_time"),
-            "using_fallback": state.get("state") in ["open", "half_open"]
+            "using_fallback": state.get("state") in ["open", "half_open"],
         }
 
-    async def health_check(self) -> Dict[str, bool]:
+    async def health_check(self) -> dict[str, bool]:
         """
         Check health of both LLM tiers
 

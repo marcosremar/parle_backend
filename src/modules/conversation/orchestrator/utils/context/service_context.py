@@ -11,20 +11,24 @@ Provides dependency injection for services:
 """
 
 import logging
-from typing import Optional, Any, Dict
 from pathlib import Path
+from typing import Any
+
 import yaml
 
 # Import SettingsService for dependency injection
 # SettingsService deprecated - use src.core.config instead
 try:
     from src.core.config import get_config
+
     config = get_config()
+
     # Create minimal SettingsService-like interface for backward compatibility
     class SettingsService:
         @staticmethod
         def get_instance():
             return config
+
     SettingsService = SettingsService
 except ImportError:
     SettingsService = None
@@ -54,7 +58,7 @@ class LoggerFactory:
         if not service_logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter(
-                f'%(asctime)s - [{service_name}] - %(levelname)s - %(message)s'
+                f"%(asctime)s - [{service_name}] - %(levelname)s - %(message)s"
             )
             handler.setFormatter(formatter)
             service_logger.addHandler(handler)
@@ -101,12 +105,12 @@ class ServiceContext:
         service_name: str,
         process_context,
         # Dependency injection (optional - for mocks)
-        gpu_manager: Optional[Any] = None,
-        communication: Optional[Any] = None,
-        metrics: Optional[Any] = None,
-        logger_instance: Optional[logging.Logger] = None,
-        config: Optional[Dict] = None,
-        settings_service: Optional[SettingsService] = None
+        gpu_manager: Any | None = None,
+        communication: Any | None = None,
+        metrics: Any | None = None,
+        logger_instance: logging.Logger | None = None,
+        config: dict | None = None,
+        settings_service: SettingsService | None = None,
     ) -> None:
         """
         Initialize ServiceContext
@@ -138,12 +142,15 @@ class ServiceContext:
         else:
             try:
                 from src.core.config import get_config
+
                 config = get_config()
+
                 # Create minimal SettingsService-like interface
                 class SettingsServiceCompat:
                     @staticmethod
                     def get_instance():
                         return config
+
                 self.settings = SettingsServiceCompat.get_instance()
             except Exception:
                 self.settings = None
@@ -220,7 +227,12 @@ class ServiceContext:
                 self.logger.warning(f"⚠️ Failed to load {config_path}: {e}")
 
         # Try global config directory
-        global_config_path = Path(__file__).parent.parent.parent.parent / "config" / "services" / f"{self.service_name}.yaml"
+        global_config_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "config"
+            / "services"
+            / f"{self.service_name}.yaml"
+        )
 
         if global_config_path.exists():
             try:
@@ -253,7 +265,7 @@ class ServiceContext:
         self.logger.info(f"🛑 Shutting down ServiceContext: {self.service_name}")
 
         # Release GPU allocation if any
-        if self.gpu and hasattr(self.gpu, 'release'):
+        if self.gpu and hasattr(self.gpu, "release"):
             try:
                 self.gpu.release(self.service_name)
                 self.logger.info("   GPU released")
@@ -261,7 +273,7 @@ class ServiceContext:
                 self.logger.error(f"   GPU release error: {e}")
 
         # Flush metrics
-        if self.metrics and hasattr(self.metrics, 'flush'):
+        if self.metrics and hasattr(self.metrics, "flush"):
             try:
                 await self.metrics.flush()
                 self.logger.info("   Metrics flushed")
@@ -278,5 +290,5 @@ class ServiceContext:
             "gpu": "available" if self.gpu else "not available",
             "communication": type(self.communication).__name__ if self.communication else None,
             "metrics": "available" if self.metrics else "not available",
-            "config_keys": list(self.config.keys()) if self.config else []
+            "config_keys": list(self.config.keys()) if self.config else [],
         }

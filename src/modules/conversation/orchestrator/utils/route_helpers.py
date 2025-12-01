@@ -13,8 +13,10 @@ Usage:
     add_standard_endpoints(router, service_instance, "my_service")
 """
 
-from typing import Dict, Any, Callable, Optional
+from collections.abc import Callable
 from datetime import datetime
+from typing import Any
+
 from fastapi import APIRouter
 from loguru import logger
 
@@ -41,7 +43,7 @@ def create_validation_endpoint(service_name: str) -> Callable:
         Async function that performs validation
     """
 
-    async def validate_service() -> Dict[str, Any]:
+    async def validate_service() -> dict[str, Any]:
         """Run validation tests using ValidationManager"""
         try:
             from src.lib.validation_manager import ValidationManager
@@ -83,7 +85,7 @@ def create_health_endpoint(service_instance) -> Callable:
         Exception is auto-converted to HTTP 503 by FastAPI error handlers.
     """
 
-    async def health_check() -> Dict[str, Any]:
+    async def health_check() -> dict[str, Any]:
         """Health check endpoint"""
         try:
             return await service_instance.health_check()
@@ -95,10 +97,7 @@ def create_health_endpoint(service_instance) -> Callable:
                 error=str(e),
             )
             # Raise typed exception - auto-converted to HTTP 503
-            raise ServiceUnavailableError(
-                service_name=service_name,
-                original_error=e
-            )
+            raise ServiceUnavailableError(service_name=service_name, original_error=e)
 
     return health_check
 
@@ -114,7 +113,7 @@ def create_info_endpoint(service_instance) -> Callable:
         Async function that returns service info
     """
 
-    async def service_info() -> Dict[str, Any]:
+    async def service_info() -> dict[str, Any]:
         """Service information endpoint"""
         try:
             # Try to use service's own get_service_info if available
@@ -146,7 +145,7 @@ def create_info_endpoint(service_instance) -> Callable:
 def add_standard_endpoints(
     router: APIRouter,
     service_instance,
-    service_name: Optional[str] = None,
+    service_name: str | None = None,
     include_validate: bool = True,
     include_health: bool = True,
     include_info: bool = True,
@@ -202,9 +201,7 @@ def add_standard_endpoints(
         )
 
 
-def get_standard_router(
-    service_instance, service_name: Optional[str] = None
-) -> APIRouter:
+def get_standard_router(service_instance, service_name: str | None = None) -> APIRouter:
     """
     Create a new router with standard endpoints already included.
 
@@ -227,4 +224,3 @@ def get_standard_router(
     router = APIRouter()
     add_standard_endpoints(router, service_instance, service_name)
     return router
-

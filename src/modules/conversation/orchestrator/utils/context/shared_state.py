@@ -7,19 +7,18 @@ Zero external dependencies
 Thread-safe across processes
 """
 
+import logging
+from multiprocessing import Lock, Manager
+from multiprocessing.managers import SyncManager
 import os
 import time
-import logging
-from multiprocessing import Manager, Lock
-from multiprocessing.managers import SyncManager
-from typing import Dict, Optional, Any
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class GPUMemoryError(Exception):
     """Raised when GPU doesn't have enough memory"""
-    pass
 
 
 class SharedGPUState:
@@ -43,8 +42,8 @@ class SharedGPUState:
         self.manager: SyncManager = Manager()
 
         # Estado compartilhado entre processos
-        self.allocations: Dict[str, dict] = self.manager.dict()
-        self.gpu_info: Dict[str, Any] = self.manager.dict()
+        self.allocations: dict[str, dict] = self.manager.dict()
+        self.gpu_info: dict[str, Any] = self.manager.dict()
 
         # Lock global para operações atômicas
         self.lock: Lock = self.manager.Lock()
@@ -56,7 +55,7 @@ class SharedGPUState:
         service_name: str,
         memory_mb: float,
         backend: str = "vllm",
-        metadata: Optional[dict] = None
+        metadata: dict | None = None,
     ) -> dict:
         """
         Reserva memória GPU de forma thread-safe
@@ -115,11 +114,7 @@ class SharedGPUState:
                 f"free={gpu_free_mb - memory_mb}MB"
             )
 
-            return {
-                "allocated": memory_mb,
-                "free": gpu_free_mb - memory_mb,
-                "total": gpu_total_mb
-            }
+            return {"allocated": memory_mb, "free": gpu_free_mb - memory_mb, "total": gpu_total_mb}
 
     def release(self, service_name: str) -> bool:
         """
@@ -137,8 +132,7 @@ class SharedGPUState:
                 del self.allocations[service_name]
 
                 logger.info(
-                    f"🧹 GPU released: {service_name} → "
-                    f"{allocation['memory_mb']}MB freed"
+                    f"🧹 GPU released: {service_name} → " f"{allocation['memory_mb']}MB freed"
                 )
                 return True
             else:
@@ -168,7 +162,7 @@ class SharedGPUState:
                 "total_allocated_mb": total_mb,
                 "free_mb": gpu_total_mb - total_mb,
                 "total_mb": gpu_total_mb,
-                "services_count": len(allocs)
+                "services_count": len(allocs),
             }
 
     def update_gpu_info(self, info: dict):
@@ -206,7 +200,7 @@ class SharedGPUState:
     def __del__(self):
         """Cleanup do manager ao destruir"""
         try:
-            if hasattr(self, 'manager'):
+            if hasattr(self, "manager"):
                 self.manager.shutdown()
         except Exception as e:
             logger.debug(f"Manager cleanup: {e}")

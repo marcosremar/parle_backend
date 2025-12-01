@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # FastAPI Instrumentation
 # ============================================================================
 
+
 def instrument_fastapi(app):
     """
     Instrument FastAPI application.
@@ -36,6 +37,7 @@ def instrument_fastapi(app):
     """
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
         FastAPIInstrumentor.instrument_app(app)
         logger.info("✅ FastAPI instrumented for tracing")
         return app
@@ -48,6 +50,7 @@ def instrument_fastapi(app):
 # HTTP Client Instrumentation
 # ============================================================================
 
+
 def instrument_httpx():
     """
     Instrument httpx HTTP client.
@@ -56,6 +59,7 @@ def instrument_httpx():
     """
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
         HTTPXClientInstrumentor().instrument()
         logger.info("✅ httpx instrumented for tracing")
     except ImportError:
@@ -70,6 +74,7 @@ def instrument_requests():
     """
     try:
         from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
         RequestsInstrumentor().instrument()
         logger.info("✅ requests instrumented for tracing")
     except ImportError:
@@ -80,6 +85,7 @@ def instrument_requests():
 # Database Instrumentation
 # ============================================================================
 
+
 def instrument_asyncpg():
     """
     Instrument asyncpg PostgreSQL client.
@@ -88,6 +94,7 @@ def instrument_asyncpg():
     """
     try:
         from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+
         AsyncPGInstrumentor().instrument()
         logger.info("✅ asyncpg instrumented for tracing")
     except ImportError:
@@ -102,6 +109,7 @@ def instrument_sqlalchemy():
     """
     try:
         from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
         SQLAlchemyInstrumentor().instrument()
         logger.info("✅ SQLAlchemy instrumented for tracing")
     except ImportError:
@@ -112,6 +120,7 @@ def instrument_sqlalchemy():
 # Cache Instrumentation
 # ============================================================================
 
+
 def instrument_redis():
     """
     Instrument redis client.
@@ -120,6 +129,7 @@ def instrument_redis():
     """
     try:
         from opentelemetry.instrumentation.redis import RedisInstrumentor
+
         RedisInstrumentor().instrument()
         logger.info("✅ redis instrumented for tracing")
     except ImportError:
@@ -130,6 +140,7 @@ def instrument_redis():
 # Async Frameworks
 # ============================================================================
 
+
 def instrument_aiohttp():
     """
     Instrument aiohttp (async HTTP server/client).
@@ -138,6 +149,7 @@ def instrument_aiohttp():
     """
     try:
         from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+
         AioHttpClientInstrumentor().instrument()
         logger.info("✅ aiohttp instrumented for tracing")
     except ImportError:
@@ -147,6 +159,7 @@ def instrument_aiohttp():
 # ============================================================================
 # Bulk Instrumentation
 # ============================================================================
+
 
 def instrument_all():
     """

@@ -1,0 +1,38 @@
+[run]
+source = src
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */migrations/*
+    */scripts/*
+    */venv/*
+    */.venv/*
+    */build/*
+    */dist/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    if False:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+precision = 2
+show_missing = true
+skip_covered = false
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml
+
+[report:term-missing]
+show_missing = true
+skip_covered = false

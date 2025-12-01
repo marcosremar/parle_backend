@@ -1,0 +1,65 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: parle-backend
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: parle-backend
+          environment: ${ENVIRONMENT:-development}
+          __path__: /var/log/parle/*.log
+    
+    pipeline_stages:
+      # Parse JSON logs
+      - json:
+          expressions:
+            timestamp: time
+            level: level
+            message: message
+            service: service
+            correlation_id: correlation_id
+            trace_id: trace_id
+            span_id: span_id
+            user_id: user_id
+            session_id: session_id
+            error: error
+            exception: exception
+      
+      # Extract labels
+      - labels:
+          level:
+          service:
+          correlation_id:
+          trace_id:
+          span_id:
+      
+      # Parse timestamp
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+          fallback_formats:
+            - Unix
+            - UnixMs
+            - UnixUs
+            - UnixNs
+      
+      # Add error label if error present
+      - labels:
+          has_error:
+            source: error
+            regex: ".+"
+            value: "true"
+            fallback: "false"
+      
+      # Output formatting
+      - output:
+          source: message

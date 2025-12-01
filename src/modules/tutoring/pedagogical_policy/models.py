@@ -2,13 +2,15 @@
 Pydantic models for Pedagogical Policy Service
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class Strategy(str, Enum):
     """Estratégias pedagógicas"""
+
     TEACH = "teach"  # Ensino explícito (mastery < 0.3)
     REINFORCE = "reinforce"  # Reforço com prática (mastery 0.3-0.7)
     CHALLENGE = "challenge"  # Desafio avançado (mastery > 0.7)
@@ -16,12 +18,14 @@ class Strategy(str, Enum):
 
 class ScaffoldingType(str, Enum):
     """Tipos de scaffolding (suporte pedagógico)"""
+
     IMPLICIT = "implicit"  # Correção sutil (recast)
     EXPLICIT = "explicit"  # Correção direta
 
 
 class CEFRLevel(str, Enum):
     """Níveis CEFR"""
+
     A1 = "A1"
     A2 = "A2"
     B1 = "B1"
@@ -32,6 +36,7 @@ class CEFRLevel(str, Enum):
 
 class EmotionalState(str, Enum):
     """Estados emocionais do estudante"""
+
     MOTIVATED = "motivated"
     FRUSTRATED = "frustrated"
     CONFUSED = "confused"
@@ -41,37 +46,48 @@ class EmotionalState(str, Enum):
 
 class PromptContext(BaseModel):
     """Contexto completo para composição de prompt"""
-    scenario: Optional[Dict[str, Any]] = Field(None, description="Dados do cenário")
+
+    scenario: dict[str, Any] | None = Field(None, description="Dados do cenário")
     cefr_level: CEFRLevel = Field(CEFRLevel.A1, description="Nível CEFR do estudante")
     native_language: str = Field("en", description="Língua nativa")
-    target_skill: Optional[Dict[str, Any]] = Field(None, description="Habilidade em foco")
+    target_skill: dict[str, Any] | None = Field(None, description="Habilidade em foco")
     mastery_probability: float = Field(0.0, ge=0.0, le=1.0, description="Probabilidade de domínio")
-    cefr_details: Dict[str, Any] = Field(default_factory=dict, description="Detalhes do progresso CEFR")
-    strategy: Optional[Strategy] = Field(None, description="Estratégia pedagógica")
+    cefr_details: dict[str, Any] = Field(
+        default_factory=dict, description="Detalhes do progresso CEFR"
+    )
+    strategy: Strategy | None = Field(None, description="Estratégia pedagógica")
     emotional_state: EmotionalState = Field(EmotionalState.NEUTRAL, description="Estado emocional")
-    conversation_history: Optional[list] = Field(None, description="Histórico de conversa")
-    interpretable_knowledge_state: Optional[Dict[str, Any]] = Field(None, description="Estado interpretável com recomendações e breakdown por dimensão")
-    current_turn_analysis: Optional[Dict[str, Any]] = Field(None, description="Análise do turno atual (erros, features, skills identificadas)")
-    session_analysis: Optional[Dict[str, Any]] = Field(None, description="Análise agregada da sessão (tendências, padrões, progresso)")
+    conversation_history: list | None = Field(None, description="Histórico de conversa")
+    interpretable_knowledge_state: dict[str, Any] | None = Field(
+        None, description="Estado interpretável com recomendações e breakdown por dimensão"
+    )
+    current_turn_analysis: dict[str, Any] | None = Field(
+        None, description="Análise do turno atual (erros, features, skills identificadas)"
+    )
+    session_analysis: dict[str, Any] | None = Field(
+        None, description="Análise agregada da sessão (tendências, padrões, progresso)"
+    )
 
 
 class ComposePromptRequest(BaseModel):
     """Request para compor prompt"""
-    context: Dict[str, Any]  # Accept dict for flexibility
+
+    context: dict[str, Any]  # Accept dict for flexibility
 
 
 class ComposePromptResponse(BaseModel):
     """Response com prompt composto"""
+
     prompt: str
     strategy: Strategy
     scaffolding_type: ScaffoldingType
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class StrategyInfo(BaseModel):
     """Informação sobre uma estratégia"""
+
     strategy: Strategy
     description: str
     mastery_range: str
     use_cases: list[str]
-

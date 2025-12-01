@@ -2,10 +2,11 @@
 Pytest fixtures for logging tests
 """
 
-import pytest
-import tempfile
-import shutil
 from pathlib import Path
+import shutil
+import tempfile
+
+import pytest
 
 
 @pytest.fixture

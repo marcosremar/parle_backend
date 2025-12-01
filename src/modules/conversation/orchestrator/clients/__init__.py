@@ -4,44 +4,43 @@ Service Clients Module
 HTTP clients for all downstream services, organized by category.
 """
 
-from .base import BaseServiceClient, ServiceClientError, Priority
-from .factory import create_service_clients
-
 # Import all client classes for backward compatibility
 from .ai_clients import (
-    LLMClient,
-    TTSClient,
-    STTClient,
-    SecondaryLLMClient,
     ExternalLLMClient,
     ExternalSTTClient,
     ExternalTTSClient,
     ExternalUltravoxClient,  # Backward compatibility alias
+    LLMClient,
+    SecondaryLLMClient,
+    STTClient,
+    TTSClient,
 )
-from .data_clients import (
-    SessionClient,
-    ScenariosClient,
-    ConversationStoreClient,
-    ConversationHistoryClient,
-    UserClient,
-    DatabaseClient,
-    FileStorageClient,
-)
+from .base import BaseServiceClient, Priority, ServiceClientError
 from .communication_clients import (
-    WebSocketClient,
+    NeuralCodecClient,
     RestPollingClient,
+    ViberGatewayClient,
     WebRTCClient,
     WebRTCSignalingClient,
-    NeuralCodecClient,
-    ViberGatewayClient,
+    WebSocketClient,
 )
+from .data_clients import (
+    ConversationHistoryClient,
+    ConversationStoreClient,
+    DatabaseClient,
+    FileStorageClient,
+    ScenariosClient,
+    SessionClient,
+    UserClient,
+)
+from .factory import create_service_clients
+from .gateway_clients import APIGatewayClient
 from .its_clients import (
-    StudentModelClient,
-    PedagogicalPolicyClient,
     DiagnosticModuleClient,
     LearningPathClient,
+    PedagogicalPolicyClient,
+    StudentModelClient,
 )
-from .gateway_clients import APIGatewayClient
 
 __all__ = [
     "BaseServiceClient",

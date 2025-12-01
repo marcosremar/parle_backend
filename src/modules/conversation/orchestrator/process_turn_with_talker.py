@@ -9,7 +9,7 @@ on session management, scenario context, and conversation storage.
 
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ async def process_turn_with_talker(
     audio_data: bytes,
     session_id: str,
     sample_rate: int = 16000,
-    voice_id: Optional[str] = None
-) -> Dict[str, Any]:
+    voice_id: str | None = None,
+) -> dict[str, Any]:
     """
     Process conversation turn using Talker abstraction (SIMPLIFIED PIPELINE)
 
@@ -54,7 +54,9 @@ async def process_turn_with_talker(
         orchestrator.stats_tracker.increment_total_turns()
 
     try:
-        logger.info(f"🎤 Processing turn with Talker: session={session_id}, audio={len(audio_data)} bytes")
+        logger.info(
+            f"🎤 Processing turn with Talker: session={session_id}, audio={len(audio_data)} bytes"
+        )
 
         # Check if Talker is available
         if not orchestrator.talker:
@@ -63,7 +65,7 @@ async def process_turn_with_talker(
                 audio_data=audio_data,
                 session_id=session_id,
                 sample_rate=sample_rate,
-                voice_id=voice_id
+                voice_id=voice_id,
             )
 
         # ==========================================
@@ -72,7 +74,9 @@ async def process_turn_with_talker(
         session_data = await orchestrator.clients["session"].get_session(session_id)
 
         # Default system prompt
-        system_prompt = """You are a helpful AI assistant. Answer questions concisely and accurately."""
+        system_prompt = (
+            """You are a helpful AI assistant. Answer questions concisely and accurately."""
+        )
         conversation_id = None
         conversation_history = []
         scenario_id = None
@@ -110,7 +114,7 @@ async def process_turn_with_talker(
             sample_rate=sample_rate,
             system_prompt=system_prompt,
             conversation_history=conversation_history,
-            voice_id=voice_id
+            voice_id=voice_id,
         )
 
         if not talker_result.get("success"):
@@ -120,7 +124,7 @@ async def process_turn_with_talker(
             return {
                 "success": False,
                 "error": talker_result.get("error", "Talker processing failed"),
-                "session_id": session_id
+                "session_id": session_id,
             }
 
         # Extract Talker results
@@ -130,7 +134,9 @@ async def process_turn_with_talker(
         talker_name = talker_result.get("talker", "unknown")
         talker_metrics = talker_result.get("metrics", {})
 
-        logger.info(f"✅ {orchestrator.talker.name} completed: {transcript[:50]}... → {text_response[:50]}...")
+        logger.info(
+            f"✅ {orchestrator.talker.name} completed: {transcript[:50]}... → {text_response[:50]}..."
+        )
 
         # ==========================================
         # STEP 3: Save Conversation Turn
@@ -142,7 +148,7 @@ async def process_turn_with_talker(
                     user_audio=audio_data,
                     user_text=transcript,
                     ai_text=text_response,
-                    ai_audio=audio_response
+                    ai_audio=audio_response,
                 )
                 logger.info(f"💾 Turn saved to conversation {conversation_id}")
             except Exception as e:
@@ -185,8 +191,8 @@ async def process_turn_with_talker(
                 **talker_metrics,
                 "total_orchestrator_time_ms": int(total_time * 1000),
                 "input_audio_size": len(audio_data),
-                "output_audio_size": len(audio_response) if audio_response else 0
-            }
+                "output_audio_size": len(audio_response) if audio_response else 0,
+            },
         }
 
         logger.info(f"✅ Turn completed in {total_time:.2f}s using {talker_name} Talker")
@@ -198,6 +204,6 @@ async def process_turn_with_talker(
             orchestrator.stats_tracker.increment_failed_turns()
         return {
             "success": False,
-            "error": f"Orchestration failed: {str(e)}",
-            "session_id": session_id
+            "error": f"Orchestration failed: {e!s}",
+            "session_id": session_id,
         }

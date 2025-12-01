@@ -2,12 +2,13 @@
 TTS Provider Manager
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from fastapi import HTTPException
 
+from .elevenlabs import ElevenLabsTTSProvider
 from .gtts import GTTSProvider
 from .huggingface import HuggingFaceTTSProvider
-from .elevenlabs import ElevenLabsTTSProvider
 
 
 class TTSProviderManager:
@@ -23,7 +24,7 @@ class TTSProviderManager:
             if gtts_provider.available:
                 self.providers["gtts"] = gtts_provider
                 self.available_providers.insert(0, "gtts")
-        except Exception as e:
+        except Exception:
             pass
 
         # Initialize Hugging Face provider
@@ -32,7 +33,7 @@ class TTSProviderManager:
             if hf_provider.available:
                 self.providers["huggingface"] = hf_provider
                 self.available_providers.append("huggingface")
-        except Exception as e:
+        except Exception:
             pass
 
         # Initialize Eleven Labs provider
@@ -41,14 +42,14 @@ class TTSProviderManager:
             if elevenlabs_provider.available:
                 self.providers["elevenlabs"] = elevenlabs_provider
                 self.available_providers.append("elevenlabs")
-        except Exception as e:
+        except Exception:
             pass
 
     def get_provider(self, provider_name: str):
         """Get a specific provider"""
         return self.providers.get(provider_name)
 
-    def get_available_voices(self, provider: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_available_voices(self, provider: str | None = None) -> list[dict[str, Any]]:
         """Get available voices, optionally filtered by provider"""
         voices = []
 
@@ -61,7 +62,9 @@ class TTSProviderManager:
 
         return voices
 
-    async def synthesize_speech(self, text: str, provider: str = "gtts", voice: str = None, **kwargs) -> Dict[str, Any]:
+    async def synthesize_speech(
+        self, text: str, provider: str = "gtts", voice: str = None, **kwargs
+    ) -> dict[str, Any]:
         """Synthesize speech using the specified provider"""
         if provider not in self.providers:
             raise HTTPException(status_code=400, detail=f"Provider '{provider}' not available")
@@ -78,10 +81,10 @@ class TTSProviderManager:
                 voice = None
             else:
                 try:
-                    if hasattr(provider_instance, 'is_valid_voice'):
+                    if hasattr(provider_instance, "is_valid_voice"):
                         if not provider_instance.is_valid_voice(voice):
                             voice = None
-                except Exception as e:
+                except Exception:
                     voice = None
 
         # Set default voice based on provider if not specified

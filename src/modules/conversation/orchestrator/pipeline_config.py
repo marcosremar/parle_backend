@@ -3,19 +3,23 @@ Pipeline Configuration and Management
 Defines the two main pipelines and their specific configurations
 """
 
-from typing import Dict, List, Any, Optional
-from enum import Enum
 from dataclasses import dataclass, field
 from datetime import datetime
-import sys
+from enum import Enum
 from pathlib import Path
+import sys
+from typing import Any, Optional
 
 # Add project root to path to import ServiceRegistry
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.config.service_config import ServiceType, get_service_port
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.managers.communication_manager import ServiceCommunicationManager
 
 # Global Communication Manager (can be set by orchestrator service)
-comm_manager: Optional['ServiceCommunicationManager'] = None
+comm_manager: Optional["ServiceCommunicationManager"] = None
 
 
 def set_comm_manager(cm):
@@ -26,6 +30,7 @@ def set_comm_manager(cm):
 
 class PipelineType(Enum):
     """Types of pipelines available"""
+
     WEBRTC_INTERNAL = "webrtc_internal"
     API_EXTERNAL = "api_external"
 
@@ -33,6 +38,7 @@ class PipelineType(Enum):
 @dataclass
 class ServiceEndpoint:
     """Service endpoint configuration"""
+
     name: str
     host: str
     port: int
@@ -49,34 +55,36 @@ class ServiceEndpoint:
 @dataclass
 class PipelineStage:
     """Pipeline stage configuration"""
+
     name: str
     service: ServiceEndpoint
-    next_stages: List[str] = field(default_factory=list)
+    next_stages: list[str] = field(default_factory=list)
     processing_type: str = "sequential"  # sequential, parallel, conditional
-    fallback_service: Optional[ServiceEndpoint] = None
+    fallback_service: ServiceEndpoint | None = None
 
 
 @dataclass
 class PipelineConfig:
     """Complete pipeline configuration"""
+
     name: str
     type: PipelineType
     description: str
-    stages: Dict[str, PipelineStage]
+    stages: dict[str, PipelineStage]
     entry_point: str
     output_stage: str
     enabled: bool = True
     max_latency_ms: int = 1000
-    retry_policy: Dict[str, Any] = field(default_factory=lambda: {
-        "max_retries": 3,
-        "backoff_ms": 100,
-        "max_backoff_ms": 1000
-    })
-    monitoring: Dict[str, Any] = field(default_factory=lambda: {
-        "track_latency": True,
-        "track_errors": True,
-        "alert_on_failure": True
-    })
+    retry_policy: dict[str, Any] = field(
+        default_factory=lambda: {"max_retries": 3, "backoff_ms": 100, "max_backoff_ms": 1000}
+    )
+    monitoring: dict[str, Any] = field(
+        default_factory=lambda: {
+            "track_latency": True,
+            "track_errors": True,
+            "alert_on_failure": True,
+        }
+    )
 
 
 class PipelineManager:
@@ -90,18 +98,18 @@ class PipelineManager:
                 "successful_executions": 0,
                 "failed_executions": 0,
                 "average_latency_ms": 0,
-                "last_execution": None
+                "last_execution": None,
             },
             PipelineType.API_EXTERNAL: {
                 "total_executions": 0,
                 "successful_executions": 0,
                 "failed_executions": 0,
                 "average_latency_ms": 0,
-                "last_execution": None
-            }
+                "last_execution": None,
+            },
         }
 
-    def _initialize_pipelines(self) -> Dict[PipelineType, PipelineConfig]:
+    def _initialize_pipelines(self) -> dict[PipelineType, PipelineConfig]:
         """Initialize pipeline configurations"""
 
         # WebRTC Internal Pipeline Configuration
@@ -118,10 +126,10 @@ class PipelineManager:
                         name="webrtc-gateway",
                         host="localhost",
                         port=get_service_port(ServiceType.WEBRTC_GATEWAY),  # 8500
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=["websocket_relay"],
-                    processing_type="sequential"
+                    processing_type="sequential",
                 ),
                 "websocket_relay": PipelineStage(
                     name="WebSocket Relay",
@@ -129,10 +137,10 @@ class PipelineManager:
                         name="websocket-gateway",
                         host="localhost",
                         port=get_service_port(ServiceType.WEBSOCKET_GATEWAY),  # 8302
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=["llm_ultravox"],
-                    processing_type="sequential"
+                    processing_type="sequential",
                 ),
                 "llm_ultravox": PipelineStage(
                     name="Ultravox LLM",
@@ -140,10 +148,10 @@ class PipelineManager:
                         name="llm-service",
                         host="localhost",
                         port=get_service_port(ServiceType.LLM_SERVICE),  # 8100
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=["tts_service"],
-                    processing_type="sequential"
+                    processing_type="sequential",
                 ),
                 "tts_service": PipelineStage(
                     name="TTS Service",
@@ -151,11 +159,11 @@ class PipelineManager:
                         name="tts-service",
                         host="localhost",
                         port=get_service_port(ServiceType.TTS_SERVICE),  # 8101
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=[],
-                    processing_type="sequential"
-                )
+                    processing_type="sequential",
+                ),
             },
             max_latency_ms=500,  # Real-time requirement
             monitoring={
@@ -163,8 +171,8 @@ class PipelineManager:
                 "track_errors": True,
                 "alert_on_failure": True,
                 "track_audio_quality": True,
-                "track_video_quality": True
-            }
+                "track_video_quality": True,
+            },
         )
 
         # API External Pipeline Configuration
@@ -181,10 +189,10 @@ class PipelineManager:
                         name="api-gateway",
                         host="localhost",
                         port=get_service_port(ServiceType.API_GATEWAY),  # 8020
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=["llm_processing"],
-                    processing_type="sequential"
+                    processing_type="sequential",
                 ),
                 "llm_processing": PipelineStage(
                     name="LLM Processing",
@@ -192,7 +200,7 @@ class PipelineManager:
                         name="llm-service",
                         host="localhost",
                         port=get_service_port(ServiceType.LLM_SERVICE),  # 8100
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=["tts_service"],
                     processing_type="parallel",  # Can process with STT in parallel
@@ -201,8 +209,8 @@ class PipelineManager:
                         host="localhost",
                         port=get_service_port(ServiceType.STT_SERVICE),  # 8099
                         path="/health",
-                        required=False
-                    )
+                        required=False,
+                    ),
                 ),
                 "stt_service": PipelineStage(
                     name="STT Service",
@@ -211,10 +219,10 @@ class PipelineManager:
                         host="localhost",
                         port=get_service_port(ServiceType.STT_SERVICE),  # 8099
                         path="/health",
-                        required=False  # Optional, as Ultravox handles audio
+                        required=False,  # Optional, as Ultravox handles audio
                     ),
                     next_stages=["llm_processing"],
-                    processing_type="sequential"
+                    processing_type="sequential",
                 ),
                 "tts_service": PipelineStage(
                     name="TTS Service",
@@ -222,30 +230,26 @@ class PipelineManager:
                         name="tts-service",
                         host="localhost",
                         port=get_service_port(ServiceType.TTS_SERVICE),  # 8101
-                        path="/health"
+                        path="/health",
                     ),
                     next_stages=[],
-                    processing_type="sequential"
-                )
+                    processing_type="sequential",
+                ),
             },
             max_latency_ms=2000,  # More lenient for API calls
-            retry_policy={
-                "max_retries": 5,
-                "backoff_ms": 200,
-                "max_backoff_ms": 2000
-            }
+            retry_policy={"max_retries": 5, "backoff_ms": 200, "max_backoff_ms": 2000},
         )
 
         return {
             PipelineType.WEBRTC_INTERNAL: webrtc_pipeline,
-            PipelineType.API_EXTERNAL: api_pipeline
+            PipelineType.API_EXTERNAL: api_pipeline,
         }
 
-    def get_pipeline(self, pipeline_type: PipelineType) -> Optional[PipelineConfig]:
+    def get_pipeline(self, pipeline_type: PipelineType) -> PipelineConfig | None:
         """Get pipeline configuration by type"""
         return self.pipelines.get(pipeline_type)
 
-    def get_all_pipelines(self) -> Dict[PipelineType, PipelineConfig]:
+    def get_all_pipelines(self) -> dict[PipelineType, PipelineConfig]:
         """Get all pipeline configurations"""
         return self.pipelines
 
@@ -271,7 +275,7 @@ class PipelineManager:
 
         return " → ".join(flow_parts)
 
-    def get_pipeline_services(self, pipeline_type: PipelineType) -> List[ServiceEndpoint]:
+    def get_pipeline_services(self, pipeline_type: PipelineType) -> list[ServiceEndpoint]:
         """Get all services required for a pipeline"""
         pipeline = self.get_pipeline(pipeline_type)
         if not pipeline:
@@ -294,10 +298,13 @@ class PipelineManager:
 
         return unique_services
 
-    async def execute_pipeline(self, pipeline_type: PipelineType, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute_pipeline(
+        self, pipeline_type: PipelineType, data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute a pipeline with the given data"""
-        import httpx
         from datetime import datetime
+
+        import httpx
 
         pipeline = self.get_pipeline(pipeline_type)
         if not pipeline:
@@ -312,20 +319,21 @@ class PipelineManager:
         try:
             # Start from entry point
             current_stage = pipeline.entry_point
-            stage_data = data
 
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0):
                 while current_stage:
                     stage = pipeline.stages.get(current_stage)
                     if not stage:
                         break
 
                     # Execute stage (simplified - in real implementation would call actual service)
-                    result["stages_executed"].append({
-                        "stage": current_stage,
-                        "service": stage.service.name,
-                        "timestamp": datetime.now().isoformat()
-                    })
+                    result["stages_executed"].append(
+                        {
+                            "stage": current_stage,
+                            "service": stage.service.name,
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
 
                     # Move to next stage
                     if stage.next_stages:
@@ -342,7 +350,9 @@ class PipelineManager:
             # Update average latency
             total = self.metrics[pipeline_type]["total_executions"]
             avg = self.metrics[pipeline_type]["average_latency_ms"]
-            self.metrics[pipeline_type]["average_latency_ms"] = ((avg * (total - 1)) + execution_time) / total
+            self.metrics[pipeline_type]["average_latency_ms"] = (
+                (avg * (total - 1)) + execution_time
+            ) / total
 
             result["execution_time_ms"] = execution_time
             return result
@@ -353,18 +363,18 @@ class PipelineManager:
             self.metrics[pipeline_type]["last_execution"] = datetime.now().isoformat()
             raise e
 
-    def get_metrics(self, pipeline_type: PipelineType) -> Dict[str, Any]:
+    def get_metrics(self, pipeline_type: PipelineType) -> dict[str, Any]:
         """Get metrics for a specific pipeline"""
         return self.metrics.get(pipeline_type, {})
 
-    def update_metrics(self, pipeline_type: PipelineType, metrics: Dict[str, Any]):
+    def update_metrics(self, pipeline_type: PipelineType, metrics: dict[str, Any]):
         """Update pipeline metrics"""
         if pipeline_type not in self.metrics:
             self.metrics[pipeline_type] = {
                 "requests": 0,
                 "errors": 0,
                 "total_latency_ms": 0,
-                "last_updated": None
+                "last_updated": None,
             }
 
         pipeline_metrics = self.metrics[pipeline_type]
@@ -379,20 +389,17 @@ class PipelineManager:
                 pipeline_metrics["total_latency_ms"] / pipeline_metrics["requests"]
             )
 
-    def get_metrics(self, pipeline_type: Optional[PipelineType] = None) -> Dict:
-        """Get pipeline metrics"""
+    def get_all_metrics(self, pipeline_type: PipelineType | None = None) -> dict:
+        """Get pipeline metrics (renamed to avoid conflict with get_metrics)"""
         if pipeline_type:
             return self.metrics.get(pipeline_type, {})
         return self.metrics
 
-    def validate_pipeline(self, pipeline_type: PipelineType) -> Dict[str, Any]:
+    def validate_pipeline(self, pipeline_type: PipelineType) -> dict[str, Any]:
         """Validate that all required services for a pipeline are available"""
         pipeline = self.get_pipeline(pipeline_type)
         if not pipeline:
-            return {
-                "valid": False,
-                "error": f"Pipeline {pipeline_type.value} not found"
-            }
+            return {"valid": False, "error": f"Pipeline {pipeline_type.value} not found"}
 
         validation_result = {
             "valid": True,
@@ -400,7 +407,7 @@ class PipelineManager:
             "type": pipeline_type.value,
             "stages": {},
             "warnings": [],
-            "errors": []
+            "errors": [],
         }
 
         for stage_name, stage in pipeline.stages.items():
@@ -409,12 +416,13 @@ class PipelineManager:
                 "service": stage.service.name,
                 "port": stage.service.port,
                 "required": stage.service.required,
-                "available": False
+                "available": False,
             }
 
             # Check if the service is actually available by making a health check
             # Use requests for synchronous health check (GET request)
             import requests
+
             try:
                 health_url = f"http://{stage.service.host}:{stage.service.port}/health"
                 response = requests.get(health_url, timeout=2)
@@ -424,6 +432,7 @@ class PipelineManager:
                 stage_status["available"] = False
                 # Log the error for debugging purposes
                 from loguru import logger
+
                 logger.debug(f"Health check failed for {stage.service.name}: {e}")
 
             # Note: Communication Manager is available for actual service calls (POST)

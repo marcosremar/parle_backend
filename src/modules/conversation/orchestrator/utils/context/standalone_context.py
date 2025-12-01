@@ -9,8 +9,9 @@ Provides minimal dependency injection for services running independently:
 """
 
 import logging
-from typing import Any, Dict, Optional
 from pathlib import Path
+from typing import Any
+
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class LoggerFactory:
         if not service_logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter(
-                f'%(asctime)s - [{service_name}] - %(levelname)s - %(message)s'
+                f"%(asctime)s - [{service_name}] - %(levelname)s - %(message)s"
             )
             handler.setFormatter(formatter)
             service_logger.addHandler(handler)
@@ -65,8 +66,8 @@ class StandaloneContext:
     def __init__(
         self,
         service_name: str,
-        config: Optional[Dict[str, Any]] = None,
-        logger_instance: Optional[logging.Logger] = None
+        config: dict[str, Any] | None = None,
+        logger_instance: logging.Logger | None = None,
     ):
         """
         Initialize StandaloneContext
@@ -118,7 +119,12 @@ class StandaloneContext:
                 self.logger.warning(f"⚠️ Failed to load {config_path}: {e}")
 
         # Try global config directory
-        global_config_path = Path(__file__).parent.parent.parent.parent / "config" / "services" / f"{self.service_name}.yaml"
+        global_config_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "config"
+            / "services"
+            / f"{self.service_name}.yaml"
+        )
 
         if global_config_path.exists():
             try:
@@ -159,5 +165,5 @@ class StandaloneContext:
             "gpu": None,
             "communication": None,
             "metrics": None,
-            "config_keys": list(self.config.keys()) if self.config else []
+            "config_keys": list(self.config.keys()) if self.config else [],
         }

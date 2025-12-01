@@ -4,10 +4,10 @@ In-Memory Session Manager
 Manages session state in memory (no external dependencies)
 """
 
-import logging
-import uuid
-from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
+import logging
+from typing import Any
+import uuid
 
 from .models import LLMType, SessionResponse
 
@@ -31,7 +31,7 @@ class InMemorySessionManager:
             default_ttl: Default TTL in seconds (30 minutes)
         """
         self.default_ttl = default_ttl
-        self.sessions: Dict[str, Dict[str, Any]] = {}
+        self.sessions: dict[str, dict[str, Any]] = {}
         logger.info(f"📦 InMemorySessionManager initialized (TTL: {default_ttl}s)")
 
     async def connect(self) -> None:
@@ -49,10 +49,10 @@ class InMemorySessionManager:
     async def create_session(
         self,
         scenario_id: str,
-        conversation_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        session_id: Optional[str] = None
+        conversation_id: str | None = None,
+        user_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        session_id: str | None = None,
     ) -> str:
         """
         Create a new session
@@ -88,14 +88,14 @@ class InMemorySessionManager:
             "created_at": now,
             "last_activity": now,
             "ttl_seconds": self.default_ttl,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
 
         self.sessions[session_id] = session_data
         logger.info(f"📝 Created in-memory session {session_id} with scenario {scenario_id}")
         return session_id
 
-    async def get_session(self, session_id: str) -> Optional[SessionResponse]:
+    async def get_session(self, session_id: str) -> SessionResponse | None:
         """
         Get session by ID
 
@@ -119,14 +119,14 @@ class InMemorySessionManager:
             created_at=data["created_at"],
             last_activity=data["last_activity"],
             ttl_seconds=self.default_ttl,
-            metadata=data.get("metadata", {})
+            metadata=data.get("metadata", {}),
         )
 
     async def update_session(
         self,
         session_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        active_llm: Optional[LLMType] = None
+        metadata: dict[str, Any] | None = None,
+        active_llm: LLMType | None = None,
     ) -> bool:
         """
         Update session metadata and/or active LLM
@@ -155,13 +155,15 @@ class InMemorySessionManager:
             # Increment failover count if switching to fallback
             if old_llm != active_llm.value and active_llm == LLMType.FALLBACK:
                 data["failover_count"] = data.get("failover_count", 0) + 1
-                logger.warning(f"🔄 Session {session_id} failed over to {active_llm.value} "
-                             f"(count: {data['failover_count']})")
+                logger.warning(
+                    f"🔄 Session {session_id} failed over to {active_llm.value} "
+                    f"(count: {data['failover_count']})"
+                )
 
         logger.debug(f"✏️  Updated in-memory session {session_id}")
         return True
 
-    async def heartbeat(self, session_id: str, extend_by: Optional[int] = None) -> bool:
+    async def heartbeat(self, session_id: str, extend_by: int | None = None) -> bool:
         """
         Send heartbeat to extend session TTL
 
@@ -174,7 +176,7 @@ class InMemorySessionManager:
         """
         return await self.update_session(
             session_id=session_id,
-            metadata={"last_heartbeat": datetime.now(timezone.utc).isoformat()}
+            metadata={"last_heartbeat": datetime.now(timezone.utc).isoformat()},
         )
 
     async def delete_session(self, session_id: str) -> bool:
@@ -193,7 +195,7 @@ class InMemorySessionManager:
             return True
         return False
 
-    async def list_sessions(self, user_id: Optional[str] = None) -> List[SessionResponse]:
+    async def list_sessions(self, user_id: str | None = None) -> list[SessionResponse]:
         """
         List sessions (optionally filtered by user_id)
 
@@ -207,21 +209,23 @@ class InMemorySessionManager:
         for data in self.sessions.values():
             if user_id and data.get("user_id") != user_id:
                 continue
-            sessions.append(SessionResponse(
-                id=data["id"],
-                scenario_id=data["scenario_id"],
-                conversation_id=data["conversation_id"],
-                user_id=data.get("user_id"),
-                active_llm=LLMType(data.get("active_llm", "primary")),
-                failover_count=data.get("failover_count", 0),
-                created_at=data["created_at"],
-                last_activity=data["last_activity"],
-                ttl_seconds=self.default_ttl,
-                metadata=data.get("metadata", {})
-            ))
+            sessions.append(
+                SessionResponse(
+                    id=data["id"],
+                    scenario_id=data["scenario_id"],
+                    conversation_id=data["conversation_id"],
+                    user_id=data.get("user_id"),
+                    active_llm=LLMType(data.get("active_llm", "primary")),
+                    failover_count=data.get("failover_count", 0),
+                    created_at=data["created_at"],
+                    last_activity=data["last_activity"],
+                    ttl_seconds=self.default_ttl,
+                    metadata=data.get("metadata", {}),
+                )
+            )
         return sessions
 
-    async def get_all_sessions(self) -> List[SessionResponse]:
+    async def get_all_sessions(self) -> list[SessionResponse]:
         """
         Get all active sessions
 
@@ -255,7 +259,9 @@ class InMemorySessionManager:
         now = datetime.now(timezone.utc)
         expired = []
         for session_id, data in self.sessions.items():
-            last_activity = datetime.fromisoformat(data["last_activity"]).replace(tzinfo=timezone.utc)
+            last_activity = datetime.fromisoformat(data["last_activity"]).replace(
+                tzinfo=timezone.utc
+            )
             age_seconds = (now - last_activity).total_seconds()
             if age_seconds > self.default_ttl:
                 expired.append(session_id)

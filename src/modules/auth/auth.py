@@ -4,18 +4,20 @@ Password hashing and verification using Argon2
 
 ⚠️  SECURITY FIX: Migrated from SHA256 (unsalted) to Argon2 with timing-attack resistant verification
 """
+
 import os
+
 from passlib.context import CryptContext
 
 # Argon2 context with secure parameters
 pwd_context = CryptContext(
     schemes=["argon2"],
     deprecated="auto",
-    argon2__memory_cost=65536,    # 64MB memory
-    argon2__time_cost=3,           # 3 iterations
-    argon2__parallelism=4,         # 4 parallelism
-    argon2__hash_len=32,           # 32 byte hash
-    argon2__salt_len=16,           # 16 byte salt
+    argon2__memory_cost=65536,  # 64MB memory
+    argon2__time_cost=3,  # 3 iterations
+    argon2__parallelism=4,  # 4 parallelism
+    argon2__hash_len=32,  # 32 byte hash
+    argon2__salt_len=16,  # 16 byte salt
 )
 
 # Configurable minimum password length (default 12, can be overridden for development)

@@ -1,0 +1,73 @@
+name: Audit Dependencies
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'requirements.txt'
+      - 'requirements-dev.txt'
+      - 'requirements-test.txt'
+
+jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install pip-audit
+        run: pip install pip-audit
+      
+      - name: Audit production dependencies
+        run: |
+          pip-audit -r requirements.txt --format json --output pip-audit-production.json || true
+          pip-audit -r requirements.txt --format table || true
+      
+      - name: Audit development dependencies
+        run: |
+          pip-audit -r requirements-dev.txt --format json --output pip-audit-dev.json || true
+          pip-audit -r requirements-dev.txt --format table || true
+      
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: dependency-audit-reports
+          path: |
+            pip-audit-*.json
+          retention-days: 30
+      
+      - name: Comment on PR (if PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const report = fs.readFileSync('pip-audit-production.json', 'utf8');
+              const data = JSON.parse(report);
+              if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+                const comment = `## ⚠️ Dependency Audit Results\n\n` +
+                  `Found ${data.vulnerabilities.length} vulnerabilities:\n\n` +
+                  data.vulnerabilities.map(v => 
+                    `- **${v.name}**: ${v.vuln_id} - ${v.fix_versions ? `Fix: ${v.fix_versions.join(', ')}` : 'No fix available'}`
+                  ).join('\n');
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: comment
+                });
+              }
+            } catch (error) {
+              console.log('No vulnerabilities found or error reading report');
+            }

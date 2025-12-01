@@ -2,14 +2,14 @@
 TTS Providers
 """
 
-from .gtts import GTTSProvider
 from .elevenlabs import ElevenLabsTTSProvider
+from .gtts import GTTSProvider
 from .huggingface import HuggingFaceTTSProvider
 from .manager import TTSProviderManager
 
 __all__ = [
-    "GTTSProvider",
     "ElevenLabsTTSProvider",
+    "GTTSProvider",
     "HuggingFaceTTSProvider",
     "TTSProviderManager",
 ]

@@ -13,14 +13,19 @@ making them easier to parse and analyze.
 
 try:
     import orjson as json
+
     def json_dumps(obj, default=str):
-        return json.dumps(obj, default=default).decode('utf-8')
+        return json.dumps(obj, default=default).decode("utf-8")
+
 except ImportError:
     import json
+
     def json_dumps(obj, default=str):
         return json.dumps(obj, default=default)
-from typing import Dict, Any, Optional
+
+
 from datetime import datetime, timezone
+from typing import Any
 
 
 class LogFormatter:
@@ -31,7 +36,7 @@ class LogFormatter:
     """
 
     @staticmethod
-    def format_timestamp(dt: Optional[datetime] = None) -> str:
+    def format_timestamp(dt: datetime | None = None) -> str:
         """
         Format timestamp consistently
 
@@ -43,7 +48,7 @@ class LogFormatter:
         """
         if dt is None:
             dt = datetime.now(timezone.utc)
-        return dt.isoformat() + 'Z'
+        return dt.isoformat() + "Z"
 
     @staticmethod
     def format_level(level: str, width: int = 8) -> str:
@@ -72,14 +77,24 @@ class LogFormatter:
         """
         # List of sensitive keys that should be redacted
         sensitive_keys = {
-            'password', 'token', 'secret', 'api_key', 'apikey',
-            'auth', 'authorization', 'credential', 'private_key'
+            "password",
+            "token",
+            "secret",
+            "api_key",
+            "apikey",
+            "auth",
+            "authorization",
+            "credential",
+            "private_key",
         }
 
         if isinstance(value, dict):
             return {
-                k: '***REDACTED***' if any(sk in k.lower() for sk in sensitive_keys)
-                else LogFormatter.sanitize_value(v)
+                k: (
+                    "***REDACTED***"
+                    if any(sk in k.lower() for sk in sensitive_keys)
+                    else LogFormatter.sanitize_value(v)
+                )
                 for k, v in value.items()
             }
         elif isinstance(value, (list, tuple)):
@@ -96,7 +111,7 @@ class JSONFormatter(LogFormatter):
     (ELK, Loki, CloudWatch, etc.)
     """
 
-    def __init__(self, service_name: str, extra_fields: Optional[Dict[str, Any]] = None):
+    def __init__(self, service_name: str, extra_fields: dict[str, Any] | None = None):
         """
         Initialize JSON formatter
 
@@ -107,13 +122,7 @@ class JSONFormatter(LogFormatter):
         self.service_name = service_name
         self.extra_fields = extra_fields or {}
 
-    def format(
-        self,
-        level: str,
-        message: str,
-        timestamp: Optional[datetime] = None,
-        **kwargs
-    ) -> str:
+    def format(self, level: str, message: str, timestamp: datetime | None = None, **kwargs) -> str:
         """
         Format log message as JSON
 
@@ -127,12 +136,12 @@ class JSONFormatter(LogFormatter):
             JSON-formatted log string
         """
         log_entry = {
-            'timestamp': self.format_timestamp(timestamp),
-            'service': self.service_name,
-            'level': level,
-            'message': message,
+            "timestamp": self.format_timestamp(timestamp),
+            "service": self.service_name,
+            "level": level,
+            "message": message,
             **self.extra_fields,
-            **self.sanitize_value(kwargs)
+            **self.sanitize_value(kwargs),
         }
 
         return json_dumps(log_entry, default=str)
@@ -151,7 +160,7 @@ class TraceFormatter(LogFormatter):
         service_name: str,
         include_trace_id: bool = True,
         include_span_id: bool = True,
-        extra_fields: Optional[Dict[str, Any]] = None
+        extra_fields: dict[str, Any] | None = None,
     ):
         """
         Initialize trace formatter
@@ -171,10 +180,10 @@ class TraceFormatter(LogFormatter):
         self,
         level: str,
         message: str,
-        trace_id: Optional[str] = None,
-        span_id: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
-        **kwargs
+        trace_id: str | None = None,
+        span_id: str | None = None,
+        timestamp: datetime | None = None,
+        **kwargs,
     ) -> str:
         """
         Format log message with trace context
@@ -193,7 +202,7 @@ class TraceFormatter(LogFormatter):
         parts = [
             self.format_timestamp(timestamp),
             self.format_level(level),
-            f"[{self.service_name}]"
+            f"[{self.service_name}]",
         ]
 
         # Add trace context if available
@@ -219,10 +228,10 @@ class TraceFormatter(LogFormatter):
         self,
         level: str,
         message: str,
-        trace_id: Optional[str] = None,
-        span_id: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
-        **kwargs
+        trace_id: str | None = None,
+        span_id: str | None = None,
+        timestamp: datetime | None = None,
+        **kwargs,
     ) -> str:
         """
         Format log message as JSON with trace context
@@ -239,20 +248,20 @@ class TraceFormatter(LogFormatter):
             JSON-formatted log string with trace context
         """
         log_entry = {
-            'timestamp': self.format_timestamp(timestamp),
-            'service': self.service_name,
-            'level': level,
-            'message': message,
+            "timestamp": self.format_timestamp(timestamp),
+            "service": self.service_name,
+            "level": level,
+            "message": message,
             **self.extra_fields,
-            **self.sanitize_value(kwargs)
+            **self.sanitize_value(kwargs),
         }
 
         # Add trace context if available
         if self.include_trace_id and trace_id:
-            log_entry['trace_id'] = trace_id
+            log_entry["trace_id"] = trace_id
 
         if self.include_span_id and span_id:
-            log_entry['span_id'] = span_id
+            log_entry["span_id"] = span_id
 
         return json_dumps(log_entry, default=str)
 
@@ -270,7 +279,7 @@ class StructuredFormatter(LogFormatter):
         service_name: str,
         field_separator: str = " | ",
         kv_separator: str = "=",
-        extra_fields: Optional[Dict[str, Any]] = None
+        extra_fields: dict[str, Any] | None = None,
     ):
         """
         Initialize structured formatter
@@ -286,13 +295,7 @@ class StructuredFormatter(LogFormatter):
         self.kv_separator = kv_separator
         self.extra_fields = extra_fields or {}
 
-    def format(
-        self,
-        level: str,
-        message: str,
-        timestamp: Optional[datetime] = None,
-        **kwargs
-    ) -> str:
+    def format(self, level: str, message: str, timestamp: datetime | None = None, **kwargs) -> str:
         """
         Format log message with structured fields
 
@@ -309,26 +312,19 @@ class StructuredFormatter(LogFormatter):
             f"timestamp{self.kv_separator}{self.format_timestamp(timestamp)}",
             f"level{self.kv_separator}{level}",
             f"service{self.kv_separator}{self.service_name}",
-            f"message{self.kv_separator}{message}"
+            f"message{self.kv_separator}{message}",
         ]
 
         # Add extra fields
         all_extra = {**self.extra_fields, **kwargs}
         if all_extra:
             sanitized = self.sanitize_value(all_extra)
-            fields.extend([
-                f"{k}{self.kv_separator}{v}"
-                for k, v in sanitized.items()
-            ])
+            fields.extend([f"{k}{self.kv_separator}{v}" for k, v in sanitized.items()])
 
         return self.field_separator.join(fields)
 
 
-def get_formatter(
-    formatter_type: str,
-    service_name: str,
-    **kwargs
-) -> LogFormatter:
+def get_formatter(formatter_type: str, service_name: str, **kwargs) -> LogFormatter:
     """
     Factory function to get appropriate formatter
 
@@ -344,10 +340,10 @@ def get_formatter(
         ValueError: If formatter type is unknown
     """
     formatters = {
-        'json': JSONFormatter,
-        'trace': TraceFormatter,
-        'structured': StructuredFormatter,
-        'text': LogFormatter
+        "json": JSONFormatter,
+        "trace": TraceFormatter,
+        "structured": StructuredFormatter,
+        "text": LogFormatter,
     }
 
     formatter_class = formatters.get(formatter_type.lower())

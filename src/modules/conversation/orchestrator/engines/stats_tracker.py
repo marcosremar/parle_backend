@@ -6,7 +6,8 @@ Centralized statistics tracking for the orchestrator.
 
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any
+
 from ..constants import StatsKey
 
 
@@ -15,7 +16,7 @@ class StatsTracker:
 
     def __init__(self) -> None:
         """Initialize stats tracker with default values."""
-        self.stats: Dict[str, Any] = {
+        self.stats: dict[str, Any] = {
             StatsKey.TOTAL_TURNS: 0,
             StatsKey.SUCCESSFUL_TURNS: 0,
             StatsKey.FAILED_TURNS: 0,
@@ -23,7 +24,7 @@ class StatsTracker:
             StatsKey.FALLBACK_LLM_COUNT: 0,
             StatsKey.IN_PROCESS_COUNT: 0,
             StatsKey.HTTP_FALLBACK_COUNT: 0,
-            StatsKey.TOTAL_PROCESSING_TIME: 0.0
+            StatsKey.TOTAL_PROCESSING_TIME: 0.0,
         }
 
     def increment_total_turns(self) -> None:
@@ -58,10 +59,10 @@ class StatsTracker:
         """Add processing time to total."""
         self.stats[StatsKey.TOTAL_PROCESSING_TIME] += time_seconds
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get current statistics.
-        
+
         Returns:
             Dictionary with all statistics
         """
@@ -70,38 +71,35 @@ class StatsTracker:
     def get_average_processing_time_ms(self) -> int:
         """
         Get average processing time in milliseconds.
-        
+
         Returns:
             Average processing time in ms, or 0 if no turns processed
         """
         if self.stats[StatsKey.TOTAL_TURNS] > 0:
-            avg_time = (self.stats[StatsKey.TOTAL_PROCESSING_TIME] / 
-                       self.stats[StatsKey.TOTAL_TURNS])
+            avg_time = self.stats[StatsKey.TOTAL_PROCESSING_TIME] / self.stats[StatsKey.TOTAL_TURNS]
             return int(avg_time * 1000)
         return 0
 
     def get_success_rate(self) -> float:
         """
         Get success rate as a ratio.
-        
+
         Returns:
             Success rate between 0.0 and 1.0
         """
         if self.stats[StatsKey.TOTAL_TURNS] > 0:
-            return (self.stats[StatsKey.SUCCESSFUL_TURNS] / 
-                   self.stats[StatsKey.TOTAL_TURNS])
+            return self.stats[StatsKey.SUCCESSFUL_TURNS] / self.stats[StatsKey.TOTAL_TURNS]
         return 0.0
 
     def get_primary_llm_rate(self) -> float:
         """
         Get primary LLM usage rate as a ratio.
-        
+
         Returns:
             Primary LLM rate between 0.0 and 1.0
         """
         if self.stats[StatsKey.TOTAL_TURNS] > 0:
-            return (self.stats[StatsKey.PRIMARY_LLM_COUNT] / 
-                   self.stats[StatsKey.TOTAL_TURNS])
+            return self.stats[StatsKey.PRIMARY_LLM_COUNT] / self.stats[StatsKey.TOTAL_TURNS]
         return 0.0
 
     def reset(self) -> None:
@@ -114,5 +112,5 @@ class StatsTracker:
             StatsKey.FALLBACK_LLM_COUNT: 0,
             StatsKey.IN_PROCESS_COUNT: 0,
             StatsKey.HTTP_FALLBACK_COUNT: 0,
-            StatsKey.TOTAL_PROCESSING_TIME: 0.0
+            StatsKey.TOTAL_PROCESSING_TIME: 0.0,
         }

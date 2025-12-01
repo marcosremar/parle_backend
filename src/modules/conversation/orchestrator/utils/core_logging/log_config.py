@@ -12,15 +12,16 @@ Changes from old version:
 - Support for multiple log formats
 """
 
-import os
-from enum import Enum
-from pathlib import Path
-from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
+from enum import Enum
+import os
+from pathlib import Path
+from typing import Any
 
 
 class LogLevel(str, Enum):
     """Log level enumeration"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -30,6 +31,7 @@ class LogLevel(str, Enum):
 
 class LogFormat(str, Enum):
     """Log format types"""
+
     TEXT = "text"  # Human-readable text
     JSON = "json"  # JSON format for log aggregators
     STRUCTURED = "structured"  # Key-value pairs
@@ -57,9 +59,10 @@ class LogConfig:
         enqueue: Thread-safe logging (recommended)
         format: Log format type (text, json, structured)
     """
+
     service_name: str
     level: LogLevel = LogLevel.INFO
-    logs_dir: Optional[Path] = None
+    logs_dir: Path | None = None
 
     # Output targets
     console_output: bool = True
@@ -80,12 +83,18 @@ class LogConfig:
     format: LogFormat = LogFormat.TEXT
 
     # Custom log format strings
-    console_format: str = field(default="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>")
-    file_format: str = field(default="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}")
-    error_format: str = field(default="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}\n{exception}")
+    console_format: str = field(
+        default="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | <level>{message}</level>"
+    )
+    file_format: str = field(
+        default="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
+    )
+    error_format: str = field(
+        default="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}\n{exception}"
+    )
 
     # Additional metadata
-    extra_fields: Dict[str, Any] = field(default_factory=dict)
+    extra_fields: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         """Validate and set defaults after initialization"""
@@ -124,25 +133,25 @@ class LogConfig:
         """Get path to audit log file"""
         return self.logs_dir / f"{self.service_name}_audit.log"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary"""
         return {
-            'service_name': self.service_name,
-            'level': self.level.value,
-            'logs_dir': str(self.logs_dir),
-            'console_output': self.console_output,
-            'file_output': self.file_output,
-            'json_output': self.json_output,
-            'error_file': self.error_file,
-            'startup_file': self.startup_file,
-            'rotation': self.rotation,
-            'retention': self.retention,
-            'compression': self.compression,
-            'colorize': self.colorize,
-            'serialize': self.serialize,
-            'enqueue': self.enqueue,
-            'format': self.format.value,
-            'extra_fields': self.extra_fields
+            "service_name": self.service_name,
+            "level": self.level.value,
+            "logs_dir": str(self.logs_dir),
+            "console_output": self.console_output,
+            "file_output": self.file_output,
+            "json_output": self.json_output,
+            "error_file": self.error_file,
+            "startup_file": self.startup_file,
+            "rotation": self.rotation,
+            "retention": self.retention,
+            "compression": self.compression,
+            "colorize": self.colorize,
+            "serialize": self.serialize,
+            "enqueue": self.enqueue,
+            "format": self.format.value,
+            "extra_fields": self.extra_fields,
         }
 
 
@@ -180,10 +189,7 @@ def get_default_config(service_name: str, level: str = "INFO") -> LogConfig:
     Returns:
         LogConfig instance with defaults
     """
-    return LogConfig(
-        service_name=service_name,
-        level=LogLevel(level.upper())
-    )
+    return LogConfig(service_name=service_name, level=LogLevel(level.upper()))
 
 
 def get_startup_log_file() -> Path:
@@ -208,9 +214,26 @@ def is_startup_message(message: str) -> bool:
     """
     message_lower = message.lower()
     startup_keywords = [
-        "starting", "started", "initializing", "initialized",
-        "loading", "loaded", "hot reload", "watching", "startup",
-        "lifespan", "listening", "ready", "finished", "registry",
-        "🔥", "✅", "🏁", "📁", "⚠️", "🚀", "🔧"
+        "starting",
+        "started",
+        "initializing",
+        "initialized",
+        "loading",
+        "loaded",
+        "hot reload",
+        "watching",
+        "startup",
+        "lifespan",
+        "listening",
+        "ready",
+        "finished",
+        "registry",
+        "🔥",
+        "✅",
+        "🏁",
+        "📁",
+        "⚠️",
+        "🚀",
+        "🔧",
     ]
     return any(keyword in message_lower for keyword in startup_keywords)
