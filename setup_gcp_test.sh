@@ -241,6 +241,30 @@ python3 test_gcp.py
 
 EXIT_CODE=$?
 
+# 7. Medir tempo de inicialização (se deploy foi bem-sucedido)
+if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 1 ]; then
+    echo ""
+    echo "================================================================================"
+    echo -e "${BLUE}⏱️  Medindo tempo de inicialização...${NC}"
+    echo "================================================================================"
+    echo ""
+    
+    # Verificar se requests está instalado
+    python3 -c "import requests" 2>/dev/null || {
+        echo "   Instalando biblioteca 'requests'..."
+        pip3 install requests --quiet 2>/dev/null || true
+    }
+    
+    python3 test_startup_time.py
+    STARTUP_EXIT_CODE=$?
+    
+    if [ $STARTUP_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ Medição de tempo concluída${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Medição de tempo falhou (mas não é crítico)${NC}"
+    fi
+fi
+
 echo ""
 echo "================================================================================"
 if [ $EXIT_CODE -eq 0 ]; then
