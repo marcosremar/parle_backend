@@ -61,6 +61,7 @@ show_help() {
     echo -e "  ${CYAN}deploy${NC}                   Configurar deploy para produção"
     echo -e "  ${CYAN}deploy:gcp${NC}               Fazer deploy no Google Cloud (Cloud Run)"
     echo -e "  ${CYAN}deploy:gcp:fast${NC}           Deploy rápido no GCP (máquina maior, 5-8 min)"
+    echo -e "  ${CYAN}deploy:vps${NC}                Fazer deploy na VPS (SSH + Docker)"
     echo -e "  ${CYAN}clean${NC}                    Limpar arquivos temporários"
     echo ""
     echo -e "  ${CYAN}docker-up${NC}                Iniciar projeto com Docker (produção)"
@@ -1603,6 +1604,67 @@ cmd_deploy_gcp_fast() {
     fi
 }
 
+# Deploy na VPS
+cmd_deploy_vps() {
+    show_banner
+    echo -e "${BLUE}🖥️  Deploy na VPS${NC}"
+    echo "================================================================================"
+    echo ""
+    
+    # Verificar se docker-manager existe
+    local docker_manager_dir="$PROJECT_DIR/vendor/docker-manager"
+    if [ ! -d "$docker_manager_dir" ]; then
+        echo -e "${RED}❌ docker-manager não encontrado em: $docker_manager_dir${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 O docker-manager deve estar em vendor/docker-manager${NC}"
+        return 1
+    fi
+    
+    # Verificar se script de deploy existe
+    if [ -f "$PROJECT_DIR/deploy-vps.sh" ]; then
+        echo -e "${CYAN}📦 Usando script deploy-vps.sh...${NC}"
+        echo ""
+        bash "$PROJECT_DIR/deploy-vps.sh"
+        return $?
+    else
+        echo -e "${YELLOW}⚠️  deploy-vps.sh não encontrado, usando método alternativo...${NC}"
+        echo ""
+        
+        # Configurações padrão
+        local vps_host="${VPS_HOST:-54.37.225.188}"
+        local vps_user="${VPS_USER:-ubuntu}"
+        local ssh_key_path="${SSH_KEY_PATH:-$HOME/.ssh/id_rsa}"
+        local container_name="${CONTAINER_NAME:-parle-backend}"
+        
+        echo -e "${BLUE}📋 Configuração:${NC}"
+        echo "   Host: $vps_host"
+        echo "   User: $vps_user"
+        echo "   Container: $container_name"
+        echo "   SSH Key: $ssh_key_path"
+        echo ""
+        
+        # Verificar conectividade
+        echo -e "${BLUE}🔌 Testando conexão SSH...${NC}"
+        if ssh -i "$ssh_key_path" -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$vps_user@$vps_host" "echo 'OK'" > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ Conexão SSH OK${NC}"
+        else
+            echo -e "${RED}❌ Não foi possível conectar à VPS${NC}"
+            echo ""
+            echo -e "${YELLOW}💡 Configure variáveis de ambiente:${NC}"
+            echo "   export VPS_HOST=\"seu-vps.com\""
+            echo "   export VPS_USER=\"usuario\""
+            echo "   export SSH_KEY_PATH=\"~/.ssh/id_rsa\""
+            return 1
+        fi
+        
+        echo ""
+        echo -e "${CYAN}💡 Para deploy completo, use:${NC}"
+        echo "   ./deploy-vps.sh"
+        echo ""
+        echo "Ou configure variáveis de ambiente e execute novamente."
+    fi
+}
+
 # Main
 main() {
     local command="${1:-help}"
@@ -1675,6 +1737,9 @@ main() {
         ;;
     deploy:gcp:fast)
         cmd_deploy_gcp_fast
+        ;;
+    deploy:vps)
+        cmd_deploy_vps
         ;;
     start:linguistic)
         cmd_start_linguistic
