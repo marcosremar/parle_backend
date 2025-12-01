@@ -1,0 +1,130 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+testmon/
+.testmondata
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+!docker/Dockerfile
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vendor (manter apenas docker-manager se necessário)
+vendor/*
+!vendor/docker-manager
+
+# Large files that shouldn't be in image
+*.mp4
+*.mp3
+*.wav
+*.avi
+*.mov
+*.zip
+*.tar.gz
+*.rar
+
+# Data files
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# Node (se houver)
+node_modules/
+npm-debug.log
+
+# Archive
+archive/
+reports/
+status/
+
+# Scripts de desenvolvimento
+scripts/
+*.sh
+!docker/*.sh
+
+# Config files que não devem estar na imagem
+config/*.yaml
+!config/settings.yaml.example
+
+# Test files
+tests/
+test_*.py
+*_test.py

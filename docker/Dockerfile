@@ -21,10 +21,8 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 # Upgrade pip first, then install dependencies
-# Use --no-deps for problematic packages and install dependencies separately
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --user pydantic-core>=2.18.2 && \
-    pip install --no-cache-dir --user -r requirements.txt --no-deps || \
+# Use --no-cache-dir and --user to optimize build
+RUN pip install --upgrade pip setuptools wheel --no-cache-dir && \
     pip install --no-cache-dir --user -r requirements.txt
 
 # Production stage
@@ -68,12 +66,12 @@ ENV PATH=/home/parle/.local/bin:$PATH \
 # Switch to non-root user
 USER parle
 
-# Expose port
-EXPOSE 8000
+# Expose port (Cloud Run usa porta 8080)
+EXPOSE 8080
 
 # Health check (using curl instead of requests)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
-# Run application
-CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Run application (Cloud Run requer porta 8080)
+CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
