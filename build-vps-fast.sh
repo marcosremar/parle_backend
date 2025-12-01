@@ -20,6 +20,7 @@ SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_rsa}"
 IMAGE_NAME="${IMAGE_NAME:-parle-backend:latest}"
 DOCKERFILE_PATH="${DOCKERFILE_PATH:-docker/Dockerfile.vps-fast}"
 USE_CACHE="${USE_CACHE:-true}"
+BUILD_MODE="${BUILD_MODE:-fast}"  # fast, ultra-fast, base-optimized
 
 echo -e "${BLUE}⚡ Build Rápido na VPS${NC}"
 echo "================================================================================"
@@ -32,9 +33,25 @@ echo "   Dockerfile: $DOCKERFILE_PATH"
 echo "   Cache: $USE_CACHE"
 echo ""
 
-# Verificar se Dockerfile otimizado existe
+# Selecionar Dockerfile baseado no modo
+case "$BUILD_MODE" in
+    ultra-fast)
+        DOCKERFILE_PATH="docker/Dockerfile.vps-ultra-fast"
+        echo -e "${CYAN}⚡ Modo: Ultra-Fast (uma camada)${NC}"
+        ;;
+    base-optimized)
+        DOCKERFILE_PATH="docker/Dockerfile.vps-base-optimized"
+        echo -e "${CYAN}⚡ Modo: Base Otimizada (imagem PyTorch) - Mais Rápido${NC}"
+        ;;
+    fast|*)
+        DOCKERFILE_PATH="docker/Dockerfile.vps-fast"
+        echo -e "${CYAN}⚡ Modo: Fast (camadas otimizadas)${NC}"
+        ;;
+esac
+
+# Verificar se Dockerfile existe
 if [ ! -f "$DOCKERFILE_PATH" ]; then
-    echo -e "${YELLOW}⚠️  Dockerfile.vps-fast não encontrado, usando Dockerfile padrão${NC}"
+    echo -e "${YELLOW}⚠️  $DOCKERFILE_PATH não encontrado, usando Dockerfile padrão${NC}"
     DOCKERFILE_PATH="docker/Dockerfile"
 fi
 
@@ -102,7 +119,17 @@ fi
 BUILD_CMD="$BUILD_CMD -f $DOCKERFILE_PATH -t $IMAGE_NAME ."
 
 echo -e "${BLUE}⏳ Executando build...${NC}"
-echo "   (Isso pode levar 2-5 minutos com otimizações)"
+case "$BUILD_MODE" in
+    base-optimized)
+        echo "   (Tempo estimado: 1-2 minutos - usando imagem base PyTorch)"
+        ;;
+    ultra-fast)
+        echo "   (Tempo estimado: 1.5-3 minutos - uma camada)"
+        ;;
+    *)
+        echo "   (Tempo estimado: 2-5 minutos com otimizações)"
+        ;;
+esac
 echo ""
 
 # Executar build e mostrar progresso
