@@ -1,0 +1,86 @@
+# Exemplo de CI/CD para Deploy Automático no GCP
+# 
+# Para usar:
+# 1. Copie para .github/workflows/deploy-gcp.yml
+# 2. Configure secrets no GitHub:
+#    - GCP_SERVICE_ACCOUNT_KEY (JSON da service account)
+#    - GCP_PROJECT_ID
+# 3. Push para branch main → Deploy automático
+
+name: Deploy to GCP Cloud Run
+
+on:
+  push:
+    branches: [ main ]  # Deploy apenas na branch main
+  workflow_dispatch:   # Permite deploy manual
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+    
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v --tb=short
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: test  # Só deploya se testes passarem
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+    
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+    
+    - name: Configure Docker
+      run: gcloud auth configure-docker
+    
+    - name: Deploy to Cloud Run (Fast Build)
+      run: |
+        gcloud builds submit \
+          --config docker/cloudbuild-fast.yaml \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --substitutions "_SERVICE_NAME=parle-backend,_REGION=us-central1,_DOCKERFILE_PATH=docker/Dockerfile.fast" \
+          .
+    
+    - name: Get Service URL
+      id: get-url
+      run: |
+        URL=$(gcloud run services describe parle-backend \
+          --region us-central1 \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --format="value(status.url)")
+        echo "url=$URL" >> $GITHUB_OUTPUT
+    
+    - name: Comment PR with URL
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '🚀 Deploy concluído!\n\n🌐 URL: ${{ steps.get-url.outputs.url }}'
+          })
