@@ -18,9 +18,10 @@ COPY requirements.txt .
 
 # PyTorch já tem: torch, torchaudio, numpy, etc
 # Apenas instalar dependências que faltam
+# IMPORTANTE: Instalar uvicorn primeiro e garantir que está no PATH
 RUN pip install --no-cache-dir --prefer-binary --user \
-    fastapi==0.104.1 \
     uvicorn[standard]==0.24.0 \
+    fastapi==0.104.1 \
     pydantic>=2.6.0 \
     pydantic-settings>=2.0.0 \
     python-multipart==0.0.9 \
