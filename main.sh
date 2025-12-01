@@ -59,7 +59,16 @@ show_help() {
     echo -e "  ${CYAN}monitor${NC}                  Abrir dashboard de monitoramento"
     echo -e "  ${CYAN}benchmark${NC}                Executar testes de performance"
     echo -e "  ${CYAN}deploy${NC}                   Configurar deploy para produção"
+    echo -e "  ${CYAN}deploy:gcp${NC}               Fazer deploy no Google Cloud (Cloud Run)"
     echo -e "  ${CYAN}clean${NC}                    Limpar arquivos temporários"
+    echo ""
+    echo -e "  ${CYAN}docker-up${NC}                Iniciar projeto com Docker (produção)"
+    echo -e "  ${CYAN}docker-up:dev${NC}             Iniciar projeto com Docker (desenvolvimento)"
+    echo -e "  ${CYAN}docker-up:logging${NC}         Iniciar projeto com Docker + logging"
+    echo -e "  ${CYAN}docker-down${NC}              Parar containers Docker"
+    echo -e "  ${CYAN}docker-logs${NC}               Ver logs dos containers Docker"
+    echo -e "  ${CYAN}docker-status${NC}            Ver status dos containers Docker"
+    echo -e "  ${CYAN}docker-build${NC}             Build das imagens Docker"
     echo ""
     echo -e "  ${CYAN}help${NC}                     Mostrar esta ajuda"
     echo ""
@@ -72,6 +81,9 @@ show_help() {
     echo -e "  ${CYAN}main.sh status${NC}"
     echo -e "  ${CYAN}main.sh logs api-gateway${NC}"
     echo -e "  ${CYAN}main.sh stop --all${NC}"
+    echo -e "  ${CYAN}main.sh docker-up${NC}"
+    echo -e "  ${CYAN}main.sh docker-up:dev${NC}"
+    echo -e "  ${CYAN}main.sh deploy:gcp${NC}"
     echo ""
 }
 
@@ -1083,6 +1095,185 @@ cmd_benchmark() {
     echo -e "${YELLOW}💡 Dica: Analise os resultados para otimizar configurações${NC}"
 }
 
+# Docker commands
+cmd_docker_up() {
+    show_banner
+    echo -e "${BLUE}🐳 Iniciando projeto com Docker (produção)...${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    echo -e "  ${CYAN}→${NC} Iniciando containers..."
+    docker-compose -f "$compose_file" up -d
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Containers iniciados com sucesso!${NC}"
+        echo ""
+        echo -e "${CYAN}💡 Acesse: http://localhost:8000${NC}"
+        echo -e "${CYAN}💡 Ver logs: main.sh docker-logs${NC}"
+        echo -e "${CYAN}💡 Status: main.sh docker-status${NC}"
+        echo -e "${CYAN}💡 Parar: main.sh docker-down${NC}"
+    else
+        echo -e "${RED}❌ Erro ao iniciar containers${NC}"
+        exit 1
+    fi
+}
+
+cmd_docker_up_dev() {
+    show_banner
+    echo -e "${BLUE}🐳 Iniciando projeto com Docker (desenvolvimento)...${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    echo -e "  ${CYAN}→${NC} Iniciando containers em modo desenvolvimento (hot-reload)..."
+    docker-compose -f "$compose_file" --profile dev up -d api-dev
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Containers iniciados com sucesso!${NC}"
+        echo ""
+        echo -e "${CYAN}💡 Acesse: http://localhost:8000${NC}"
+        echo -e "${CYAN}💡 Modo: Desenvolvimento (hot-reload ativado)${NC}"
+        echo -e "${CYAN}💡 Ver logs: main.sh docker-logs${NC}"
+        echo -e "${CYAN}💡 Status: main.sh docker-status${NC}"
+        echo -e "${CYAN}💡 Parar: main.sh docker-down${NC}"
+    else
+        echo -e "${RED}❌ Erro ao iniciar containers${NC}"
+        exit 1
+    fi
+}
+
+cmd_docker_up_logging() {
+    show_banner
+    echo -e "${BLUE}🐳 Iniciando projeto com Docker + logging (Loki + Grafana)...${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    local logging_file="$PROJECT_DIR/docker/docker-compose.logging.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    if [ ! -f "$logging_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.logging.yml não encontrado: $logging_file${NC}"
+        exit 1
+    fi
+    
+    echo -e "  ${CYAN}→${NC} Iniciando containers com stack de logging..."
+    docker-compose \
+        -f "$compose_file" \
+        -f "$logging_file" \
+        up -d
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Containers iniciados com sucesso!${NC}"
+        echo ""
+        echo -e "${CYAN}💡 API: http://localhost:8000${NC}"
+        echo -e "${CYAN}💡 Grafana: http://localhost:3000${NC}"
+        echo -e "${CYAN}💡 Ver logs: main.sh docker-logs${NC}"
+        echo -e "${CYAN}💡 Status: main.sh docker-status${NC}"
+        echo -e "${CYAN}💡 Parar: main.sh docker-down${NC}"
+    else
+        echo -e "${RED}❌ Erro ao iniciar containers${NC}"
+        exit 1
+    fi
+}
+
+cmd_docker_down() {
+    show_banner
+    echo -e "${BLUE}🛑 Parando containers Docker...${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    docker-compose -f "$compose_file" down
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Containers parados com sucesso!${NC}"
+    else
+        echo -e "${RED}❌ Erro ao parar containers${NC}"
+        exit 1
+    fi
+}
+
+cmd_docker_logs() {
+    local service="${1:-api}"
+    
+    show_banner
+    echo -e "${BLUE}📋 Logs do container: ${CYAN}$service${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    docker-compose -f "$compose_file" logs -f "$service"
+}
+
+cmd_docker_status() {
+    show_banner
+    echo -e "${BLUE}📊 Status dos containers Docker...${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    docker-compose -f "$compose_file" ps
+}
+
+cmd_docker_build() {
+    show_banner
+    echo -e "${BLUE}🔨 Build das imagens Docker...${NC}"
+    echo ""
+    
+    local compose_file="$PROJECT_DIR/docker/docker-compose.yml"
+    
+    if [ ! -f "$compose_file" ]; then
+        echo -e "${RED}❌ Arquivo docker-compose.yml não encontrado: $compose_file${NC}"
+        exit 1
+    fi
+    
+    echo -e "  ${CYAN}→${NC} Fazendo build das imagens..."
+    docker-compose -f "$compose_file" build
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Build concluído com sucesso!${NC}"
+        echo -e "${CYAN}💡 Para iniciar: main.sh docker-up${NC}"
+    else
+        echo -e "${RED}❌ Erro ao fazer build${NC}"
+        exit 1
+    fi
+}
+
 # Configurar deploy para produção
 
 # Iniciar serviço de análise linguística
@@ -1110,10 +1301,6 @@ cmd_start_acoustic() {
     echo ""
     
     export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR"
-    
-    python3 -m uvicorn src.services.acoustic_features.app_complete:app --host 0.0.0.0 --port 8970 --reload
-}
-    echo ""
     
     python3 -m uvicorn src.services.acoustic_features.app_complete:app --host 0.0.0.0 --port 8970 --reload
 }
@@ -1160,6 +1347,171 @@ cmd_deploy() {
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         echo -e "   • /tmp/parle-*.service - Serviços systemd"
     fi
+}
+
+# Deploy no Google Cloud usando docker-manager
+cmd_deploy_gcp() {
+    show_banner
+    echo -e "${BLUE}☁️  Deploy no Google Cloud Platform${NC}"
+    echo "================================================================================"
+    echo ""
+    
+    # Verificar se docker-manager existe
+    local docker_manager_dir="$PROJECT_DIR/vendor/docker-manager"
+    if [ ! -d "$docker_manager_dir" ]; then
+        echo -e "${RED}❌ docker-manager não encontrado em: $docker_manager_dir${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 O docker-manager deve estar em vendor/docker-manager${NC}"
+        return 1
+    fi
+    
+    # Verificar se gcloud está instalado
+    if ! command -v gcloud &> /dev/null; then
+        # Tentar adicionar ao PATH
+        if [ -f "/opt/homebrew/share/google-cloud-sdk/bin/gcloud" ]; then
+            export PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
+        elif [ -f "/opt/homebrew/bin/gcloud" ]; then
+            export PATH="/opt/homebrew/bin:$PATH"
+        fi
+    fi
+    
+    if ! command -v gcloud &> /dev/null; then
+        echo -e "${RED}❌ gcloud CLI não encontrado${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 Instale o Google Cloud SDK:${NC}"
+        echo "   ./setup_gcp_test.sh  (instala automaticamente)"
+        echo "   ou: brew install --cask google-cloud-sdk"
+        return 1
+    fi
+    
+    # Verificar credenciais
+    local credentials_path="${HOME}/Downloads/avian-computer-477918-j9-54b778b99398.json"
+    if [ ! -f "$credentials_path" ]; then
+        echo -e "${YELLOW}⚠️  Arquivo de credenciais não encontrado:${NC}"
+        echo "   $credentials_path"
+        echo ""
+        echo -e "${CYAN}💡 Coloque o arquivo JSON de credenciais GCP em:${NC}"
+        echo "   $credentials_path"
+        return 1
+    fi
+    
+    # Verificar permissões
+    echo -e "${BLUE}🔒 Verificando permissões GCP...${NC}"
+    if [ -f "$PROJECT_DIR/setup_gcp_permissions.sh" ]; then
+        echo -e "${CYAN}   Executando setup de permissões...${NC}"
+        bash "$PROJECT_DIR/setup_gcp_permissions.sh" > /dev/null 2>&1 || {
+            echo -e "${YELLOW}⚠️  Algumas permissões podem estar faltando${NC}"
+        }
+    fi
+    echo ""
+    
+    # Configurações
+    local gcp_project_id="avian-computer-477918-j9"
+    local gcp_region="us-central1"
+    local service_name="parle-backend"
+    
+    # Usar SERVICE_NAME do test_gcp.py se disponível, senão usar padrão
+    if [ -f "$docker_manager_dir/test_gcp.py" ]; then
+        # Tentar extrair SERVICE_NAME do arquivo
+        local extracted_name=$(grep -E "^SERVICE_NAME\s*=" "$docker_manager_dir/test_gcp.py" | head -1 | sed 's/.*=.*"\(.*\)".*/\1/' || echo "")
+        if [ -n "$extracted_name" ]; then
+            service_name="$extracted_name"
+        fi
+    fi
+    
+    echo -e "${BLUE}📋 Configuração:${NC}"
+    echo "   Project: $gcp_project_id"
+    echo "   Region: $gcp_region"
+    echo "   Service: $service_name"
+    echo ""
+    
+    # Confirmar deploy
+    read -p "Continuar com deploy no Google Cloud? (y/N): " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}❌ Deploy cancelado${NC}"
+        return 1
+    fi
+    
+    echo ""
+    echo "================================================================================"
+    echo -e "${BLUE}🚀 Iniciando deploy...${NC}"
+    echo "================================================================================"
+    echo ""
+    
+    # Verificar Dockerfile do projeto
+    local project_dockerfile="$PROJECT_DIR/docker/Dockerfile"
+    if [ ! -f "$project_dockerfile" ]; then
+        echo -e "${YELLOW}⚠️  Dockerfile do projeto não encontrado, usando do docker-manager${NC}"
+        project_dockerfile="$docker_manager_dir/Dockerfile"
+    fi
+    
+    # Mudar para diretório docker-manager temporariamente (para usar scripts)
+    local original_dir=$(pwd)
+    cd "$docker_manager_dir"
+    
+    # Usar o script test_gcp.py para fazer deploy
+    if [ -f "test_gcp.py" ]; then
+        echo -e "${CYAN}📦 Fazendo build e deploy usando docker-manager...${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 O deploy irá:${NC}"
+        echo "   1. Autenticar no GCP"
+        echo "   2. Habilitar APIs necessárias"
+        echo "   3. Fazer build da imagem Docker do projeto"
+        echo "   4. Fazer deploy no Cloud Run"
+        echo "   5. Configurar o serviço"
+        echo ""
+        
+        # Modificar temporariamente o test_gcp.py para usar Dockerfile do projeto
+        # Ou passar como variável de ambiente
+        export PARLE_BACKEND_ROOT="$PROJECT_DIR"
+        export PARLE_BACKEND_DOCKERFILE="$project_dockerfile"
+        
+        # Executar deploy
+        python3 test_gcp.py 2>&1 | tee /tmp/gcp_deploy.log
+        
+        local deploy_exit_code=${PIPESTATUS[0]}
+        
+        if [ $deploy_exit_code -eq 0 ]; then
+            echo ""
+            echo "================================================================================"
+            echo -e "${GREEN}✅ Deploy concluído com sucesso!${NC}"
+            echo "================================================================================"
+            echo ""
+            
+            # Obter URL do serviço
+            local service_url=$(gcloud run services describe "$service_name" \
+                --region "$gcp_region" \
+                --project "$gcp_project_id" \
+                --format="value(status.url)" 2>/dev/null)
+            
+            if [ -n "$service_url" ]; then
+                echo -e "${GREEN}🌐 Serviço disponível em:${NC}"
+                echo "   $service_url"
+                echo ""
+            fi
+            
+            echo -e "${CYAN}📋 Comandos úteis:${NC}"
+            echo "   Ver logs: gcloud run services logs read $service_name --region $gcp_region"
+            echo "   Ver status: gcloud run services describe $service_name --region $gcp_region"
+            echo "   Medir startup: ./measure_startup.sh"
+            echo ""
+        else
+            echo ""
+            echo "================================================================================"
+            echo -e "${RED}❌ Deploy falhou${NC}"
+            echo "================================================================================"
+            echo ""
+            echo -e "${YELLOW}💡 Verifique os logs em: /tmp/gcp_deploy.log${NC}"
+            return 1
+        fi
+    else
+        echo -e "${RED}❌ test_gcp.py não encontrado em docker-manager${NC}"
+        return 1
+    fi
+    
+    # Voltar para diretório original
+    cd "$PROJECT_DIR"
 }
 
 # Main
@@ -1229,11 +1581,35 @@ main() {
     deploy)
         cmd_deploy
         ;;
+    deploy:gcp)
+        cmd_deploy_gcp
+        ;;
     start:linguistic)
         cmd_start_linguistic
         ;;
     start:acoustic)
         cmd_start_acoustic
+        ;;
+    docker-up)
+        cmd_docker_up
+        ;;
+    docker-up:dev)
+        cmd_docker_up_dev
+        ;;
+    docker-up:logging)
+        cmd_docker_up_logging
+        ;;
+    docker-down)
+        cmd_docker_down
+        ;;
+    docker-logs)
+        cmd_docker_logs "$2"
+        ;;
+    docker-status)
+        cmd_docker_status
+        ;;
+    docker-build)
+        cmd_docker_build
         ;;
     help|--help|-h)
         show_help
