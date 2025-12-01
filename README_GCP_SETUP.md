@@ -36,10 +36,26 @@ O service account precisa das seguintes permissões no GCP:
 - **Cloud Run Admin** (`roles/run.admin`)
 - **Service Account User** (`roles/iam.serviceAccountUser`)
 - **Storage Admin** (`roles/storage.admin`) - para Cloud Build
+- **Artifact Registry Writer** (`roles/artifactregistry.writer`)
+- **Source Repository Reader** (`roles/source.reader`)
 
-### Conceder Permissões
+### Conceder Permissões Automaticamente
 
-No GCP Console ou via gcloud:
+**Método recomendado**: Use o script automatizado:
+
+```bash
+./setup_gcp_permissions.sh
+```
+
+Este script:
+- ✅ Autentica no GCP
+- ✅ Extrai o service account do arquivo JSON
+- ✅ Concede todas as permissões necessárias
+- ✅ Verifica se foram aplicadas corretamente
+
+### Conceder Permissões Manualmente
+
+Se preferir fazer manualmente via gcloud:
 
 ```bash
 PROJECT_ID="avian-computer-477918-j9"
