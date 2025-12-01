@@ -1516,6 +1516,93 @@ cmd_deploy_gcp() {
     cd "$PROJECT_DIR"
 }
 
+# Deploy rápido no GCP (máquina maior)
+cmd_deploy_gcp_fast() {
+    show_banner
+    echo -e "${BLUE}⚡ Deploy Rápido no Google Cloud Platform${NC}"
+    echo "================================================================================"
+    echo ""
+    echo -e "${YELLOW}⚡ Usando build otimizado:${NC}"
+    echo "   - Máquina: E2_HIGHCPU_8 (8 vCPUs)"
+    echo "   - Dockerfile: docker/Dockerfile.fast"
+    echo "   - Tempo estimado: 5-8 minutos (vs 15-20 padrão)"
+    echo "   - Custo: ~\$0.10-0.15 por build"
+    echo ""
+    
+    # Verificar se arquivos de build rápido existem
+    if [ ! -f "$PROJECT_DIR/docker/Dockerfile.fast" ]; then
+        echo -e "${RED}❌ docker/Dockerfile.fast não encontrado${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 Execute primeiro:${NC}"
+        echo "   git pull  (para obter Dockerfile.fast)"
+        return 1
+    fi
+    
+    if [ ! -f "$PROJECT_DIR/docker/cloudbuild-fast.yaml" ]; then
+        echo -e "${RED}❌ docker/cloudbuild-fast.yaml não encontrado${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 Execute primeiro:${NC}"
+        echo "   git pull  (para obter cloudbuild-fast.yaml)"
+        return 1
+    fi
+    
+    # Usar script deploy-fast.sh se disponível
+    if [ -f "$PROJECT_DIR/deploy-fast.sh" ]; then
+        echo -e "${CYAN}📦 Usando script deploy-fast.sh...${NC}"
+        echo ""
+        bash "$PROJECT_DIR/deploy-fast.sh"
+        return $?
+    else
+        # Fallback: usar cmd_deploy_gcp com flag de build rápido
+        echo -e "${CYAN}📦 Usando deploy padrão com flag de build rápido...${NC}"
+        echo ""
+        
+        local docker_manager_dir="$PROJECT_DIR/vendor/docker-manager"
+        if [ ! -d "$docker_manager_dir" ]; then
+            echo -e "${RED}❌ docker-manager não encontrado${NC}"
+            return 1
+        fi
+        
+        # Verificar gcloud
+        if ! command -v gcloud &> /dev/null; then
+            if [ -f "/opt/homebrew/share/google-cloud-sdk/bin/gcloud" ]; then
+                export PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
+            fi
+        fi
+        
+        if ! command -v gcloud &> /dev/null; then
+            echo -e "${RED}❌ gcloud CLI não encontrado${NC}"
+            return 1
+        fi
+        
+        local gcp_project_id="avian-computer-477918-j9"
+        local gcp_region="us-central1"
+        local service_name="parle-backend"
+        local project_dockerfile="$PROJECT_DIR/docker/Dockerfile.fast"
+        
+        export PARLE_BACKEND_ROOT="$PROJECT_DIR"
+        export PARLE_BACKEND_DOCKERFILE="$project_dockerfile"
+        export USE_FAST_BUILD="true"
+        
+        local original_dir=$(pwd)
+        cd "$docker_manager_dir"
+        
+        python3 test_gcp.py 2>&1 | tee /tmp/gcp_deploy_fast.log
+        
+        local deploy_exit_code=${PIPESTATUS[0]}
+        cd "$original_dir"
+        
+        if [ $deploy_exit_code -eq 0 ]; then
+            echo ""
+            echo -e "${GREEN}✅ Deploy rápido concluído!${NC}"
+        else
+            echo ""
+            echo -e "${RED}❌ Erro no deploy${NC}"
+            return 1
+        fi
+    fi
+}
+
 # Main
 main() {
     local command="${1:-help}"
