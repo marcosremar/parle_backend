@@ -52,13 +52,15 @@ RUN useradd -m -u 1000 parle && \
 WORKDIR /app
 
 # Copy Python packages from builder
-COPY --from=builder /root/.local /home/parle/.local
+# Garantir que o diretório existe e tem permissões corretas
+COPY --from=builder --chown=parle:parle /root/.local /home/parle/.local
 
 # Copy application code
 COPY --chown=parle:parle . .
 
 # Set environment variables
 ENV PATH=/home/parle/.local/bin:$PATH \
+    PYTHONPATH=/home/parle/.local/lib/python3.11/site-packages:/home/parle/.local/lib/python3.10/site-packages:$PYTHONPATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENVIRONMENT=production
