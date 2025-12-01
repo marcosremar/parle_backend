@@ -15,7 +15,7 @@ cd "$PROJECT_DIR"
 
 # Configurações
 REGISTRY="${REGISTRY:-docker.io}"  # docker.io, gcr.io, etc
-REGISTRY_USER="${REGISTRY_USER:-}"
+REGISTRY_USER="${REGISTRY_USER:-marcosremar}"
 IMAGE_NAME="${IMAGE_NAME:-parle-backend}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 DOCKERFILE_PATH="${DOCKERFILE_PATH:-docker/Dockerfile.vps-base-optimized}"
