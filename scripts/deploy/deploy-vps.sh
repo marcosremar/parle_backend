@@ -32,6 +32,7 @@ VPS_USER="${VPS_USER:-ubuntu}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_rsa}"
 CONTAINER_NAME="${CONTAINER_NAME:-parle-backend}"
 WORKSPACE_PATH="${WORKSPACE_PATH:-/workspace}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-python:3.11-slim}"  # Imagem Docker padrão
 
 echo -e "${BLUE}📋 Configuração:${NC}"
 echo "   Host: $VPS_HOST"
@@ -101,6 +102,7 @@ SSH_KEY_PATH = "$SSH_KEY_PATH"
 CONTAINER_NAME = "$CONTAINER_NAME"
 WORKSPACE_PATH = "$WORKSPACE_PATH"
 PROJECT_ROOT = "$PROJECT_DIR"
+DOCKER_IMAGE = "$DOCKER_IMAGE"
 
 print("🚀 Deploy na VPS")
 print("=" * 80)
@@ -114,6 +116,7 @@ api = DockerAPI(
     ssh_key_path=SSH_KEY_PATH,
     container_name=CONTAINER_NAME,
     workspace_path=WORKSPACE_PATH,
+    image_name=DOCKER_IMAGE,
     project_root=PROJECT_ROOT,
 )
 
@@ -121,6 +124,7 @@ print("📋 Configuração:")
 print(f"   Host: {VPS_HOST}")
 print(f"   User: {VPS_USER}")
 print(f"   Container: {CONTAINER_NAME}")
+print(f"   Image: {DOCKER_IMAGE}")
 print()
 
 # 1. Garantir que container está rodando
