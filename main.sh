@@ -61,7 +61,9 @@ show_help() {
     echo -e "  ${CYAN}deploy${NC}                   Configurar deploy para produção"
     echo -e "  ${CYAN}deploy:gcp${NC}               Fazer deploy no Google Cloud (Cloud Run)"
     echo -e "  ${CYAN}deploy:gcp:fast${NC}           Deploy rápido no GCP (máquina maior, 5-8 min)"
-    echo -e "  ${CYAN}deploy:vps${NC}                Fazer deploy na VPS (SSH + Docker)"
+    echo -e "  ${CYAN}deploy:vps${NC}                Fazer deploy na VPS (SSH + Docker)
+  ${CYAN}deploy:vps --force${NC}          Deploy forçado (novo container + verificações completas)
+  ${CYAN}verify${NC}                     Verificar se instalação está completa e funcionando"
     echo -e "  ${CYAN}clean${NC}                    Limpar arquivos temporários"
     echo ""
     echo -e "  ${CYAN}docker-up${NC}                Iniciar projeto com Docker (produção)"
@@ -215,18 +217,18 @@ cmd_start_websocket() {
     echo -e "${GREEN}✅ WebSocket Service iniciado com sucesso!${NC}"
 }
 
-# Test
-cmd_test() {
+# Verify installation
+cmd_verify_installation() {
     show_banner
-    echo -e "${BLUE}🧪 Testando instalação...${NC}"
+    echo -e "${BLUE}🔍 Verificando instalação completa...${NC}"
     echo ""
-    
-    if [ ! -f "$PROJECT_DIR/scripts/test_installation.sh" ]; then
-        echo -e "${RED}❌ scripts/test_installation.sh não encontrado${NC}"
+
+    if [ ! -f "$PROJECT_DIR/scripts/verify_installation.sh" ]; then
+        echo -e "${RED}❌ scripts/verify_installation.sh não encontrado${NC}"
         exit 1
     fi
-    
-    "$PROJECT_DIR/scripts/test_installation.sh"
+
+    "$PROJECT_DIR/scripts/verify_installation.sh"
 }
 
 # Start service
@@ -1739,7 +1741,15 @@ main() {
         cmd_deploy_gcp_fast
         ;;
     deploy:vps)
-        cmd_deploy_vps
+        if [ "$2" = "--force" ] || [ "$2" = "-f" ]; then
+            export FORCE_NEW_CONTAINER="true"
+            cmd_deploy_vps
+        else
+            cmd_deploy_vps "$2"
+        fi
+        ;;
+    verify)
+        cmd_verify_installation
         ;;
     start:linguistic)
         cmd_start_linguistic
