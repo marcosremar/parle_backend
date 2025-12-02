@@ -138,11 +138,7 @@ if FORCE_NEW_CONTAINER.lower() == "true":
         # Parar e remover container existente
         print("🛑 Parando container existente...")
         result = api.strategy.ssh_client.execute(f"sudo docker stop {CONTAINER_NAME} 2>/dev/null || true")
-        print(f"Stop result: {result.success}")
-        
         result = api.strategy.ssh_client.execute(f"sudo docker rm {CONTAINER_NAME} 2>/dev/null || true")
-        print(f"Remove result: {result.success}")
-        
         print("✅ Container antigo removido")
         print()
     except Exception as e:
@@ -150,21 +146,9 @@ if FORCE_NEW_CONTAINER.lower() == "true":
 
 # 1. Garantir que container está rodando
 print("📦 Verificando/criando container...")
-print(f"Debug: FORCE_NEW_CONTAINER={FORCE_NEW_CONTAINER}")
-print(f"Debug: CONTAINER_NAME={CONTAINER_NAME}")
-print(f"Debug: DOCKER_IMAGE={DOCKER_IMAGE}")
-
-try:
-    result = api.ensure_container_running()
-    print(f"ensure_container_running returned: {result}")
-    if not result:
-        print("❌ Falha ao criar/iniciar container")
-        print("💡 Verifique configuração e conectividade")
-        sys.exit(1)
-except Exception as e:
-    print(f"❌ Exception: {e}")
-    import traceback
-    traceback.print_exc()
+if not api.ensure_container_running():
+    print("❌ Falha ao criar/iniciar container")
+    print("💡 Verifique configuração e conectividade")
     sys.exit(1)
 
 print("✅ Container rodando")
