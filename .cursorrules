@@ -1,0 +1,8 @@
+# Cursor Rules for Parle Backend
+
+- Do not create new files or directories in the repository root unless the user explicitly asks for that exact path.
+- For any temporary, exploratory, or AI-generated files (Markdown, notes, logs, JSON, scratch code, test scripts, etc.), use the `tmp/` directory at the root of the project.
+  - Prefer subdirectories such as `tmp/notes/`, `tmp/reports/`, `tmp/experiments/` to keep things organized.
+- For documentation that should be kept long-term, use `docs/` instead of `tmp/`.
+- For automation or helper scripts that should be kept long-term, use `scripts/` instead of `tmp/`.
+- When in doubt about where to place a new file, ask the user explicitly rather than using the project root.

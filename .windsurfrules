@@ -1,0 +1,10 @@
+# Windsurf Rules for Parle Backend
+
+1. Never create new files or directories in the repository root unless explicitly requested by the user.
+2. For any temporary, exploratory, or AI-generated files (Markdown, notes, logs, JSON, scratch code, test scripts, etc.), use the `tmp/` directory at the root of the project.
+3. Prefer subdirectories within `tmp/` such as `tmp/notes/`, `tmp/reports/`, `tmp/experiments/` to keep things organized.
+4. For documentation that should be kept long-term, use `docs/` instead of `tmp/`.
+5. For automation or helper scripts that should be kept long-term, use `scripts/` instead of `tmp/`.
+6. When in doubt about where to place a new file, ask the user explicitly rather than using the project root.
+7. This project uses Python 3.11+, Conda environment, and follows a monolithic modular architecture.
+8. The project structure is defined in docs/PROJECT_ORGANIZATION.md - follow those conventions.

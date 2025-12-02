@@ -89,7 +89,7 @@ import sys
 from pathlib import Path
 
 # Adicionar diretório ao path
-docker_manager_path = Path(__file__).parent.parent
+docker_manager_path = Path("$DOCKER_MANAGER_DIR")
 sys.path.insert(0, str(docker_manager_path))
 
 from docker_api import DockerAPI

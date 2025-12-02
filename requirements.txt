@@ -7,8 +7,9 @@
 # ============================================================================
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-pydantic==2.5.0
-pydantic-settings==2.0.0
+click>=8.1.0  # Required by uvicorn
+pydantic>=2.6.0  # Updated for compatibility with elevenlabs (requires pydantic-core>=2.18.2)
+pydantic-settings>=2.0.0
 python-multipart==0.0.9
 
 # ============================================================================

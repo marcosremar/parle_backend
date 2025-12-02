@@ -45,3 +45,12 @@ repos:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
         exclude: package.lock.json
+
+  - repo: local
+    hooks:
+      - id: check-root-structure
+        name: Check project root structure
+        entry: python scripts/check_root_structure.py
+        language: system
+        pass_filenames: false
+
