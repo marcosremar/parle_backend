@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parle WebRTC Test</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .status { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .controls { margin: 20px 0; }
+        button { padding: 10px 20px; cursor: pointer; }
+        #logs { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; height: 300px; overflow-y: auto; font-family: monospace; }
+        video { background: #000; width: 100%; max-width: 400px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Parle WebRTC Test</h1>
+    
+    <div id="status" class="status">Ready to connect</div>
+    
+    <div class="controls">
+        <button id="connectBtn" onclick="startCall()">Start Call</button>
+        <button id="disconnectBtn" onclick="stopCall()" disabled>Stop Call</button>
+    </div>
+
+    <div>
+        <h3>Local Audio</h3>
+        <audio id="localAudio" autoplay muted controls></audio>
+    </div>
+
+    <div>
+        <h3>Remote Audio</h3>
+        <audio id="remoteAudio" autoplay controls></audio>
+    </div>
+
+    <h3>Logs</h3>
+    <div id="logs"></div>
+
+    <script>
+        let peerConnection = null;
+        let signalingSocket = null;
+        let localStream = null;
+
+        function log(msg) {
+            const logs = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+            console.log(msg);
+        }
+
+        function updateStatus(msg, type = '') {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = 'status ' + type;
+        }
+
+        async function startCall() {
+            try {
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                
+                // Check for secure context
+                if (!navigator.mediaDevices) {
+                    throw new Error("Microphone access is blocked. WebRTC requires HTTPS (or localhost). Please access this page via HTTPS.");
+                }
+
+                updateStatus('Requesting microphone access...', 'success');
+
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                document.getElementById('localAudio').srcObject = localStream;
+                log('Microphone access granted');
+
+                // Connect to signaling server
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const clientId = Math.random().toString(36).substring(7);
+                const wsUrl = `${protocol}//${window.location.host}/webrtc-signaling/ws/${clientId}`;
+                log(`Connecting to signaling server: ${wsUrl}`);
+                
+                signalingSocket = new WebSocket(wsUrl);
+
+                signalingSocket.onopen = async () => {
+                    log('Signaling connected');
+                    updateStatus('Connected to signaling', 'success');
+                    await createPeerConnection();
+                };
+
+                signalingSocket.onmessage = async (event) => {
+                    const msg = JSON.parse(event.data);
+                    log(`Received signaling message: ${msg.type}`);
+
+                    if (msg.type === 'answer') {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        log('Remote description set');
+                    } else if (msg.type === 'ice-candidate') {
+                        if (msg.candidate) {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                            log('Added ICE candidate');
+                        }
+                    }
+                };
+
+                signalingSocket.onerror = (error) => {
+                    log(`Signaling error: ${error}`);
+                    updateStatus('Signaling error', 'error');
+                };
+
+                signalingSocket.onclose = () => {
+                    log('Signaling closed');
+                    stopCall();
+                };
+
+            } catch (e) {
+                log(`Error starting call: ${e.message}`);
+                updateStatus(`Error: ${e.message}`, 'error');
+                stopCall();
+            }
+        }
+
+        async function createPeerConnection() {
+            const config = {
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            };
+
+            peerConnection = new RTCPeerConnection(config);
+
+            // Add local tracks
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Handle remote tracks
+            peerConnection.ontrack = (event) => {
+                log('Received remote track');
+                const remoteAudio = document.getElementById('remoteAudio');
+                if (remoteAudio.srcObject !== event.streams[0]) {
+                    remoteAudio.srcObject = event.streams[0];
+                    log('Remote audio stream set');
+                }
+            };
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    signalingSocket.send(JSON.stringify({
+                        type: 'ice-candidate',
+                        candidate: event.candidate
+                    }));
+                    log('Sent ICE candidate');
+                }
+            };
+
+            // Create offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            signalingSocket.send(JSON.stringify({
+                type: 'offer',
+                sdp: offer
+            }));
+            log('Sent offer');
+        }
+
+        function stopCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (signalingSocket) {
+                signalingSocket.close();
+                signalingSocket = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            updateStatus('Disconnected');
+            log('Call ended');
+        }
+    </script>
+</body>
+</html>

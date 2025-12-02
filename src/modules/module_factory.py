@@ -78,6 +78,9 @@ def _create_module(module_name: str) -> Any:
         "learning_path": "src.modules.tutoring.learning_path.module.LearningPathModule",
         # Realtime module
         "rest_polling": "src.modules.realtime.rest_polling.module.RestPollingModule",
+        "websocket": "src.modules.realtime.websocket.module.WebSocketModule",
+        "webrtc": "src.modules.realtime.webrtc.module.WebRTCModule",
+        "webrtc_signaling": "src.modules.realtime.webrtc_signaling.module.WebRTCSignalingModule",
     }
 
     if module_name not in module_map:

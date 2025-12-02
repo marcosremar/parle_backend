@@ -13,6 +13,8 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from loguru import logger
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -72,6 +74,41 @@ async def initialize_modules():
     # Modules will be initialized on first access
 
     _modules["initialized"] = True
+    
+    # Initialize Realtime Modules
+    try:
+        # WebSocket
+        websocket_module = get_module("websocket")
+        await websocket_module.initialize()
+        
+        if websocket_module.sio:
+            import socketio
+            # Mount Socket.IO at /socket.io
+            # We use socketio_path="" because we mount at /socket.io, so the prefix is stripped
+            socket_app = socketio.ASGIApp(websocket_module.sio, socketio_path="")
+            app.mount("/socket.io", socket_app)
+            logger.info("✅ Socket.IO mounted at /socket.io")
+            
+            # Also mount WebSocket REST router
+            if websocket_module.router:
+                app.include_router(websocket_module.router, prefix="/api/v1/websocket", tags=["websocket"])
+
+        # WebRTC
+        webrtc_module = get_module("webrtc")
+        await webrtc_module.initialize()
+        if webrtc_module.get_router():
+            app.include_router(webrtc_module.get_router(), prefix="/webrtc", tags=["webrtc"])
+            
+        # WebRTC Signaling
+        signaling_module = get_module("webrtc_signaling")
+        await signaling_module.initialize()
+        if signaling_module.get_router():
+            app.include_router(signaling_module.get_router(), prefix="/webrtc-signaling", tags=["webrtc-signaling"])
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize realtime modules: {e}")
+        # Don't fail the whole app, just log error
+        
     logger.info("✅ Module system ready")
 
 
@@ -190,15 +227,31 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware - configured based on environment
-allowed_origins = config.server.allowed_origins
+# CORS middleware - configured based on environment
+allowed_origins = config.server.allowed_origins or []
+
+# In development, we still want to be permissive but avoid "*" with credentials
 if config.environment == "development":
-    # In development, allow all origins
-    allowed_origins = ["*"]
-elif not allowed_origins:
-    # In production without explicit origins, warn but allow (for backward compatibility)
-    logger.warning(
-        "⚠️  SERVER_ALLOWED_ORIGINS not set - allowing all origins (not recommended for production)"
-    )
+    # Add common local development origins
+    allowed_origins.extend([
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ])
+
+# Explicitly add VPS origin for WebRTC testing
+allowed_origins.append("https://54.37.225.188:8000")
+allowed_origins.append("http://54.37.225.188:8000")
+
+# Remove duplicates
+allowed_origins = list(set(allowed_origins))
+
+# Remove "*" if present when credentials are allowed
+if "*" in allowed_origins:
+    allowed_origins.remove("*")
+
+logger.info(f"🔒 CORS Allowed Origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -405,6 +458,37 @@ except Exception as e:
     import traceback
 
     logger.debug(traceback.format_exc())
+
+
+# Mount static files
+static_dir = project_root / "src" / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    logger.info(f"✅ Static files mounted from {static_dir}")
+else:
+    logger.warning(f"⚠️  Static directory not found at {static_dir}")
+
+# WebRTC Test Page Redirect
+@app.get("/webrtc-test")
+async def webrtc_test():
+    """Redirect to WebRTC test page"""
+    return RedirectResponse(url="/static/webrtc_test.html")
+
+
+# Speech-to-Speech Test Page
+@app.get("/test")
+async def speech_test():
+    """Serve speech-to-speech test page"""
+    from fastapi.responses import HTMLResponse
+    
+    # Read HTML file
+    html_path = Path(__file__).parent.parent.parent / "parle-ts-sdk" / "examples" / "speech-test.html"
+    if html_path.exists():
+        with open(html_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    else:
+        return HTMLResponse(content="<h1>Test page not found</h1>", status_code=404)
 
 
 if __name__ == "__main__":
