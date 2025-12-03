@@ -1,10 +1,92 @@
 # Windsurf Rules for Parle Backend
 
-1. Never create new files or directories in the repository root unless explicitly requested by the user.
-2. For any temporary, exploratory, or AI-generated files (Markdown, notes, logs, JSON, scratch code, test scripts, etc.), use the `tmp/` directory at the root of the project.
-3. Prefer subdirectories within `tmp/` such as `tmp/notes/`, `tmp/reports/`, `tmp/experiments/` to keep things organized.
-4. For documentation that should be kept long-term, use `docs/` instead of `tmp/`.
-5. For automation or helper scripts that should be kept long-term, use `scripts/` instead of `tmp/`.
-6. When in doubt about where to place a new file, ask the user explicitly rather than using the project root.
-7. This project uses Python 3.11+, Conda environment, and follows a monolithic modular architecture.
-8. The project structure is defined in docs/PROJECT_ORGANIZATION.md - follow those conventions.
+## 🚀 VPS Configuration
+- **VPS IP:** 54.37.225.188
+- **SSH Key:** ~/.ssh/id_rsa
+- **SSH User:** ubuntu
+- **Domain:** fluminense.54.37.225.188.nip.io
+- **WebRTC URL:** http://fluminense.54.37.225.188.nip.io/test
+
+## 🔄 Code Synchronization
+- **NEVER run tests locally** - All tests MUST run on VPS only
+- **Use `main.sh sync-docker`** to automatically sync local code with VPS Docker containers
+- **Block any local test execution** - redirect to VPS testing
+- **All deployments happen on VPS** - never deploy from local machine
+
+## 📁 File Organization
+- Do not create new files or directories in the repository root unless the user explicitly asks for that exact path.
+- For any temporary, exploratory, or AI-generated files (Markdown, notes, logs, JSON, scratch code, test scripts, etc.), use the `tmp/` directory at the root of the project.
+  - Prefer subdirectories such as `tmp/notes/`, `tmp/reports/`, `tmp/experiments/` to keep things organized.
+- For documentation that should be kept long-term, use `docs/` instead of `tmp/`.
+- For automation or helper scripts that should be kept long-term, use `scripts/` instead of `tmp/`.
+- When in doubt about where to place a new file, ask the user explicitly rather than using the project root.
+
+## 🧪 Testing Rules
+- **ALL tests must run on VPS** - Never execute tests locally
+- **Use Playwright tests** for WebRTC page verification on VPS
+- **Integration tests** must target VPS endpoints only
+- **Block pytest/pytest commands locally** - force VPS execution
+- **WebRTC signaling tests** require VPS backend running
+
+## 🔧 Development Workflow
+- **Code locally, test on VPS** - Development happens locally, validation on VPS
+- **Use sync-docker** for code deployment during development
+- **Monitor VPS logs** for debugging and error tracking
+- **WebRTC development** requires VPS for signaling tests
+
+## 💻 Python Code Standards
+- **Follow PEP8** - Use 4 spaces for indentation, max 79 characters per line
+- **Use type hints** - Always add type annotations to function parameters and return values
+- **Docstrings** - Write comprehensive docstrings for all public functions and classes
+- **Naming conventions** - snake_case for variables/functions, PascalCase for classes
+- **Avoid magic numbers** - Define constants for any hardcoded values
+- **Use context managers** - Prefer `with` statements for file operations and resource management
+
+## 🔒 Security Rules
+- **Never commit secrets** - Use environment variables for sensitive data
+- **Validate inputs** - Always validate and sanitize user inputs
+- **Use HTTPS** - All external API calls must use secure protocols
+- **Log securely** - Never log sensitive information like passwords or tokens
+- **Dependency scanning** - Regularly check for security vulnerabilities in dependencies
+
+## 📊 Logging & Monitoring
+- **Structured logging** - Use consistent log formats with proper levels (DEBUG, INFO, WARNING, ERROR)
+- **Context in logs** - Include request IDs, user IDs, and operation context in logs
+- **Error handling** - Log errors with full stack traces for debugging
+- **Performance monitoring** - Log operation timing and resource usage
+- **Health checks** - Implement proper health check endpoints for services
+
+## 🔧 Dependencies & Environment
+- **Virtual environments** - Always use virtual environments (conda/venv)
+- **Requirements files** - Keep requirements.txt, requirements-dev.txt, and requirements-vps.txt updated
+- **Pin versions** - Pin dependency versions for reproducible builds
+- **Minimal dependencies** - Only include necessary dependencies
+- **Regular updates** - Regularly update dependencies for security and compatibility
+
+## 📝 Documentation Rules
+- **README updates** - Update README.md when adding new features or changing APIs
+- **Code comments** - Comment complex business logic and algorithms
+- **API documentation** - Document all public APIs with examples
+- **Changelog** - Maintain a CHANGELOG.md for version releases
+- **Inline docs** - Use # TODO and # FIXME comments for future improvements
+
+## 🚀 Performance Guidelines
+- **Async operations** - Use async/await for I/O operations
+- **Database optimization** - Use proper indexing and query optimization
+- **Caching** - Implement caching for expensive operations
+- **Resource limits** - Set appropriate timeouts and resource limits
+- **Memory management** - Be mindful of memory usage in long-running processes
+
+## 🔄 Git & Version Control
+- **Descriptive commits** - Write clear, descriptive commit messages
+- **Branch naming** - Use feature/, bugfix/, hotfix/ prefixes for branches
+- **PR descriptions** - Write detailed pull request descriptions
+- **Squash merges** - Squash feature branches before merging to main
+- **Pre-commit hooks** - Use pre-commit hooks for code quality checks
+
+## 🏗️ Architecture Guidelines
+- **Modular design** - Keep modules focused on single responsibilities
+- **Dependency injection** - Use dependency injection for testability
+- **Configuration management** - Externalize configuration from code
+- **Error boundaries** - Implement proper error handling at service boundaries
+- **API versioning** - Version APIs properly for backward compatibility

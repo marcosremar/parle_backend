@@ -23,9 +23,58 @@ O Parle Backend é uma plataforma completa de conversação speech-to-speech que
 - 💾 **Persistência**: Múltiplos módulos de armazenamento (conversação, usuários, arquivos)
 - ⚡ **Performance**: Chamadas diretas Python entre módulos (sem overhead HTTP)
 
-## 🐍 Ambiente de Desenvolvimento
+## 🚀 VPS Configuration & Synchronization
 
-Este projeto usa **Conda** como ambiente padrão, com Python 3.11. Todas as dependências são gerenciadas através de um único ambiente Conda.
+### VPS Server Details
+- **IP Address:** 54.37.225.188
+- **SSH Key:** `~/.ssh/id_rsa`
+- **SSH User:** `ubuntu`
+- **Domain:** `fluminense.54.37.225.188.nip.io`
+- **WebRTC Test Page:** `http://fluminense.54.37.225.188.nip.io/test`
+
+### 🔄 Code Synchronization with VPS Docker
+
+**ALL testing must happen on VPS - NEVER run tests locally!**
+
+The project includes automatic synchronization with Docker containers running on VPS:
+
+```bash
+# Sync local code with VPS Docker containers
+./main.sh sync-docker
+
+# This will:
+# 1. Copy all source code to VPS
+# 2. Restart Docker containers with new code
+# 3. Run all tests on VPS
+# 4. Show results and logs
+```
+
+#### What sync-docker does:
+- **🔄 Code Sync:** Copies `src/`, `tests/`, `scripts/` to VPS Docker container
+- **🐳 Container Restart:** Restarts Docker containers with updated code
+- **🧪 Test Execution:** Runs all integration tests on VPS
+- **📊 Results:** Shows test results and container logs
+- **🔍 Monitoring:** Provides access to VPS logs for debugging
+
+#### Testing Rules:
+- ❌ **NEVER run `pytest` locally** - All tests run on VPS only
+- ❌ **NEVER run Playwright locally** - WebRTC tests require VPS backend
+- ✅ **Use `./main.sh sync-docker`** for all code validation
+- ✅ **All deployments happen on VPS** - Local machine is for development only
+
+#### Development Workflow:
+1. **Code locally** in your IDE
+2. **Run `./main.sh sync-docker`** to deploy and test on VPS
+3. **Check VPS logs** for debugging
+4. **WebRTC signaling tests** run automatically on VPS
+
+### File Organization Rules
+- **Temporary files:** Always use `tmp/` directory
+  - `tmp/notes/` - AI-generated notes and documentation
+  - `tmp/reports/` - Test reports and analysis
+  - `tmp/experiments/` - Exploratory code and scripts
+- **Long-term files:** Use `docs/` for documentation, `scripts/` for automation
+- **Never create files in root** unless explicitly requested
 
 ### Versão Mínima do Python
 

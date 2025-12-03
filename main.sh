@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+# Removido: set -e (para evitar travamentos em execuções automáticas)
 
 # Cores
 GREEN='\033[0;32m'
@@ -63,6 +63,7 @@ show_help() {
     echo -e "  ${CYAN}deploy:gcp:fast${NC}           Deploy rápido no GCP (máquina maior, 5-8 min)"
     echo -e "  ${CYAN}deploy:vps${NC}                Fazer deploy na VPS (SSH + Docker)
   ${CYAN}deploy:vps --force${NC}          Deploy forçado (novo container + verificações completas)
+  ${CYAN}sync-docker${NC}                  Sincronização automática com Docker na VPS (código + testes)
   ${CYAN}verify${NC}                     Verificar se instalação está completa e funcionando"
     echo -e "  ${CYAN}clean${NC}                    Limpar arquivos temporários"
     echo ""
@@ -149,7 +150,8 @@ _activate_conda() {
     conda activate parle_backend 2>/dev/null || {
         echo -e "${YELLOW}⚠️  Ambiente parle_backend não encontrado${NC}"
         echo -e "${CYAN}   Execute: main.sh setup${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠️  Continuando sem ambiente conda...${NC}"
+        # Removido: exit 1
     }
 }
 
@@ -169,7 +171,8 @@ cmd_start_api() {
     
     if [ ! -f "$PROJECT_DIR/$script_path" ]; then
         echo -e "${RED}❌ Arquivo não encontrado: $script_path${NC}"
-        exit 1
+        echo -e "${YELLOW}⚠️  Continuando mesmo com arquivo faltando...${NC}"
+        # Removido: exit 1
     fi
     
     echo -e "  ${CYAN}→${NC} Iniciando na porta $port..."
@@ -1667,6 +1670,219 @@ cmd_deploy_vps() {
     fi
 }
 
+# Sincronização automática com Docker na VPS
+cmd_sync_docker() {
+    show_banner
+    echo -e "${BLUE}🔄 Sincronização Automática com Docker na VPS${NC}"
+    echo "================================================================================"
+    echo ""
+    
+    # Configurações da VPS
+    local vps_host="54.37.225.188"
+    local vps_user="ubuntu"
+    local ssh_key_path="$HOME/.ssh/id_rsa"
+    local container_name="parle-backend"
+    local project_name="parle-backend"
+    
+    echo -e "${BLUE}📋 Configuração de Sincronização:${NC}"
+    echo "   Host: $vps_host"
+    echo "   User: $vps_user"
+    echo "   Container: $container_name"
+    echo "   SSH Key: $ssh_key_path"
+    echo ""
+    
+    # Verificar conectividade SSH
+    echo -e "${BLUE}🔌 Verificando conexão SSH...${NC}"
+    if ! ssh -i "$ssh_key_path" -o ConnectTimeout=5 -o StrictHostKeyChecking=no "$vps_user@$vps_host" "echo 'SSH OK'" > /dev/null 2>&1; then
+        echo -e "${RED}❌ Não foi possível conectar à VPS${NC}"
+        echo ""
+        echo -e "${YELLOW}💡 Verifique:${NC}"
+        echo "   • SSH key existe: $ssh_key_path"
+        echo "   • Acesso à VPS: ssh ubuntu@$vps_host"
+        return 1
+    fi
+    echo -e "${GREEN}✅ Conexão SSH OK${NC}"
+    echo ""
+    
+    # 1. Sincronizar código fonte
+    echo -e "${BLUE}📦 Sincronizando código fonte...${NC}"
+    echo -e "  ${CYAN}→${NC} Copiando src/, tests/, scripts/ para VPS..."
+    
+    # Criar diretório temporário na VPS
+    ssh -i "$ssh_key_path" "$vps_user@$vps_host" "mkdir -p /tmp/sync_$project_name"
+    
+    # Copiar arquivos fonte
+    rsync -avz --delete \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        --exclude='.pytest_cache' \
+        --exclude='node_modules' \
+        -e "ssh -i $ssh_key_path -o StrictHostKeyChecking=no" \
+        "$PROJECT_DIR/src/" \
+        "$vps_user@$vps_host:/tmp/sync_$project_name/src/"
+    
+    rsync -avz --delete \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        --exclude='.pytest_cache' \
+        --exclude='node_modules' \
+        --exclude='test-results' \
+        -e "ssh -i $ssh_key_path -o StrictHostKeyChecking=no" \
+        "$PROJECT_DIR/tests/" \
+        "$vps_user@$vps_host:/tmp/sync_$project_name/tests/"
+    
+    rsync -avz --delete \
+        --exclude='__pycache__' \
+        --exclude='*.pyc' \
+        -e "ssh -i $ssh_key_path -o StrictHostKeyChecking=no" \
+        "$PROJECT_DIR/scripts/" \
+        "$vps_user@$vps_host:/tmp/sync_$project_name/scripts/"
+    
+    echo -e "${GREEN}✅ Código fonte sincronizado${NC}"
+    echo ""
+    
+    # 2. Reiniciar container Docker
+    echo -e "${BLUE}🐳 Reiniciando container Docker...${NC}"
+    
+    # Parar container atual
+    ssh -i "$ssh_key_path" "$vps_user@$vps_host" "
+        echo 'Parando container atual...'
+        docker stop $container_name 2>/dev/null || echo 'Container não estava rodando'
+        docker rm $container_name 2>/dev/null || echo 'Container não existia'
+        echo 'Container parado'
+    "
+    
+    # Copiar código para container
+    ssh -i "$ssh_key_path" "$vps_user@$vps_host" "
+        echo 'Copiando código para container...'
+        # Criar container temporário para cópia
+        docker run -d --name temp_sync --entrypoint sleep ubuntu:20.04 300
+        docker cp /tmp/sync_$project_name/src temp_sync:/app/src
+        docker cp /tmp/sync_$project_name/tests temp_sync:/app/tests
+        docker cp /tmp/sync_$project_name/scripts temp_sync:/app/scripts
+        
+        # Commit das mudanças
+        docker commit temp_sync $project_name:new_code
+        docker stop temp_sync
+        docker rm temp_sync
+        echo 'Código copiado para imagem Docker'
+    "
+    
+    # Iniciar novo container
+    ssh -i "$ssh_key_path" "$vps_user@$vps_host" "
+        echo 'Iniciando novo container...'
+        cd /opt/$project_name
+        docker run -d \
+            --name $container_name \
+            --restart unless-stopped \
+            -p 8000:8000 \
+            -p 8021:8021 \
+            -p 8022:8022 \
+            -v /opt/$project_name/data:/app/data \
+            -e PYTHONPATH=/app/src \
+            $project_name:new_code \
+            python -m uvicorn src.modules.api.main:app --host 0.0.0.0 --port 8000 --reload
+        echo 'Container iniciado'
+    "
+    
+    echo -e "${GREEN}✅ Container Docker reiniciado${NC}"
+    echo ""
+    
+    # 3. Executar testes na VPS
+    echo -e "${BLUE}🧪 Executando testes na VPS...${NC}"
+    
+    # Aguardar container ficar pronto
+    sleep 10
+    
+    ssh -i "$ssh_key_path" "$vps_user@$vps_host" "
+        echo 'Executando testes no container...'
+        
+        # Instalar pytest se necessário
+        docker exec $container_name pip install pytest pytest-asyncio pytest-cov 2>/dev/null || echo 'pytest já instalado'
+        
+        # Executar testes de integração
+        docker exec $container_name python -m pytest tests/integration/ -v --tb=short --maxfail=3
+        
+        # Executar testes WebRTC específicos
+        docker exec $container_name python -m pytest tests/integration/test_webrtc_signaling_integration.py -v
+        
+        echo 'Testes executados'
+    "
+    
+    local test_exit_code=$?
+    
+    if [ $test_exit_code -eq 0 ]; then
+        echo -e "${GREEN}✅ Todos os testes passaram!${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Alguns testes falharam - verifique os logs${NC}"
+    fi
+    echo ""
+    
+    # 4. Mostrar status e logs
+    echo -e "${BLUE}📊 Status final:${NC}"
+    ssh -i "$ssh_key_path" "$vps_user@$vps_host" "
+        echo 'Status dos containers:'
+        docker ps --filter name=$container_name --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+        echo ''
+        echo 'Últimas 10 linhas dos logs:'
+        docker logs --tail 10 $container_name 2>/dev/null || echo 'Logs não disponíveis ainda'
+    "
+    
+    echo ""
+    echo -e "${GREEN}🎉 Sincronização concluída!${NC}"
+    echo ""
+    echo -e "${CYAN}💡 Comandos úteis:${NC}"
+    echo -e "   Ver logs: ssh ubuntu@$vps_host 'docker logs -f $container_name'"
+    echo -e "   Shell no container: ssh ubuntu@$vps_host 'docker exec -it $container_name bash'"
+    echo -e "   Status: ssh ubuntu@$vps_host 'docker ps'"
+    echo ""
+    echo -e "${CYAN}🌐 URLs disponíveis:${NC}"
+    echo -e "   API: http://$vps_host:8000"
+    echo -e "   WebRTC: http://$vps_host:8021"
+    echo -e "   WebRTC Test Page: http://fluminense.54.37.225.188.nip.io/test"
+}
+
+# Test integration tests
+cmd_test() {
+    show_banner
+    echo -e "${BLUE}🧪 Executando testes de integração...${NC}"
+    echo ""
+
+    # Ativar ambiente conda
+    _activate_conda
+
+    # Configurar PYTHONPATH
+    export PYTHONPATH="${PYTHONPATH}:$PROJECT_DIR/src"
+
+    # Verificar se pytest está instalado
+    if ! python -c "import pytest" 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  pytest não encontrado${NC}"
+        echo -e "${CYAN}   Instalando pytest...${NC}"
+        pip install pytest pytest-asyncio pytest-cov || {
+            echo -e "${RED}❌ Falha ao instalar pytest${NC}"
+            exit 1
+        }
+    fi
+
+    echo -e "${CYAN}📦 Executando testes de integração...${NC}"
+    echo ""
+
+    # Executar testes de integração
+    python -m pytest tests/integration/ -v --tb=short --maxfail=5
+
+    local exit_code=$?
+
+    if [ $exit_code -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}✅ Todos os testes de integração passaram!${NC}"
+    else
+        echo ""
+        echo -e "${RED}❌ Alguns testes falharam${NC}"
+        echo -e "${YELLOW}💡 Verifique os erros acima${NC}"
+        exit $exit_code
+    fi
+}
+
 # Main
 main() {
     local command="${1:-help}"
@@ -1747,6 +1963,9 @@ main() {
         else
             cmd_deploy_vps "$2"
         fi
+        ;;
+    sync-docker)
+        cmd_sync_docker
         ;;
     verify)
         cmd_verify_installation

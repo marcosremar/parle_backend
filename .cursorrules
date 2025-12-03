@@ -1,8 +1,35 @@
 # Cursor Rules for Parle Backend
 
+## 🚀 VPS Configuration
+- **VPS IP:** 54.37.225.188
+- **SSH Key:** ~/.ssh/id_rsa
+- **SSH User:** ubuntu
+- **Domain:** fluminense.54.37.225.188.nip.io
+- **WebRTC URL:** http://fluminense.54.37.225.188.nip.io/test
+
+## 🔄 Code Synchronization
+- **NEVER run tests locally** - All tests MUST run on VPS only
+- **Use `main.sh sync-docker`** to automatically sync local code with VPS Docker containers
+- **Block any local test execution** - redirect to VPS testing
+- **All deployments happen on VPS** - never deploy from local machine
+
+## 📁 File Organization
 - Do not create new files or directories in the repository root unless the user explicitly asks for that exact path.
 - For any temporary, exploratory, or AI-generated files (Markdown, notes, logs, JSON, scratch code, test scripts, etc.), use the `tmp/` directory at the root of the project.
   - Prefer subdirectories such as `tmp/notes/`, `tmp/reports/`, `tmp/experiments/` to keep things organized.
 - For documentation that should be kept long-term, use `docs/` instead of `tmp/`.
 - For automation or helper scripts that should be kept long-term, use `scripts/` instead of `tmp/`.
 - When in doubt about where to place a new file, ask the user explicitly rather than using the project root.
+
+## 🧪 Testing Rules
+- **ALL tests must run on VPS** - Never execute tests locally
+- **Use Playwright tests** for WebRTC page verification on VPS
+- **Integration tests** must target VPS endpoints only
+- **Block pytest/pytest commands locally** - force VPS execution
+- **WebRTC signaling tests** require VPS backend running
+
+## 🔧 Development Workflow
+- **Code locally, test on VPS** - Development happens locally, validation on VPS
+- **Use sync-docker** for code deployment during development
+- **Monitor VPS logs** for debugging and error tracking
+- **WebRTC development** requires VPS for signaling tests
